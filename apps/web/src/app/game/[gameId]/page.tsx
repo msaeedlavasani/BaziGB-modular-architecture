@@ -1,6 +1,6 @@
 'use client';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -31,7 +31,7 @@ import TicTacToeBoard from '@/components/game/TicTacToeBoard';
 import BackgammonBoard from '@/components/game/BackgammonBoard';
 import ChessBoard from '@/components/game/ChessBoard';
 import VegasBoard from '@/components/game/VegasBoard';
-import { getSocket, onRoomError, onRoomState } from '@/lib/socket';
+
 
 const ADAPTERS: Record<GameId, GameAdapter> = {
   'tic-tac-toe': TicTacToe,
@@ -63,12 +63,9 @@ const GAME_TITLES: Record<GameId, string> = {
 
 function GameInner() {
   const params = useParams<{ gameId: string }>();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const gameId = (params.gameId ?? 'tic-tac-toe') as GameId;
   const adapter = ADAPTERS[gameId];
-  const roomId = searchParams.get('room');
-  const isRoom = !!roomId;
 
   const [difficulty, setDifficulty] = useState<AIDifficulty>('medium');
   const [match, setMatch] = useState({ matchPoint: false, winByTwo: false, targetScore: 5 });
@@ -76,7 +73,6 @@ function GameInner() {
   const [state, setState] = useState<any>(null);
   const [hints, setHints] = useState<unknown[][]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [connected, setConnected] = useState(false);
 
   const stateRef = useRef(state);
   useEffect(() => {
@@ -103,6 +99,7 @@ function GameInner() {
 
   const myId = 'p1';
   const humanTurn = !!state && state.phase === 'playing' && state.turn === myId;
+  const isRoom = false;
 
   // ---- منطق محلی (بازی با کامپیوتر) ----
   const applyMove = useCallback(
@@ -161,22 +158,6 @@ function GameInner() {
     }
   }, [state, isRoom, runBot]);
 
-  // ---- حالت آنلاین (اتاق) ----
-  useEffect(() => {
-    if (!isRoom) return;
-    const socket = getSocket();
-    socket.connect();
-    const offState = onRoomState(({ state: st }) => setState(st));
-    const offError = onRoomError(({ message }) => setError(message));
-    socket.emit('room:join', { roomId });
-    setConnected(true);
-    return () => {
-      socket.emit('room:leave', { roomId });
-      offState();
-      offError();
-    };
-  }, [isRoom, roomId]);
-
   // ---- راهنمای حرکت (Hint Dots) برای نرد ----
   useEffect(() => {
     if (gameId !== 'backgammon' || !state || state.phase !== 'playing' || state.turn !== myId) {
@@ -214,18 +195,15 @@ function GameInner() {
         <Typography variant="h5" sx={{ color: 'text.primary' }}>
           {GAME_TITLES[gameId]}
         </Typography>
-        {isRoom ? (
-          <Chip label={`اتاق ${roomId}`} color="primary" size="small" />
-        ) : (
-          <>
-            <FormControl size="small" sx={{ minWidth: 130 }}>
-              <InputLabel>سطح ربات</InputLabel>
-              <Select value={difficulty} label="سطح ربات" onChange={(e) => setDifficulty(e.target.value as AIDifficulty)}>
-                <MenuItem value="easy">آسان</MenuItem>
-                <MenuItem value="medium">متوسط</MenuItem>
-                <MenuItem value="hard">سخت</MenuItem>
-              </Select>
-            </FormControl>
+        <>
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <InputLabel>سطح ربات</InputLabel>
+            <Select value={difficulty} label="سطح ربات" onChange={(e) => setDifficulty(e.target.value as AIDifficulty)}>
+              <MenuItem value="easy">آسان</MenuItem>
+              <MenuItem value="medium">متوسط</MenuItem>
+              <MenuItem value="hard">سخت</MenuItem>
+            </Select>
+          </FormControl>
             {supportsMatchPoint(gameId) && (
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
                 <FormControlLabel
@@ -256,7 +234,6 @@ function GameInner() {
               بازی جدید
             </Button>
           </>
-        )}
         <Button size="small" variant="text" color="inherit" onClick={() => router.push('/lobby')}>
           بازگشت
         </Button>
@@ -311,7 +288,6 @@ function GameInner() {
         />
       )}
 
-      {isRoom && !connected && <Chip label="در حال اتصال به سرور..." color="warning" sx={{ alignSelf: 'center' }} />}
 
       <Snackbar open={!!error} autoHideDuration={4000} onClose={() => setError(null)}>
         <Alert severity="error" onClose={() => setError(null)}>

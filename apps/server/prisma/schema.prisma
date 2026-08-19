@@ -19,6 +19,12 @@ model User {
   rating    Int      @default(1200)
   deactivated Boolean @default(false)
   createdAt DateTime @default(now())
+
+  tournamentSlots TournamentPlayer[]
+  matchAsPlayerA  TournamentMatch[] @relation("MatchPlayerA")
+  matchAsPlayerB  TournamentMatch[] @relation("MatchPlayerB")
+  matchWins       TournamentMatch[] @relation("MatchWinner")
+  tournamentsWon  Tournament[]      @relation("TournamentWinner")
 }
 
 model OtpCode {
@@ -69,4 +75,62 @@ model Notification {
   body      String?
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+model Tournament {
+  id         String   @id @default(cuid())
+  name       String
+  gameType   String   @default("tic-tac-toe")
+  status     String   @default("registration") // registration | seeded | in_progress | completed
+  maxPlayers Int      @default(16)
+  bracket    String? // JSON serialized bracket tree (rounds -> match ids)
+  winnerId   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  winner  User?               @relation("TournamentWinner", fields: [winnerId], references: [id])
+  players TournamentPlayer[]
+  matches TournamentMatch[]
+
+  @@index([status])
+  @@map("tournaments")
+}
+
+model TournamentPlayer {
+  id           String   @id @default(cuid())
+  tournamentId String
+  userId       String
+  seed         Int      @default(0) // 1-based seeding order
+  joinedAt     DateTime @default(now())
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id])
+
+  @@unique([tournamentId, userId])
+  @@index([tournamentId])
+  @@map("tournament_players")
+}
+
+model TournamentMatch {
+  id           String    @id @default(cuid())
+  tournamentId String
+  round        Int       @default(1) // 1 = first round
+  bracketIndex Int       @default(0) // 0-based position inside the round
+  playerAId    String?
+  playerBId    String?
+  winnerId     String?
+  nextMatchId  String? // match the winner advances to (null for the final)
+  status       String    @default("pending") // pending | in_progress | completed
+  playedAt     DateTime?
+
+  tournament Tournament          @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  playerA    User?               @relation("MatchPlayerA", fields: [playerAId], references: [id])
+  playerB    User?               @relation("MatchPlayerB", fields: [playerBId], references: [id])
+  winner     User?               @relation("MatchWinner", fields: [winnerId], references: [id])
+  nextMatch  TournamentMatch?    @relation("NextMatch", fields: [nextMatchId], references: [id])
+  previousMatches TournamentMatch[] @relation("NextMatch")
+
+  @@unique([tournamentId, round, bracketIndex])
+  @@index([tournamentId, status])
+  @@map("tournament_matches")
 }

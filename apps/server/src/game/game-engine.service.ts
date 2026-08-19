@@ -10,7 +10,7 @@ import { Vegas, getBestMove as vegasAI } from '@bazigb/game-vegas';
  * GameEngineService — منطق خالص بازی‌ها (MOD-007)
  * گیتوی فقط لایه انتقال است؛ این سرویس: resolve game, apply move, next round
  */
-const REGISTRY: Record<GameId, GameAdapter> = {
+export const REGISTRY: Record<GameId, GameAdapter> = {
   'tic-tac-toe': TicTacToe,
   backgammon: Backgammon,
   chess: ChessGame,
@@ -25,7 +25,7 @@ const AI: Record<GameId, (state: any, d: AIDifficulty) => unknown> = {
   vegas: vegasAI as never,
 };
 
-const COLORS: Record<GameId, [Player['color'], Player['color']]> = {
+export const COLORS: Record<GameId, [Player['color'], Player['color']]> = {
   'tic-tac-toe': ['x', 'o'],
   backgammon: [1, -1],
   chess: ['white', 'black'],

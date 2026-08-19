@@ -5,9 +5,11 @@ import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { GameModule } from './game/game.module';
-import { TournamentsModule } from './tournaments/tournaments.module';
+import { HistoryModule } from './history/history.module';
 import { LeaderboardModule } from './leaderboard/leaderboard.module';
+import { TournamentsModule } from './tournaments/tournaments.module';
 import { AdminModule } from './admin/admin.module';
+import { SiteSettingsModule } from './site-settings/site-settings.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SmsModule } from './sms/sms.module';
 
@@ -19,9 +21,11 @@ import { SmsModule } from './sms/sms.module';
     AuthModule,
     RoomsModule,
     GameModule,
-    TournamentsModule,
+    HistoryModule,
     LeaderboardModule,
+    TournamentsModule,
     AdminModule,
+    SiteSettingsModule,
     NotificationsModule,
     SmsModule,
   ],
