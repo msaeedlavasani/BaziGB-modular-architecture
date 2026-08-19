@@ -23,3 +23,6 @@ npm-debug.log*
 
 # coverage
 coverage/
+
+# build artifacts
+**/tsconfig.tsbuildinfo
