@@ -80,8 +80,6 @@ export const getBestMoveSequence = (
     const nextState = applyChain(state, chain);
     
     // تخمین بهترین پاسخ حریف (بدون دانستن تاس حریف، فرض می‌کنیم حریف بهترین حرکت‌های ممکن را انجام می‌دهد)
-    // برای سادگی، در حالت Hard، امتیاز را بر اساس وضعیت تخته بعد از حرکت من می‌سنجیم
-    const oppColor = state.turn === state.players[0].id ? -1 : 1;
     let oppBestScore = 0;
     
     // شبیه‌سازی یک تاس فرضی برای حریف جهت تخمین پتانسیل

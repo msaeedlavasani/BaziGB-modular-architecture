@@ -6,7 +6,6 @@ import {
   sanitizeMatch, 
   switchTurn, 
   rollDicePair, 
-  diceSteps, 
   deepClone, 
   updateMatchScore 
 } from '@bazigb/engine';
@@ -202,8 +201,10 @@ export const applyMove = (state: BackgammonState, move: BackgammonMove): Backgam
   }
 
   // حذف تاس استفاده شده
-  const dieIndex = newState.dice.indexOf(move.amount!);
-  if (dieIndex !== -1) newState.dice.splice(dieIndex, 1);
+  const diceArr = newState.dice ?? [];
+  const dieIndex = diceArr.indexOf(move.amount!);
+  if (dieIndex !== -1) diceArr.splice(dieIndex, 1);
+  newState.dice = diceArr;
 
   return newState;
 };
@@ -251,7 +252,7 @@ export const applyChain = (state: BackgammonState, chain: BackgammonMove[]): Bac
 
   // اگر تمام تاس‌ها مصرف شده یا حرکتی باقی نمانده
   const remainingLegal = getLegalMoves(currentState);
-  if (currentState.dice.length === 0 || remainingLegal.length === 0) {
+  if ((currentState.dice?.length ?? 0) === 0 || remainingLegal.length === 0) {
     currentState.turn = switchTurn(currentState.turn, currentState.players);
     currentState.dice = [];
     currentState.rolled = false;
@@ -270,7 +271,7 @@ export const getMoveHints = (state: BackgammonState): BackgammonMove[][] => {
   
   const findChains = (curr: BackgammonState, path: BackgammonMove[]) => {
     const legals = getLegalMoves(curr);
-    if (legals.length === 0 || curr.dice.length === 0) {
+    if (legals.length === 0 || (curr.dice?.length ?? 0) === 0) {
       if (path.length > 0) results.push([...path]);
       return;
     }
