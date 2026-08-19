@@ -1,0 +1,28 @@
+// BaziGB — اسکیمای Prisma برای یکپارچگی آینده (MOD-008)
+// فعال‌سازی: DB_TYPE=postgres + prisma generate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+}
+
+model Room {
+  id        String   @id @default(cuid())
+  gameId    String
+  status    String
+  players   Json
+  state     Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

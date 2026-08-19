@@ -1,0 +1,16 @@
+# Caddy — bazigb.ir (SSL خودکار)
+bazigb.ir {
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy server:3001
+	}
+
+	handle /socket.io/* {
+		reverse_proxy server:3001
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}

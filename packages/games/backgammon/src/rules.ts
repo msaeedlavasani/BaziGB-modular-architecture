@@ -1,0 +1,319 @@
+import { 
+  GameAdapter, 
+  Player, 
+  MatchConfig, 
+  DEFAULT_MATCH, 
+  sanitizeMatch, 
+  switchTurn, 
+  rollDicePair, 
+  diceSteps, 
+  deepClone, 
+  updateMatchScore 
+} from '@bazigb/engine';
+import { BackgammonBoard, BackgammonMove, BackgammonState } from './types';
+
+/**
+ * ایجاد وضعیت اولیه بازی نرد.
+ */
+export const createState = (players: Player[], match?: MatchConfig): BackgammonState => {
+  const board: BackgammonBoard = new Array(24).fill(0);
+  
+  // تنظیمات استاندارد مهره‌ها
+  // بازیکن ۱ (رنگ ۱): از ۲۳ به سمت ۰ حرکت می‌کند. خانه امن: ۰-۵
+  board[0] = 2;
+  board[11] = 5;
+  board[16] = 3;
+  board[18] = 5;
+  
+  // بازیکن ۲ (رنگ -۱): از ۰ به سمت ۲۳ حرکت می‌کند. خانه امن: ۱۸-۲۳
+  board[23] = -2;
+  board[12] = -5;
+  board[7] = -3;
+  board[5] = -5;
+
+  return {
+    gameId: 'backgammon',
+    board,
+    turn: players[0].id,
+    phase: 'playing',
+    winner: null,
+    dice: [],
+    history: [],
+    match: sanitizeMatch('backgammon', match ?? DEFAULT_MATCH),
+    scores: players.reduce((acc, p) => ({ ...acc, [p.id]: 0 }), {}),
+    round: 1,
+    players,
+    bar: { 1: 0, '-1': 0 },
+    off: { 1: 0, '-1': 0 },
+    rolled: false
+  };
+};
+
+/**
+ * ریختن تاس برای بازیکن فعلی.
+ */
+export const rollDiceFor = (state: BackgammonState): BackgammonState => {
+  if (state.rolled) return state;
+  const newState = deepClone(state);
+  newState.dice = rollDicePair();
+  newState.rolled = true;
+  return newState;
+};
+
+const getPlayerColor = (state: BackgammonState, playerId: string): number => {
+  const p = state.players.find(x => x.id === playerId);
+  if (!p) return 0;
+  return p.color === 1 || p.color === 'white' ? 1 : -1;
+};
+
+/**
+ * بررسی اینکه آیا بازیکن می‌تواند مهره‌هایش را خارج کند.
+ */
+export const canBearOff = (state: BackgammonState, playerId: string): boolean => {
+  const color = getPlayerColor(state, playerId);
+  if (state.bar[color] > 0) return false;
+
+  const homeStart = color === 1 ? 0 : 18;
+  const homeEnd = color === 1 ? 5 : 23;
+
+  for (let i = 0; i < 24; i++) {
+    if (color === 1 && state.board[i] > 0 && (i < homeStart || i > homeEnd)) return false;
+    if (color === -1 && state.board[i] < 0 && (i < homeStart || i > homeEnd)) return false;
+  }
+  return true;
+};
+
+/**
+ * یافتن مقصدهای قانونی برای یک مهره با یک تاس خاص.
+ */
+export const getLegalDestinations = (
+  state: BackgammonState, 
+  from: number | 'bar', 
+  die: number
+): Array<number | 'off'> => {
+  const color = getPlayerColor(state, state.turn);
+  const destinations: Array<number | 'off'> = [];
+
+  if (from === 'bar') {
+    const to = color === 1 ? 24 - die : die - 1;
+    if (!isOpponentBlocked(state, color, to)) {
+      destinations.push(to);
+    }
+    return destinations;
+  }
+
+  const to = color === 1 ? from - die : from + die;
+  
+  // حرکت معمولی روی تخته
+  if (to >= 0 && to <= 23) {
+    if (!isOpponentBlocked(state, color, to)) {
+      destinations.push(to);
+    }
+  } 
+  // تلاش برای خارج کردن مهره
+  else if (canBearOff(state, state.turn)) {
+    const distance = color === 1 ? from + 1 : 24 - from;
+    
+    if (distance === die) {
+      destinations.push('off');
+    } else if (die > distance) {
+      // قانون نرد: اگر تاس بزرگتر بود، تنها در صورتی مجاز است که هیچ مهره‌ای عقب‌تر نباشد
+      const homeRange = color === 1 ? [from + 1, 5] : [18, from - 1];
+      let hasFurther = false;
+      for (let i = homeRange[0]; i <= homeRange[1]; i++) {
+        if (color === 1 && state.board[i] > 0) hasFurther = true;
+        if (color === -1 && state.board[i] < 0) hasFurther = true;
+      }
+      if (!hasFurther) {
+        destinations.push('off');
+      }
+    }
+  }
+
+  return destinations;
+};
+
+const isOpponentBlocked = (state: BackgammonState, color: number, to: number): boolean => {
+  const count = state.board[to];
+  return color === 1 ? count <= -2 : count >= 2;
+};
+
+/**
+ * دریافت لیست تمام حرکت‌های تکی قانونی.
+ */
+export const getLegalMoves = (state: BackgammonState): BackgammonMove[] => {
+  if (!state.rolled) {
+    return [{ player: state.turn, kind: 'roll' }];
+  }
+
+  const color = getPlayerColor(state, state.turn);
+  const moves: BackgammonMove[] = [];
+  const uniqueDice = Array.from(new Set(state.dice));
+
+  if (state.bar[color] > 0) {
+    for (const die of uniqueDice) {
+      const dests = getLegalDestinations(state, 'bar', die);
+      for (const to of dests) {
+        moves.push({ player: state.turn, kind: 'move', from: 'bar', to, amount: die });
+      }
+    }
+  } else {
+    for (let i = 0; i < 24; i++) {
+      if ((color === 1 && state.board[i] > 0) || (color === -1 && state.board[i] < 0)) {
+        for (const die of uniqueDice) {
+          const dests = getLegalDestinations(state, i, die);
+          for (const to of dests) {
+            moves.push({ player: state.turn, kind: 'move', from: i, to, amount: die });
+          }
+        }
+      }
+    }
+  }
+
+  return moves;
+};
+
+/**
+ * اعمال یک حرکت تکی بر وضعیت بازی.
+ */
+export const applyMove = (state: BackgammonState, move: BackgammonMove): BackgammonState => {
+  if (move.kind === 'roll') return rollDiceFor(state);
+
+  const newState = deepClone(state);
+  const color = getPlayerColor(newState, move.player);
+  
+  if (move.from === 'bar') {
+    newState.bar[color]--;
+  } else {
+    newState.board[move.from as number] -= color;
+  }
+
+  if (move.to === 'off') {
+    newState.off[color]++;
+  } else {
+    const to = move.to as number;
+    // بررسی زدن مهره حریف (Hit)
+    if ((color === 1 && newState.board[to] === -1) || (color === -1 && newState.board[to] === 1)) {
+      newState.bar[-color]++;
+      newState.board[to] = color;
+    } else {
+      newState.board[to] += color;
+    }
+  }
+
+  // حذف تاس استفاده شده
+  const dieIndex = newState.dice.indexOf(move.amount!);
+  if (dieIndex !== -1) newState.dice.splice(dieIndex, 1);
+
+  return newState;
+};
+
+/**
+ * اعتبارسنجی و اعمال زنجیره‌ای از حرکت‌ها (نوبت کامل).
+ */
+export const applyChain = (state: BackgammonState, chain: BackgammonMove[]): BackgammonState => {
+  let currentState = deepClone(state);
+
+  // اگر تاس ریخته نشده و زنجیره با ریختن تاس شروع می‌شود
+  if (!currentState.rolled && chain.length > 0 && chain[0].kind === 'roll') {
+    currentState = applyMove(currentState, chain[0]);
+    chain = chain.slice(1);
+  }
+
+  for (const move of chain) {
+    const legalMoves = getLegalMoves(currentState);
+    const isLegal = legalMoves.some(m => 
+      m.from === move.from && m.to === move.to && m.amount === move.amount
+    );
+    if (!isLegal) throw new Error('Invalid move in chain');
+    currentState = applyMove(currentState, move);
+  }
+
+  // بررسی اتمام نوبت یا برد
+  const color = getPlayerColor(currentState, state.turn);
+  if (currentState.off[color] === 15) {
+    const result = updateMatchScore('backgammon', currentState.scores, currentState.turn, currentState.match);
+    currentState.scores = result.scores;
+    if (result.matchWinner) {
+      currentState.phase = 'finished';
+      currentState.winner = result.matchWinner;
+    } else {
+      // شروع راند جدید
+      const nextRoundStarter = currentState.players.find(p => p.id !== state.turn)!;
+      const nextState = createState(currentState.players, currentState.match);
+      nextState.scores = currentState.scores;
+      nextState.round = currentState.round + 1;
+      nextState.turn = nextRoundStarter.id;
+      return nextState;
+    }
+    return currentState;
+  }
+
+  // اگر تمام تاس‌ها مصرف شده یا حرکتی باقی نمانده
+  const remainingLegal = getLegalMoves(currentState);
+  if (currentState.dice.length === 0 || remainingLegal.length === 0) {
+    currentState.turn = switchTurn(currentState.turn, currentState.players);
+    currentState.dice = [];
+    currentState.rolled = false;
+  }
+
+  return currentState;
+};
+
+/**
+ * تولید تمام زنجیره‌های ممکن از حرکت‌ها برای ارائه راهنمایی یا AI.
+ */
+export const getMoveHints = (state: BackgammonState): BackgammonMove[][] => {
+  if (!state.rolled) return [];
+  
+  const results: BackgammonMove[][] = [];
+  
+  const findChains = (curr: BackgammonState, path: BackgammonMove[]) => {
+    const legals = getLegalMoves(curr);
+    if (legals.length === 0 || curr.dice.length === 0) {
+      if (path.length > 0) results.push([...path]);
+      return;
+    }
+
+    for (const move of legals) {
+      findChains(applyMove(curr, move), [...path, move]);
+    }
+  };
+
+  findChains(state, []);
+
+  // فیلتر کردن برای پیدا کردن طولانی‌ترین زنجیره‌ها (طبق قوانین نرد باید حداکثر تعداد تاس استفاده شود)
+  const maxLen = Math.max(...results.map(r => r.length), 0);
+  return results.filter(r => r.length === maxLen);
+};
+
+export const isFinished = (state: BackgammonState) => state.phase === 'finished';
+export const getWinner = (state: BackgammonState) => state.winner;
+
+export const serialize = (state: BackgammonState) => ({
+  board: state.board,
+  bar: state.bar,
+  off: state.off,
+  dice: state.dice,
+  turn: state.turn,
+  phase: state.phase,
+  winner: state.winner,
+  scores: state.scores,
+  round: state.round,
+  match: state.match,
+  rolled: state.rolled
+});
+
+export const Backgammon: GameAdapter<BackgammonBoard, BackgammonMove> = {
+  gameId: 'backgammon',
+  name: 'نرد',
+  minPlayers: 2,
+  maxPlayers: 2,
+  createState,
+  getLegalMoves,
+  applyMove,
+  applyChain,
+  isFinished,
+  getWinner,
+  serialize
+};

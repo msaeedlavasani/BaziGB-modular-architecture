@@ -1,0 +1,30 @@
+{
+  "name": "bazigb",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BaziGB — بستر بازی‌های آنلاین: نرد، دوز، شطرنج و وگاس (معماری مدولار)",
+  "license": "MIT",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "packages/games/*"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "build:packages": "npm run build -w @bazigb/engine -w @bazigb/game-tic-tac-toe -w @bazigb/game-backgammon -w @bazigb/game-chess -w @bazigb/game-vegas",
+    "build:web": "npm run build -w @bazigb/web",
+    "build:server": "npm run build -w @bazigb/server",
+    "dev": "npm run build:packages && concurrently -k -n server,web \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:web": "npm run dev -w @bazigb/web",
+    "dev:server": "npm run dev -w @bazigb/server",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:games": "npm run test -w @bazigb/engine -w @bazigb/game-tic-tac-toe -w @bazigb/game-backgammon -w @bazigb/game-chess -w @bazigb/game-vegas"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

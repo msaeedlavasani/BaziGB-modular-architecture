@@ -1,0 +1,33 @@
+{
+  "name": "@bazigb/web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BaziGB — اپ وب (Next.js 14 + MUI 5)",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bazigb/engine": "^1.0.0",
+    "@bazigb/game-backgammon": "^1.0.0",
+    "@bazigb/game-chess": "^1.0.0",
+    "@bazigb/game-tic-tac-toe": "^1.0.0",
+    "@bazigb/game-vegas": "^1.0.0",
+    "@emotion/react": "^11.11.4",
+    "@emotion/styled": "^11.11.5",
+    "@mui/icons-material": "^5.16.0",
+    "@mui/material": "^5.16.0",
+    "next": "^14.2.35",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "socket.io-client": "^4.7.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.4.5"
+  }
+}

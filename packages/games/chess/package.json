@@ -1,0 +1,21 @@
+{
+  "name": "@bazigb/game-chess",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BaziGB — منطق خالص بازی شطرنج + AI",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@bazigb/engine": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}
