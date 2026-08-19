@@ -5,8 +5,10 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: bazigb
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CHANGE_ME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bazigb-dev-pass}
       POSTGRES_DB: bazigb
+    ports:
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
