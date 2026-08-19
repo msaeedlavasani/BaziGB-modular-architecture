@@ -11,6 +11,7 @@ import {
   Plus,
   RefreshCw,
   Users,
+  Bot,
   Banknote,
 } from 'lucide-react';
 import {
@@ -102,6 +103,7 @@ export default function LobbyPage() {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [mode, setMode] = useState<'online' | 'bot'>('online');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [gameType, setGameType] = useState<GameType>('tic-tac-toe');
   const [maxRounds, setMaxRounds] = useState<1 | 3 | 5>(1);
@@ -131,6 +133,11 @@ export default function LobbyPage() {
   }, [loadRooms]);
 
   const handleCreate = async () => {
+    // حالت ربات: مستقیم به بازی محلی میرود (بدون اتاق)
+    if (mode === 'bot') {
+      router.push(`/game/${gameType}`);
+      return;
+    }
     setCreating(true);
     setCreateError(null);
     try {
@@ -197,40 +204,6 @@ export default function LobbyPage() {
             <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500, opacity: 0.8 }}>
               Create a room or join a friend with a code
             </Typography>
-          </Box>
-
-          {/* بازی با ربات (محلی) */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Typography variant="overline" sx={{ fontWeight: 800, color: 'text.secondary', letterSpacing: '0.1em' }}>
-              بازی با ربات (بدون نیاز به حریف)
-            </Typography>
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
-              {GAME_OPTIONS.map((type) => (
-                <ButtonBase
-                  key={`bot-${type}`}
-                  component={Link}
-                  href={`/game/${type}`}
-                  sx={{
-                    p: 1.5,
-                    borderRadius: '12px',
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    bgcolor: 'background.paper',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    transition: 'all 0.2s',
-                    '&:hover': { borderColor: 'primary.main', transform: 'translateY(-2px)' },
-                  }}
-                >
-                  <GameIcon game={type} sx={{ fontSize: 24 }} />
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                    {GAME_META[type]?.label}
-                  </Typography>
-                </ButtonBase>
-              ))}
-            </Box>
           </Box>
 
           {/* Create / Join actions */}
@@ -333,12 +306,57 @@ export default function LobbyPage() {
                 </FormControl>
               )}
 
+              {/* انتخاب نوع بازی: با حریف آنلاین یا با ربات */}
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 1,
+                  '& .MuiButtonBase-root': { borderRadius: '10px', fontWeight: 800 },
+                }}
+              >
+                <ButtonBase
+                  onClick={() => setMode('online')}
+                  sx={{
+                    p: 1.25,
+                    border: '1px solid',
+                    borderColor: mode === 'online' ? 'primary.main' : 'divider',
+                    bgcolor: mode === 'online' ? alpha(theme.palette.primary.main, 0.12) : 'rgba(0,0,0,0.2)',
+                    color: mode === 'online' ? 'primary.main' : 'text.secondary',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                    <Users size={18} />
+                    <Typography variant="caption" sx={{ fontWeight: 800 }}>
+                      با حریف آنلاین
+                    </Typography>
+                  </Box>
+                </ButtonBase>
+                <ButtonBase
+                  onClick={() => setMode('bot')}
+                  sx={{
+                    p: 1.25,
+                    border: '1px solid',
+                    borderColor: mode === 'bot' ? 'primary.main' : 'divider',
+                    bgcolor: mode === 'bot' ? alpha(theme.palette.primary.main, 0.12) : 'rgba(0,0,0,0.2)',
+                    color: mode === 'bot' ? 'primary.main' : 'text.secondary',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                    <Bot size={18} />
+                    <Typography variant="caption" sx={{ fontWeight: 800 }}>
+                      با ربات
+                    </Typography>
+                  </Box>
+                </ButtonBase>
+              </Box>
+
               <Button
                 fullWidth
                 variant="contained"
                 onClick={handleCreate}
                 disabled={creating}
-                startIcon={creating ? <CircularProgress size={20} color="inherit" /> : <Plus size={20} />}
+                startIcon={creating ? <CircularProgress size={20} color="inherit" /> : mode === 'bot' ? <Bot size={20} /> : <Plus size={20} />}
                 sx={{
                   py: 1.5,
                   borderRadius: '12px',
@@ -353,7 +371,7 @@ export default function LobbyPage() {
                   '&:active': { transform: 'scale(0.98)' },
                 }}
               >
-                Create Room
+                {mode === 'bot' ? 'شروع بازی با ربات' : 'Create Room'}
               </Button>
             </Paper>
 

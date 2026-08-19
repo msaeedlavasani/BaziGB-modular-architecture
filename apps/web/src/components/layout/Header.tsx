@@ -49,6 +49,33 @@ export default function Header() {
           </Box>
         </Link>
 
+        {/* ناوبری */}
+        <Box sx={{ display: 'flex', gap: 0.5, minWidth: 0, overflowX: 'auto' }}>
+          {[
+            { href: '/lobby', label: 'لابی' },
+            { href: '/leaderboard', label: 'رتبه‌بندی' },
+            { href: '/tournaments', label: 'تورنمنت' },
+          ].map((item) => (
+            <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  px: 1,
+                  py: 0.5,
+                  borderRadius: 2,
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                  color: pathname === item.href ? 'primary.main' : 'text.secondary',
+                  bgcolor: pathname === item.href ? 'rgba(238,172,47,0.1)' : 'transparent',
+                  '&:hover': { color: 'primary.main' },
+                }}
+              >
+                {item.label}
+              </Typography>
+            </Link>
+          ))}
+        </Box>
+
         <Box sx={{ flex: 1 }} />
 
         {/* آیکون‌ها — چپ در RTL */}
