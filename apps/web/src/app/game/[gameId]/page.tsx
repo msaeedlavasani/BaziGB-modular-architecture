@@ -31,6 +31,7 @@ import GameShell from '@/components/game/GameShell';
 import TicTacToeBoard from '@/components/game/TicTacToeBoard';
 import BackgammonBoard from '@/components/game/BackgammonBoard';
 import ChessBoard from '@/components/game/ChessBoard';
+import ChessInfo from '@/components/game/ChessInfo';
 import VegasBoard from '@/components/game/VegasBoard';
 
 const ADAPTERS: Record<GameId, GameAdapter> = {
@@ -174,7 +175,6 @@ function GameInner() {
             onRoll={() => applyLocal({ player: state.turn, kind: 'roll' })}
             onMove={(m: BackgammonMove) => applyLocal(m)}
             onEndTurn={() => applyLocal([])}
-            onPlayChain={(chain) => applyLocal(chain)}
             isMyTurn={humanTurn}
             myColor={1}
           />
@@ -288,7 +288,10 @@ function GameInner() {
           <Chip label="در حال آماده‌سازی بازی…" variant="outlined" />
         </Box>
       ) : (
-        board
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0 }}>
+          {board}
+          {gameId === 'chess' && <ChessInfo state={state} />}
+        </Box>
       )}
 
       <Snackbar open={!!error} autoHideDuration={4000} onClose={() => setError(null)}>

@@ -18,6 +18,7 @@ import GameShell from '@/components/game/GameShell';
 import TicTacToeBoard from '@/components/game/TicTacToeBoard';
 import BackgammonBoard from '@/components/game/BackgammonBoard';
 import ChessBoard from '@/components/game/ChessBoard';
+import ChessInfo from '@/components/game/ChessInfo';
 import VegasBoard from '@/components/game/VegasBoard';
 import type { BackgammonMove } from '@bazigb/game-backgammon';
 import type { GameId } from '@bazigb/engine';
@@ -205,13 +206,19 @@ export default function PlayPage() {
             onRoll={() => socket.emit('rollDice', { roomCode })}
             onMove={(m: BackgammonMove) => socket.emit('makeMove', { roomCode, move: [m] })}
             onEndTurn={() => socket.emit('gameAction', { room: roomCode, moveName: 'endTurn' })}
-            onPlayChain={(chain) => socket.emit('makeMove', { roomCode, move: chain })}
             isMyTurn={humanTurn}
             myColor={state.players?.[0]?.id === myId ? 1 : -1}
           />
         );
       case 'chess':
-        return <ChessBoard state={state} onMove={(m) => socket.emit('makeMove', { roomCode, move: m })} disabled={disabled} />;
+        return (
+          <ChessBoard
+            state={state}
+            onMove={(m) => socket.emit('makeMove', { roomCode, move: m })}
+            disabled={disabled}
+            orientation={state.players?.[0]?.id === myId ? 'w' : 'b'}
+          />
+        );
       case 'vegas':
         return <VegasBoard state={state} onMove={(m) => socket.emit('makeMove', { roomCode, move: m })} disabled={disabled} />;
       default:
@@ -333,7 +340,12 @@ export default function PlayPage() {
         )}
 
         {/* برد */}
-        {state && board}
+        {state && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0 }}>
+            {board}
+            {gameId === 'chess' && <ChessInfo state={state} />}
+          </Box>
+        )}
 
         {/* چت */}
         <Paper

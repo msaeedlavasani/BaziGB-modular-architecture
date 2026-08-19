@@ -1,8 +1,11 @@
 import { io, Socket } from 'socket.io-client';
 
-// NOTE: must use `??` — `||` would treat the empty string (same-origin mode)
-// as falsy and fall back to localhost:3001, breaking production.
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:3001';
+// NOTE: default = same-origin (empty string). در توسعه، next.config
+// مسیر /socket.io/* را به سرور NestJS (پورت 3001) پروکسی می‌کند و در
+// تولید، Caddy/Nginx همین کار را می‌کند. اینطوری دستگاه‌های دیگر شبکه
+// که با آدرس وب (نه localhost سرور) باز می‌کنند هم می‌توانند وصل شوند.
+// اگر لازم شد به آدرس دیگری وصل شویم، NEXT_PUBLIC_SOCKET_URL را ست کنید.
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? '';
 
 /**
  * Shared socket.io client for the whole app.

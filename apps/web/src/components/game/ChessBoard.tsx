@@ -1,104 +1,114 @@
 'use client';
-import { useState } from 'react';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import { getLegalMoves, type ChessMove, type ChessState } from '@bazigb/game-chess';
 
-/** گلیف مهره‌ها: [سفید، سیاه] */
-const GLYPHS: Record<string, [string, string]> = {
-  p: ['♙', '♟'],
-  r: ['♖', '♜'],
-  n: ['♘', '♞'],
-  b: ['♗', '♝'],
-  q: ['♕', '♛'],
-  k: ['♔', '♚'],
-};
+import { useCallback, useMemo, useRef } from 'react';
+import { Paper } from '@mui/material';
+import { Chessboard } from 'react-chessboard';
+import { Chess } from 'chess.js';
+import { stateToFen, squareToIndex } from '@/lib/chess-fen';
+import { soundService } from '@/lib/sound-service';
+import type { ChessMove, ChessState } from '@bazigb/game-chess';
 
 interface Props {
   state: ChessState;
   onMove: (move: ChessMove) => void;
   disabled?: boolean;
+  /** کدام سمت پایین صفحه باشد (پیش‌فرض سفید) */
+  orientation?: 'w' | 'b';
 }
 
-/** برد شطرنج — چوب و عاج با خانه‌های سایه‌دار */
-export default function ChessBoard({ state, onMove, disabled }: Props) {
-  const [selected, setSelected] = useState<number | null>(null);
+/**
+ * برد شطرنج — بازسازی برد قدیمی (react-chessboard + chess.js) روی state انجین.
+ * حرکت‌ها محلی با chess.js اعتبارسنجی می‌شوند (احساس فوری) و سرور/موتور
+ * مجدداً اعتبارسنجی و پخش می‌کند. پروموشن با پیکر پیش‌فرض انتخاب می‌شود.
+ */
+export default function ChessBoard({ state, onMove, disabled = false, orientation = 'w' }: Props) {
+  const fen = useMemo(() => stateToFen(state), [state]);
+  const promotionEmittedRef = useRef(false);
 
-  const myColor = state.players[0]?.color as 'white' | 'black';
-  const legal = selected !== null ? getLegalMoves(state).filter((m) => m.from === selected) : [];
-  const targets = new Set(legal.map((m) => m.to));
+  const handlePieceDrop = useCallback(
+    (sourceSquare: string, targetSquare: string, _piece: string): boolean => {
+      if (disabled) return false;
 
-  const handleSquare = (index: number) => {
-    if (disabled) return;
-    const cell = state.board[index];
-    const piece = cell ? GLYPHS[cell.type][cell.color === 'white' ? 0 : 1] : null;
+      // بعد از انتخاب پروموشن، react-chessboard دوباره onPieceDrop را صدا می‌زند
+      if (promotionEmittedRef.current) {
+        promotionEmittedRef.current = false;
+        return true;
+      }
 
-    // انتخاب مهره خودی
-    if (cell && cell.color === myColor && (!selected || selected !== index)) {
-      setSelected(index);
-      return;
-    }
-    // حرکت به هدف
-    if (selected !== null && targets.has(index)) {
-      const move = legal.find((m) => m.to === index)!;
-      onMove(move);
-      setSelected(null);
-      return;
-    }
-    setSelected(null);
-    void piece;
-  };
+      // اعتبارسنجی محلی برای بازخورد فوری
+      const game = new Chess(fen);
+      let result;
+      try {
+        result = game.move({ from: sourceSquare, to: targetSquare });
+      } catch {
+        result = null;
+      }
+      if (!result) return false;
+
+      onMove({
+        kind: 'move',
+        player: state.turn,
+        from: squareToIndex(sourceSquare),
+        to: squareToIndex(targetSquare),
+      });
+      soundService.play(result.captured ? 'capture' : 'move');
+      return true;
+    },
+    [disabled, fen, onMove, state.turn],
+  );
+
+  const handlePromotionPieceSelect = useCallback(
+    (piece?: string, promoteFromSquare?: string, promoteToSquare?: string): boolean => {
+      if (piece && promoteFromSquare && promoteToSquare) {
+        promotionEmittedRef.current = true;
+        onMove({
+          kind: 'move',
+          player: state.turn,
+          from: squareToIndex(promoteFromSquare),
+          to: squareToIndex(promoteToSquare),
+          promotion: piece[1].toLowerCase() as 'q' | 'r' | 'b' | 'n',
+        });
+        const captures = !!new Chess(fen).get(promoteToSquare as never);
+        soundService.play(captures ? 'capture' : 'move');
+      }
+      return true;
+    },
+    [fen, onMove, state.turn],
+  );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, width: '100%', minWidth: 0 }}>
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(8, 1fr)',
-          width: 'min(100%, 480px)',
-          borderRadius: 2,
-          overflow: 'hidden',
-          border: '3px solid #5A4126',
-          boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+    <Paper
+      elevation={24}
+      sx={{
+        width: '100%',
+        maxWidth: 560,
+        mx: 'auto',
+        borderRadius: 4,
+        background: '#6B4423',
+        p: { xs: 1, sm: 1.5 },
+        border: '1px solid rgba(245, 158, 11, 0.2)',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+      }}
+    >
+      <Chessboard
+        id="bazigb-chess"
+        position={fen}
+        boardOrientation={orientation === 'b' ? 'black' : 'white'}
+        onPieceDrop={handlePieceDrop}
+        onPromotionPieceSelect={handlePromotionPieceSelect}
+        arePiecesDraggable={!disabled}
+        isDraggablePiece={() => !disabled}
+        areArrowsAllowed={false}
+        dropOffBoardAction="snapback"
+        animationDuration={250}
+        customBoardStyle={{
+          borderRadius: '8px',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.55)',
         }}
-      >
-        {state.board.map((cell, i) => {
-          const row = Math.floor(i / 8);
-          const col = i % 8;
-          const dark = (row + col) % 2 === 1;
-          const isSelected = selected === i;
-          const isTarget = targets.has(i);
-          const glyph = cell ? GLYPHS[cell.type][cell.color === 'white' ? 0 : 1] : null;
-          return (
-            <Box
-              key={i}
-              onClick={() => handleSquare(i)}
-              sx={{
-                aspectRatio: '1',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: { xs: 22, sm: 34 },
-                cursor: disabled ? 'default' : 'pointer',
-                background: dark
-                  ? 'linear-gradient(180deg, #3A2A18 0%, #241708 100%)'
-                  : 'linear-gradient(180deg, #C9A06A 0%, #A87F4C 100%)',
-                boxShadow: isSelected ? 'inset 0 0 0 3px #EEAC2F, 0 0 14px rgba(238,172,47,0.6)' : 'inset 0 2px 4px rgba(0,0,0,0.35)',
-                color: cell ? (cell.color === 'white' ? '#F5EFE4' : '#0B1622') : 'transparent',
-                textShadow: cell && cell.color === 'white' ? '0 1px 2px rgba(0,0,0,0.6)' : '0 1px 1px rgba(238,172,47,0.35)',
-              }}
-            >
-              {isTarget && !glyph ? <Box sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: 'rgba(238,172,47,0.7)' }} /> : glyph}
-            </Box>
-          );
-        })}
-      </Box>
-
-      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-        نوبت: {state.turn === state.players[0]?.id ? 'شما' : 'ربات'}
-        {state.phase === 'finished' &&
-          (state.winner ? ` — ${state.winner === state.players[0]?.id ? '🎉 شما برنده شدید!' : 'ربات برنده شد'}` : ' — پات!')}
-      </Typography>
-    </Box>
+        customDarkSquareStyle={{ backgroundColor: '#3A2A18' }}
+        customLightSquareStyle={{ backgroundColor: '#C9A06A' }}
+        customNotationStyle={{ fontSize: '11px', fontWeight: 600 }}
+      />
+    </Paper>
   );
 }

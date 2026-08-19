@@ -1,10 +1,9 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Button, Typography, Paper, Chip } from '@mui/material';
+import { Box, Button, Typography, Paper } from '@mui/material';
 import {
   getLegalMoves,
-  getMoveHints,
   canBearOff,
   type BackgammonMove,
   type BackgammonState,
@@ -29,17 +28,11 @@ interface Props {
   onRoll?: () => void;
   onMove?: (move: BackgammonMove) => void;
   onEndTurn?: () => void;
-  onPlayChain?: (chain: BackgammonMove[]) => void;
   disabled?: boolean;
   isMyTurn?: boolean;
   /** رنگ بازیکن جاری: 1 (طلایی) یا -1 (سرمه‌ای). پیش‌فرض: بازیکن اول. */
   myColor?: number;
-  /** نمایش پیشنهاد حرکت‌های ترکیبی (پیش‌فرض true) */
-  showHints?: boolean;
 }
-
-const pointLabel = (p: number | 'bar' | 'off'): string =>
-  p === 'bar' ? 'زندان' : p === 'off' ? 'خارج' : String((p as number) + 1);
 
 /** حرکت مهره با from/to پر شده (نوع انجین آن‌ها را اختیاری اعلام کرده) */
 type PieceMove = BackgammonMove & {
@@ -53,11 +46,9 @@ export default function BackgammonBoard({
   onRoll,
   onMove,
   onEndTurn,
-  onPlayChain,
   disabled = false,
   isMyTurn = false,
   myColor,
-  showHints = true,
 }: Props) {
   const myColorNum: number = myColor ?? ((state.players[0]?.color as number) || 1);
   const [selected, setSelected] = useState<number | 'bar' | null>(null);
@@ -84,9 +75,6 @@ export default function BackgammonBoard({
     if (selected === null) return new Set<number | 'off'>();
     return new Set(pieceMoves.filter((m) => m.from === selected).map((m) => m.to));
   }, [selected, pieceMoves]);
-
-  // حرکت‌های ترکیبی پیشنهادی (Combined Moves)
-  const hints = useMemo(() => (showHints && rolled ? getMoveHints(state) : []), [showHints, rolled, state]);
 
   const myBarCount = bar[myColorNum] ?? 0;
   const mustFromBar = myBarCount > 0;
@@ -180,7 +168,7 @@ export default function BackgammonBoard({
     const color = gold ? CHECKER_GOLD : CHECKER_BLUE;
     const maxVisible = 5;
     const shown = Math.min(absCount, maxVisible);
-    const size = isBar ? 22 : '88%';
+    const size = isBar ? 32 : '94%';
     return (
       <Box
         sx={{
@@ -196,11 +184,11 @@ export default function BackgammonBoard({
             key={`${keyPrefix}-${i}`}
             sx={{
               width: size,
-              minWidth: 14,
-              maxWidth: 56,
+              minWidth: 22,
+              maxWidth: 84,
               aspectRatio: '1',
               borderRadius: '50%',
-              mb: i < shown - 1 ? (isBar ? '-38%' : '-45%') : 0,
+              mb: i < shown - 1 ? (isBar ? '-42%' : '-48%') : 0,
               zIndex: i + 1,
               background: `radial-gradient(circle at 32% 28%, ${gold ? '#FFD27A' : '#9DBEDD'} 0%, ${color} 45%, ${gold ? '#8A6410' : '#16324F'} 100%)`,
               boxShadow: [
@@ -219,7 +207,7 @@ export default function BackgammonBoard({
               <Typography
                 component="span"
                 sx={{
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight: 800,
                   color: gold ? '#3A2405' : '#EAF3FB',
                   lineHeight: 1,
@@ -336,10 +324,11 @@ export default function BackgammonBoard({
     );
   };
 
-  const topLeft = [23, 22, 21, 20, 19, 18];
-  const topRight = [17, 16, 15, 14, 13, 12];
-  const bottomLeft = [0, 1, 2, 3, 4, 5];
-  const bottomRight = [6, 7, 8, 9, 10, 11];
+  // چینش استاندارد نرد (مثل برد قدیمی): ردیف بالا ۱۳..۲۴، ردیف پایین ۱۲..۱
+  const topLeft = [12, 13, 14, 15, 16, 17];
+  const topRight = [18, 19, 20, 21, 22, 23];
+  const bottomLeft = [11, 10, 9, 8, 7, 6];
+  const bottomRight = [5, 4, 3, 2, 1, 0];
 
   const renderHalf = (top: number[], bottom: number[]) => (
     <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minWidth: 0 }}>
@@ -377,7 +366,7 @@ export default function BackgammonBoard({
         alignItems: 'center',
         gap: { xs: 1.5, sm: 2 },
         width: '100%',
-        maxWidth: 860,
+        maxWidth: 960,
         mx: 'auto',
         p: { xs: 1, sm: 2.5 },
         borderRadius: { xs: 3, sm: 5 },
@@ -631,50 +620,6 @@ export default function BackgammonBoard({
         </Box>
       </Box>
 
-      {/* راهنمای حرکت‌های ترکیبی */}
-      {isMyTurn && !disabled && rolled && dice.length > 0 && pieceMoves.length > 0 && (
-        <Box
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 0.75,
-            width: '100%',
-            alignItems: 'center',
-            px: { xs: 0.5, sm: 1.5 },
-          }}
-        >
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>
-            حرکت ترکیبی:
-          </Typography>
-          {hints.length === 0 ? (
-            <Chip label="حرکتی ممکن نیست" size="small" sx={{ color: '#fbbf24' }} />
-          ) : (
-            hints.slice(0, 8).map((chain, i) => (
-              <Chip
-                key={i}
-                size="small"
-                label={chain
-                  .filter(
-                    (m): m is PieceMove =>
-                      m.kind === 'move' && m.from !== undefined && m.to !== undefined,
-                  )
-                  .map((m) => `${pointLabel(m.from)} ← ${pointLabel(m.to)}`)
-                  .join('، ')}
-                onClick={() => onPlayChain?.(chain)}
-                sx={{
-                  color: '#fbbf24',
-                  borderColor: 'rgba(245, 158, 11, 0.35)',
-                  bgcolor: 'rgba(245, 158, 11, 0.08)',
-                  fontSize: '0.68rem',
-                  fontWeight: 700,
-                  fontFamily: 'monospace',
-                  cursor: 'pointer',
-                }}
-              />
-            ))
-          )}
-        </Box>
-      )}
     </Paper>
   );
 }
