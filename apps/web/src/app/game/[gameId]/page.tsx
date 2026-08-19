@@ -23,15 +23,15 @@ import {
   type Player,
 } from '@bazigb/engine';
 import { TicTacToe, getBestMove as tttAI } from '@bazigb/game-tic-tac-toe';
-import { Backgammon, getBestMoveSequence, getMoveHints as bgHints } from '@bazigb/game-backgammon';
+import { Backgammon, getBestMoveSequence, type BackgammonMove } from '@bazigb/game-backgammon';
 import { ChessGame, getBestMove as chessAI } from '@bazigb/game-chess';
 import { Vegas, getBestMove as vegasAI } from '@bazigb/game-vegas';
 
+import GameShell from '@/components/game/GameShell';
 import TicTacToeBoard from '@/components/game/TicTacToeBoard';
 import BackgammonBoard from '@/components/game/BackgammonBoard';
 import ChessBoard from '@/components/game/ChessBoard';
 import VegasBoard from '@/components/game/VegasBoard';
-
 
 const ADAPTERS: Record<GameId, GameAdapter> = {
   'tic-tac-toe': TicTacToe,
@@ -61,6 +61,13 @@ const GAME_TITLES: Record<GameId, string> = {
   vegas: 'وگاس',
 };
 
+const GAME_CHIPS: Record<GameId, string> = {
+  'tic-tac-toe': '✕ دوز',
+  backgammon: '🎲 نرد',
+  chess: '♞ شطرنج',
+  vegas: '💵 وگاس',
+};
+
 function GameInner() {
   const params = useParams<{ gameId: string }>();
   const router = useRouter();
@@ -71,7 +78,6 @@ function GameInner() {
   const [match, setMatch] = useState({ matchPoint: false, winByTwo: false, targetScore: 5 });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [state, setState] = useState<any>(null);
-  const [hints, setHints] = useState<unknown[][]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const stateRef = useRef(state);
@@ -90,7 +96,6 @@ function GameInner() {
   const newGame = useCallback(() => {
     const config = supportsMatchPoint(gameId) ? match : DEFAULT_MATCH;
     setState(adapter.createState(players, config));
-    setHints([]);
   }, [adapter, gameId, match, players]);
 
   useEffect(() => {
@@ -99,10 +104,9 @@ function GameInner() {
 
   const myId = 'p1';
   const humanTurn = !!state && state.phase === 'playing' && state.turn === myId;
-  const isRoom = false;
 
-  // ---- منطق محلی (بازی با کامپیوتر) ----
-  const applyMove = useCallback(
+  // ---- منطق محلی (بازی با ربات) ----
+  const applyLocal = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (m: any) => {
       const s = stateRef.current;
@@ -111,7 +115,7 @@ function GameInner() {
         let next;
         if (Array.isArray(m)) {
           next = adapter.applyChain(s, m);
-        } else if (gameId === 'backgammon' && m.kind === 'roll') {
+        } else if (gameId === 'backgammon' && (m.kind === 'roll' || m.kind === 'move')) {
           next = adapter.applyChain(s, [m]);
         } else {
           next = adapter.applyMove(s, m);
@@ -127,7 +131,7 @@ function GameInner() {
   // حرکت ربات (فقط حالت محلی)
   const runBot = useCallback(() => {
     const s = stateRef.current;
-    if (!s || s.phase === 'finished' || s.turn !== 'bot' || isRoom) return;
+    if (!s || s.phase === 'finished' || s.turn !== 'bot') return;
     try {
       let cur = s;
       // نرد: اول تاس
@@ -148,153 +152,151 @@ function GameInner() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطای ربات');
     }
-  }, [adapter, difficulty, gameId, isRoom]);
+  }, [adapter, difficulty, gameId]);
 
   useEffect(() => {
-    if (isRoom) return;
     if (state && state.phase === 'playing' && state.turn === 'bot') {
       const t = setTimeout(runBot, 500);
       return () => clearTimeout(t);
     }
-  }, [state, isRoom, runBot]);
-
-  // ---- راهنمای حرکت (Hint Dots) برای نرد ----
-  useEffect(() => {
-    if (gameId !== 'backgammon' || !state || state.phase !== 'playing' || state.turn !== myId) {
-      setHints([]);
-      return;
-    }
-    if (state.dice && state.dice.length) {
-      setHints((bgHints(state) as unknown[][]).slice(0, 12));
-    } else {
-      setHints([]);
-    }
-  }, [gameId, state]);
+  }, [state, runBot]);
 
   const board = (() => {
     if (!state) return null;
     const disabled = !humanTurn;
     switch (gameId) {
       case 'tic-tac-toe':
-        return <TicTacToeBoard state={state} onMove={(m) => applyMove(m)} disabled={disabled} />;
+        return <TicTacToeBoard state={state} onMove={(m) => applyLocal(m)} disabled={disabled} />;
       case 'backgammon':
-        return <BackgammonBoard board={state.board} bar={state.bar} off={state.off} />;
+        return (
+          <BackgammonBoard
+            state={state}
+            onRoll={() => applyLocal({ player: state.turn, kind: 'roll' })}
+            onMove={(m: BackgammonMove) => applyLocal(m)}
+            onEndTurn={() => applyLocal([])}
+            onPlayChain={(chain) => applyLocal(chain)}
+            isMyTurn={humanTurn}
+            myColor={1}
+          />
+        );
       case 'chess':
-        return <ChessBoard state={state} onMove={(m) => applyMove(m)} disabled={disabled} />;
+        return <ChessBoard state={state} onMove={(m) => applyLocal(m)} disabled={disabled} />;
       case 'vegas':
-        return <VegasBoard state={state} onMove={(m) => applyMove(m)} disabled={disabled} />;
+        return <VegasBoard state={state} onMove={(m) => applyLocal(m)} disabled={disabled} />;
       default:
         return null;
     }
   })();
 
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0 }}>
-      {/* نوار تنظیمات */}
-      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Typography variant="h5" sx={{ color: 'text.primary' }}>
-          {GAME_TITLES[gameId]}
-        </Typography>
+  const isFinished = !!state && state.phase === 'finished';
+  const winner = isFinished
+    ? {
+        label: state.winner
+          ? state.winner === myId
+            ? '🎉 شما برنده شدید!'
+            : 'ربات برنده شد'
+          : 'مساوی!',
+        sub: gameId === 'backgammon' && state.scores
+          ? `امتیاز نهایی — شما ${state.scores[myId] ?? 0} : ${state.scores.bot ?? 0} ربات`
+          : undefined,
+        onRematch: newGame,
+      }
+    : null;
+
+  const scores =
+    state && state.scores && supportsMatchPoint(gameId)
+      ? { a: state.scores[myId] ?? 0, b: state.scores.bot ?? 0 }
+      : null;
+
+  const settings = (
+    <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
+      <FormControl size="small" sx={{ minWidth: 120 }}>
+        <InputLabel>سطح ربات</InputLabel>
+        <Select
+          value={difficulty}
+          label="سطح ربات"
+          onChange={(e) => setDifficulty(e.target.value as AIDifficulty)}
+          sx={{ borderRadius: 2, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' } }}
+        >
+          <MenuItem value="easy">آسان</MenuItem>
+          <MenuItem value="medium">متوسط</MenuItem>
+          <MenuItem value="hard">سخت</MenuItem>
+        </Select>
+      </FormControl>
+      {supportsMatchPoint(gameId) && (
         <>
-          <FormControl size="small" sx={{ minWidth: 130 }}>
-            <InputLabel>سطح ربات</InputLabel>
-            <Select value={difficulty} label="سطح ربات" onChange={(e) => setDifficulty(e.target.value as AIDifficulty)}>
-              <MenuItem value="easy">آسان</MenuItem>
-              <MenuItem value="medium">متوسط</MenuItem>
-              <MenuItem value="hard">سخت</MenuItem>
-            </Select>
-          </FormControl>
-            {supportsMatchPoint(gameId) && (
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                <FormControlLabel
-                  control={<Switch size="small" checked={match.matchPoint} onChange={(e) => setMatch({ ...match, matchPoint: e.target.checked })} />}
-                  label={<Typography variant="body2">مسابقه</Typography>}
-                />
-                {match.matchPoint && (
-                  <>
-                    <FormControlLabel
-                      control={<Switch size="small" checked={match.winByTwo} onChange={(e) => setMatch({ ...match, winByTwo: e.target.checked })} />}
-                      label={<Typography variant="body2">برد با ۲</Typography>}
-                    />
-                    <FormControl size="small" sx={{ minWidth: 90 }}>
-                      <InputLabel>هدف</InputLabel>
-                      <Select value={match.targetScore} label="هدف" onChange={(e) => setMatch({ ...match, targetScore: Number(e.target.value) })}>
-                        {[3, 5, 7, 9].map((n) => (
-                          <MenuItem key={n} value={n}>
-                            {n} امتیاز
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </>
-                )}
-              </Box>
-            )}
-            <Button size="small" variant="outlined" color="primary" onClick={newGame}>
-              بازی جدید
-            </Button>
-          </>
-        <Button size="small" variant="text" color="inherit" onClick={() => router.push('/lobby')}>
-          بازگشت
-        </Button>
-      </Box>
-
-      {/* برد */}
-      {board}
-
-      {/* نرد: دکمه تاس و راهنمای حرکت ترکیبی */}
-      {gameId === 'backgammon' && state && state.phase === 'playing' && state.turn === myId && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {state.dice && state.dice.length ? (
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                تاس: {state.dice.join(' و ')} — یک حرکت ترکیبی انتخاب کنید:
-              </Typography>
-              {hints.length === 0 ? (
-                <Chip label="حرکتی ممکن نیست (پاس)" color="warning" onClick={() => applyMove([])} />
-              ) : (
-                hints.map((chain, i) => (
-                  <Chip
-                    key={i}
-                    label={chain
-                      .map((m) => {
-                        const mm = m as { from?: number | string; to?: number | string };
-                        return `${mm.from === 'bar' ? 'زندان' : mm.from} ← ${mm.to === 'off' ? 'خارج' : mm.to}`;
-                      })
-                      .join('، ')}
-                    color="primary"
-                    variant="outlined"
-                    onClick={() => applyMove(chain)}
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={match.matchPoint}
+                onChange={(e) => setMatch({ ...match, matchPoint: e.target.checked })}
+              />
+            }
+            label={<Typography variant="body2">مسابقه</Typography>}
+          />
+          {match.matchPoint && (
+            <>
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={match.winByTwo}
+                    onChange={(e) => setMatch({ ...match, winByTwo: e.target.checked })}
                   />
-                ))
-              )}
-            </Box>
-          ) : (
-            <Box>
-              <Button variant="contained" color="primary" onClick={() => applyMove({ player: state.turn, kind: 'roll' })}>
-                ریختن تاس 🎲
-              </Button>
-            </Box>
+                }
+                label={<Typography variant="body2">برد با ۲</Typography>}
+              />
+              <FormControl size="small" sx={{ minWidth: 90 }}>
+                <InputLabel>هدف</InputLabel>
+                <Select
+                  value={match.targetScore}
+                  label="هدف"
+                  onChange={(e) => setMatch({ ...match, targetScore: Number(e.target.value) })}
+                  sx={{ borderRadius: 2, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' } }}
+                >
+                  {[3, 5, 7, 9].map((n) => (
+                    <MenuItem key={n} value={n}>
+                      {n} امتیاز
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </>
           )}
+        </>
+      )}
+      <Button size="small" variant="outlined" color="primary" onClick={newGame}>
+        بازی جدید
+      </Button>
+    </Box>
+  );
+
+  return (
+    <GameShell
+      title={GAME_TITLES[gameId]}
+      gameChip={GAME_CHIPS[gameId]}
+      onBack={() => router.push('/lobby')}
+      turnText={state && state.phase === 'playing' ? (humanTurn ? 'نوبت شما' : 'نوبت ربات') : null}
+      scores={scores}
+      maxRounds={match.matchPoint ? match.targetScore : 1}
+      settings={settings}
+      winner={winner}
+    >
+      {!state ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 8, gap: 2 }}>
+          <Chip label="در حال آماده‌سازی بازی…" variant="outlined" />
         </Box>
+      ) : (
+        board
       )}
-
-      {/* وضعیت و برنده */}
-      {state && state.phase === 'finished' && (
-        <Chip
-          label={state.winner ? (state.winner === myId ? '🎉 شما برنده شدید!' : 'ربات برنده شد') : 'مساوی'}
-          color="primary"
-          sx={{ alignSelf: 'center', fontSize: 16, py: 3 }}
-        />
-      )}
-
 
       <Snackbar open={!!error} autoHideDuration={4000} onClose={() => setError(null)}>
         <Alert severity="error" onClose={() => setError(null)}>
           {error}
         </Alert>
       </Snackbar>
-    </Box>
+    </GameShell>
   );
 }
 
