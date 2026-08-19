@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   ArrowRight,
   Copy,
@@ -196,6 +197,40 @@ export default function LobbyPage() {
             <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500, opacity: 0.8 }}>
               Create a room or join a friend with a code
             </Typography>
+          </Box>
+
+          {/* بازی با ربات (محلی) */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Typography variant="overline" sx={{ fontWeight: 800, color: 'text.secondary', letterSpacing: '0.1em' }}>
+              بازی با ربات (بدون نیاز به حریف)
+            </Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
+              {GAME_OPTIONS.map((type) => (
+                <ButtonBase
+                  key={`bot-${type}`}
+                  component={Link}
+                  href={`/game/${type}`}
+                  sx={{
+                    p: 1.5,
+                    borderRadius: '12px',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    transition: 'all 0.2s',
+                    '&:hover': { borderColor: 'primary.main', transform: 'translateY(-2px)' },
+                  }}
+                >
+                  <GameIcon game={type} sx={{ fontSize: 24 }} />
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                    {GAME_META[type]?.label}
+                  </Typography>
+                </ButtonBase>
+              ))}
+            </Box>
           </Box>
 
           {/* Create / Join actions */}

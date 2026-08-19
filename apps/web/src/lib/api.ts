@@ -9,13 +9,11 @@
 
 /**
  * API base URL.
- *  - Development: NEXT_PUBLIC_API_URL unset -> http://localhost:3001
- *  - Production:  NEXT_PUBLIC_API_URL="" (same origin) -> requests go to
- *                 `/api/*` and are proxied by the reverse proxy (Caddy/Nginx).
+ *  - Dev: same-origin `/api/*` → پروکسی next.config به سرور NestJS (localhost:3001)
+ *  - Production: Caddy/Nginx هم `/api` را به سرور فوروارد میکند
  */
-const _apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
-const API_URL = _apiUrl === '' ? '' : _apiUrl;
-const API_PREFIX = API_URL === '' ? '/api' : '';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
+const API_PREFIX = '/api';
 
 const TOKEN_STORAGE_KEY = 'bazigb_token';
 
