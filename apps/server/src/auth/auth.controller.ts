@@ -11,8 +11,6 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt.guard';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
 import { OtpRequestDto } from './dto/otp-request.dto';
 import { OtpVerifyDto } from './dto/otp-verify.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
@@ -23,15 +21,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
-  @Post('register')
-  register(@Body() dto: RegisterDto) {
-    return this.auth.register(dto);
-  }
-
-  @Post('login')
-  login(@Body() dto: LoginDto) {
-    return this.auth.login(dto);
-  }
+  // ورود فقط با OTP است — مسیرهای register/login با پسورد حذف شدند.
 
   @Post('otp/request')
   requestOtp(@Body() dto: OtpRequestDto) {

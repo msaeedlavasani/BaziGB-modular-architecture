@@ -55,11 +55,14 @@ export const createState = (players: Player[], match?: MatchConfig): BackgammonS
 
 /**
  * ریختن تاس برای بازیکن فعلی.
+ * قانون جفت: اگر دو تاس برابر باشند، ۴ حرکت همان مقدار داده می‌شود
+ * ([6,6] → [6,6,6,6]) تا هر حرکت یکی از تاس‌ها را مصرف کند.
  */
 export const rollDiceFor = (state: BackgammonState): BackgammonState => {
   if (state.rolled) return state;
   const newState = deepClone(state);
-  newState.dice = rollDicePair();
+  const [a, b] = rollDicePair();
+  newState.dice = a === b ? [a, b, a, b] : [a, b];
   newState.rolled = true;
   return newState;
 };

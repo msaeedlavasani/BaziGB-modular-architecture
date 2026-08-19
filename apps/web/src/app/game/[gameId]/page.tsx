@@ -22,6 +22,7 @@ import {
   type GameId,
   type Player,
 } from '@bazigb/engine';
+import { Undo2 } from 'lucide-react';
 import { TicTacToe, getBestMove as tttAI } from '@bazigb/game-tic-tac-toe';
 import { Backgammon, getBestMoveSequence, type BackgammonMove } from '@bazigb/game-backgammon';
 import { ChessGame, getBestMove as chessAI } from '@bazigb/game-chess';
@@ -80,6 +81,8 @@ function GameInner() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [state, setState] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  // پشتهٔ آندو: اسنپشات state قبل از هر اقدام بازیکن (حداکثر ۱۰)
+  const [undoStack, setUndoStack] = useState<any[]>([]);
 
   const stateRef = useRef(state);
   useEffect(() => {
@@ -113,6 +116,11 @@ function GameInner() {
       const s = stateRef.current;
       if (!s) return;
       try {
+        // قبل از هر اقدام بازیکن، وضعیت فعلی برای آندو ذخیره می‌شود
+        setUndoStack((prev) => {
+          const next = [...prev, s];
+          return next.length > 10 ? next.slice(next.length - 10) : next;
+        });
         let next;
         if (Array.isArray(m)) {
           next = adapter.applyChain(s, m);
@@ -128,6 +136,15 @@ function GameInner() {
     },
     [adapter, gameId],
   );
+
+  const handleUndo = useCallback(() => {
+    setUndoStack((prev) => {
+      if (prev.length === 0) return prev;
+      const snapshot = prev[prev.length - 1];
+      setState(snapshot);
+      return prev.slice(0, -1);
+    });
+  }, []);
 
   // حرکت ربات (فقط حالت محلی)
   const runBot = useCallback(() => {
@@ -185,6 +202,7 @@ function GameInner() {
             state={state}
             onRoll={() => applyLocal({ player: state.turn, kind: 'roll' })}
             onMove={(m: BackgammonMove) => applyLocal(m)}
+            onChain={(chain) => applyLocal(chain)}
             onEndTurn={() => applyLocal([])}
             isMyTurn={humanTurn}
             myColor={1}
@@ -277,6 +295,17 @@ function GameInner() {
           )}
         </>
       )}
+      <Button
+        size="small"
+        variant="outlined"
+        color="primary"
+        onClick={handleUndo}
+        disabled={undoStack.length === 0 || !humanTurn}
+        startIcon={<Undo2 size={14} />}
+        title="بازگردانی آخرین حرکت"
+      >
+        آندو
+      </Button>
       <Button size="small" variant="outlined" color="primary" onClick={newGame}>
         بازی جدید
       </Button>

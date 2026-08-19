@@ -11,8 +11,6 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { SmsService } from '../sms/sms.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
 import { OtpRequestDto } from './dto/otp-request.dto';
 import { OtpVerifyDto } from './dto/otp-verify.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
@@ -53,51 +51,6 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly sms: SmsService,
   ) {}
-
-  async register(dto: RegisterDto) {
-    const existing = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ email: dto.email }, { username: dto.username }],
-      },
-    });
-
-    if (existing) {
-      throw new ConflictException('Email or username already in use');
-    }
-
-    const hashedPassword = await bcrypt.hash(dto.password, SALT_ROUNDS);
-
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        username: dto.username,
-        password: hashedPassword,
-      },
-    });
-
-    return this.buildAuthResponse(user);
-  }
-
-  async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
-
-    if (!user || !user.password) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    if (user.deactivated) {
-      throw new UnauthorizedException('حساب شما غیرفعال شده است');
-    }
-
-    const passwordMatches = await bcrypt.compare(dto.password, user.password);
-    if (!passwordMatches) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    return this.buildAuthResponse(user);
-  }
 
   /**
    * Request a one-time SMS verification code for `phone`. Replaces any

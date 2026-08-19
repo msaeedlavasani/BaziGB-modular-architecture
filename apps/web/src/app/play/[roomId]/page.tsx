@@ -210,6 +210,7 @@ export default function PlayPage() {
             state={state}
             onRoll={() => socket.emit('rollDice', { roomCode })}
             onMove={(m: BackgammonMove) => socket.emit('makeMove', { roomCode, move: [m] })}
+            onChain={(chain) => socket.emit('makeMove', { roomCode, move: chain })}
             onEndTurn={() => socket.emit('gameAction', { room: roomCode, moveName: 'endTurn' })}
             isMyTurn={humanTurn}
             myColor={state.players?.[0]?.id === myId ? 1 : -1}

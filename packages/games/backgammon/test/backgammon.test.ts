@@ -105,6 +105,27 @@ describe('Backgammon Game Logic', () => {
     expect(state.rolled).toBe(false);
   });
 
+  it('should give 4 moves on doubles (not 2)', () => {
+    let state = createState(players);
+    state.dice = [6, 6, 6, 6];
+    state.rolled = true;
+    state.turn = 'p1';
+    // از نقطه ۱۱ (۵ مهره) چهار بار ۶ → مقصد ۱۷
+    const move = { player: 'p1', kind: 'move', from: 11, to: 17, amount: 6 };
+    expect(getLegalMoves(state).some((m) => m.from === 11 && m.to === 17 && m.amount === 6)).toBe(true);
+
+    // بعد از ۲ حرکت هنوز نوبت p1 است
+    state = applyChain(state, [move, move] as any);
+    expect(state.turn).toBe('p1');
+    expect(state.dice.length).toBe(2);
+
+    // بعد از ۴ حرکت نوبت عوض می‌شود
+    state = applyChain(state, [move, move] as any);
+    expect(state.dice.length).toBe(0);
+    expect(state.turn).toBe('p2');
+    expect(state.board[17]).toBe(4);
+  });
+
   it('should handle doubles correctly', () => {
     let state = createState(players);
     state.dice = [4, 4, 4, 4]; // موتور بازی در صورت جفت بودن ۴ تاس می‌دهد

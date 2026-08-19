@@ -38,9 +38,7 @@ export interface AuthContextValue {
   token: string | null;
   /** True while the persisted session is being restored on first mount. */
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<AuthUser>;
   loginWithOtp: (phone: string, code: string, username?: string) => Promise<OtpResponse>;
-  register: (email: string, username: string, password: string) => Promise<AuthUser>;
   updateUser: (patch: { username: string }) => Promise<AuthUser>;
   logout: () => void;
 }
@@ -86,14 +84,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await api.post<AuthResponse>('/auth/login', { email, password });
-    storeToken(res.accessToken);
-    setTokenState(res.accessToken);
-    setUser(res.user);
-    return res.user;
-  }, []);
-
   const loginWithOtp = useCallback(
     async (phone: string, code: string, username?: string) => {
       const res = await api.post<OtpResponse>('/auth/otp/verify', {
@@ -110,21 +100,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(res.user);
       }
       return res;
-    },
-    [],
-  );
-
-  const register = useCallback(
-    async (email: string, username: string, password: string) => {
-      const res = await api.post<AuthResponse>('/auth/register', {
-        email,
-        username,
-        password,
-      });
-      storeToken(res.accessToken);
-      setTokenState(res.accessToken);
-      setUser(res.user);
-      return res.user;
     },
     [],
   );
@@ -146,13 +121,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       token,
       isLoading,
-      login,
       loginWithOtp,
-      register,
       updateUser,
       logout,
     }),
-    [user, token, isLoading, login, loginWithOtp, register, updateUser, logout],
+    [user, token, isLoading, loginWithOtp, updateUser, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

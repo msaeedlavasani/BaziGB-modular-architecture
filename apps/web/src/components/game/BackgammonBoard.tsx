@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Button, Typography, Paper } from '@mui/material';
 import {
   getLegalMoves,
+  getMoveHints,
   canBearOff,
   type BackgammonMove,
   type BackgammonState,
@@ -28,10 +29,12 @@ interface Props {
   state: BackgammonState;
   onRoll?: () => void;
   onMove?: (move: BackgammonMove) => void;
+  /** اجرای زنجیرهٔ کامل (حرکت ترکیبی یک‌کلیک) */
+  onChain?: (chain: BackgammonMove[]) => void;
   onEndTurn?: () => void;
   disabled?: boolean;
   isMyTurn?: boolean;
-  /** رنگ بازیکن جاری: 1 (طلایی) یا -1 (سرمه‌ای). پیش‌فرض: بازیکن اول. */
+  /** رنگ بازیکن جاری: 1 (روشن) یا -1 (تیره). پیش‌فرض: بازیکن اول. */
   myColor?: number;
 }
 
@@ -46,6 +49,7 @@ export default function BackgammonBoard({
   state,
   onRoll,
   onMove,
+  onChain,
   onEndTurn,
   disabled = false,
   isMyTurn = false,
@@ -76,6 +80,17 @@ export default function BackgammonBoard({
     if (selected === null) return new Set<number | 'off'>();
     return new Set(pieceMoves.filter((m) => m.from === selected).map((m) => m.to));
   }, [selected, pieceMoves]);
+
+  // حرکت ترکیبی یک‌کلیک: زنجیره‌های حداکثری که همهٔ تاس‌ها را از همین نقطه مصرف می‌کنند
+  const combinedChains = useMemo(() => {
+    if (selected === null || !rolled || !onChain) return [];
+    const hints = getMoveHints(state);
+    return hints.filter((chain) => chain.length > 1 && chain.every((m) => m.from === selected));
+  }, [selected, rolled, onChain, state]);
+  const combinedDests = useMemo(
+    () => new Set(combinedChains.map((chain) => chain[chain.length - 1].to).filter((t) => t !== undefined)),
+    [combinedChains],
+  );
 
   const myBarCount = bar[myColorNum] ?? 0;
   const mustFromBar = myBarCount > 0;
@@ -129,6 +144,16 @@ export default function BackgammonBoard({
       if (move) handleMove(move);
       return;
     }
+    // حرکت ترکیبی: یک کلیک روی مقصد نهایی → اجرای همهٔ تاس‌ها
+    if (combinedDests.has(index)) {
+      const chain = combinedChains.find((c) => c[c.length - 1].to === index);
+      if (chain) {
+        setSelected(null);
+        soundService.play('move');
+        onChain?.(chain);
+      }
+      return;
+    }
     // انتخاب نقطه خودی (اگر مجبور به حرکت از بار نباشیم)
     if (!mustFromBar && myCheckerOnPoint(index)) {
       setSelected(index);
@@ -169,7 +194,7 @@ export default function BackgammonBoard({
     const color = light ? CHECKER_LIGHT : CHECKER_DARK;
     const maxVisible = 5;
     const shown = Math.min(absCount, maxVisible);
-    const size = isBar ? 32 : '94%';
+    const size = isBar ? 38 : '94%';
     return (
       <Box
         sx={{
@@ -185,8 +210,8 @@ export default function BackgammonBoard({
             key={`${keyPrefix}-${i}`}
             sx={{
               width: size,
-              minWidth: 22,
-              maxWidth: 84,
+              minWidth: 26,
+              maxWidth: 110,
               aspectRatio: '1',
               borderRadius: '50%',
               mb: i < shown - 1 ? (isBar ? '-42%' : '-48%') : 0,
@@ -229,6 +254,7 @@ export default function BackgammonBoard({
     const isDark = (index % 2 === 0) === isTop;
     const isSelected = selected === index;
     const isTarget = destinations.has(index);
+    const isCombined = combinedDests.has(index) && !isTarget;
     const path = isTop ? 'M 3 0 L 18 100 L 33 0 Z' : 'M 3 100 L 18 0 L 33 100 Z';
     const fill = isDark ? 'url(#bgPtDark)' : 'url(#bgPtLight)';
     const stroke = isDark ? '#3e220c' : '#a97f45';
@@ -242,7 +268,10 @@ export default function BackgammonBoard({
           height: '100%',
           minWidth: 0,
           flex: 1,
-          cursor: isMyTurn && !disabled && rolled && (hasMine || isTarget) ? 'pointer' : 'default',
+          cursor:
+            isMyTurn && !disabled && rolled && (hasMine || isTarget || isCombined)
+              ? 'pointer'
+              : 'default',
           userSelect: 'none',
         }}
       >
@@ -300,6 +329,18 @@ export default function BackgammonBoard({
               pointerEvents: 'none',
               bgcolor: 'rgba(34,197,94,0.28)',
               boxShadow: 'inset 0 0 0 2px rgba(34,197,94,0.65)',
+            }}
+          />
+        )}
+        {isCombined && (
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 20,
+              pointerEvents: 'none',
+              bgcolor: 'rgba(96,165,250,0.30)',
+              boxShadow: 'inset 0 0 0 2px rgba(96,165,250,0.75)',
             }}
           />
         )}
@@ -380,11 +421,13 @@ export default function BackgammonBoard({
         boxShadow: '0 30px 60px -15px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
       }}
     >
-      {/* سطح بازی */}
+      {/* سطح بازی — direction:ltr چون صفحه RTL است و چیدمان نرد LTR است
+          (ستون «خارج» باید سمت راست بماند، نه آینه‌شده) */}
       <Box
         sx={{
           position: 'relative',
           display: 'flex',
+          direction: 'ltr',
           width: '100%',
           userSelect: 'none',
           overflow: 'hidden',
@@ -544,14 +587,44 @@ export default function BackgammonBoard({
       >
         <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, alignItems: 'center' }}>
           {showDice ? (
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              {dice.map((d, i) => (
-                <Dice3D key={i} value={d} size={44} />
-              ))}
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)', ml: 0.5 }}>
-                {dice.join(' و ')}
-              </Typography>
-            </Box>
+            (() => {
+              // گروه‌بندی تاس‌ها (جفت → ۴ تاس، هر حرکت یکی مصرف می‌شود)
+              const groups: { value: number; count: number }[] = [];
+              for (const d of dice) {
+                const g = groups.find((x) => x.value === d);
+                if (g) g.count++;
+                else groups.push({ value: d, count: 1 });
+              }
+              return (
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  {groups.map((g) => (
+                    <Box key={g.value} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Dice3D value={g.value} size={44} />
+                      {g.count > 1 && (
+                        <Typography
+                          component="span"
+                          sx={{
+                            bgcolor: 'rgba(245,158,11,0.18)',
+                            color: '#FBBF24',
+                            border: '1px solid rgba(251,191,36,0.35)',
+                            borderRadius: 2,
+                            px: 0.75,
+                            py: 0.25,
+                            fontSize: '0.7rem',
+                            fontWeight: 900,
+                          }}
+                        >
+                          ×{g.count}
+                        </Typography>
+                      )}
+                    </Box>
+                  ))}
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)', ml: 0.5 }}>
+                    {groups.map((g) => g.value).join(' و ')}
+                  </Typography>
+                </Box>
+              );
+            })()
           ) : (
             <Typography
               variant="overline"

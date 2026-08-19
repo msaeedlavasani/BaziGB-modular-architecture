@@ -84,6 +84,7 @@ export default function ChessBoard({ state, onMove, disabled = false, orientatio
         maxWidth: 560,
         mx: 'auto',
         borderRadius: 4,
+        direction: 'ltr', // برد شطرنج LTR است حتی در صفحهٔ RTL
         background: '#6B4423',
         p: { xs: 1, sm: 1.5 },
         border: '1px solid rgba(245, 158, 11, 0.2)',

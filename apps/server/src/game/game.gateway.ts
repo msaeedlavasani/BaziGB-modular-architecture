@@ -49,7 +49,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private readonly socketUsers = new Map<string, string>();
   private readonly socketUsernames = new Map<string, string>();
-  private readonly vacatedUsers = new Map<string, { value: string | null; at: number }>();
+  private readonly vacatedUsers = new Map<
+    string,
+    { value: string | null; at: number; socketId: string; seatKey?: string }
+  >();
   private readonly seatKeys = new Map<string, { value: string; at: number }>();
   private readonly undoStacks = new Map<string, { state: GameState; actorId: string }[]>();
   private readonly turnTimers = new Map<string, NodeJS.Timeout>();
@@ -170,9 +173,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!room) continue;
       if (room.players.includes(client.id) && room.status !== 'finished') {
         await this.roomService.removePlayer(roomCode, client.id);
-        if (userId) {
-          this.vacatedUsers.set(`${roomCode}:${client.id}`, { value: userId, at: Date.now() });
-        }
+        const seatKey = this.seatKeys.get(`${roomCode}:${client.id}`)?.value;
+        const entry = { value: userId ?? null, at: Date.now(), socketId: client.id, seatKey };
+        // کلیدهای مختلف برای بازپسگیری: با socket قدیمی، با userId، با seatKey
+        this.vacatedUsers.set(`${roomCode}:${client.id}`, entry);
+        if (userId) this.vacatedUsers.set(`${roomCode}:user:${userId}`, entry);
+        if (seatKey) this.vacatedUsers.set(`${roomCode}:key:${seatKey}`, entry);
         this.server.to(roomCode).emit('roomUpdate', room);
         this.emitSystemMessage(roomCode, 'یک بازیکن از اتاق خارج شد', userId, 'info', this.socketUsernames.get(client.id));
       }
@@ -198,14 +204,71 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  private getVacatedUser(roomCode: string, socketId: string): string | null {
-    const entry = this.vacatedUsers.get(`${roomCode}:${socketId}`);
+  /** یافتن نشستِ خالی‌شده با هر کلید (socketId / userId / seatKey) */
+  private getVacatedEntry(
+    key: string,
+  ): { value: string | null; at: number; socketId: string; seatKey?: string } | null {
+    const entry = this.vacatedUsers.get(key);
     if (!entry) return null;
     if (Date.now() - entry.at > SEAT_CLAIM_TTL) {
-      this.vacatedUsers.delete(`${roomCode}:${socketId}`);
+      this.clearVacatedBySocket(entry.socketId);
       return null;
     }
-    return entry.value;
+    return entry;
+  }
+
+  /** پاک کردن همهٔ کلیدهای یک نشست خالی‌شده */
+  private clearVacatedBySocket(socketId: string) {
+    for (const key of this.vacatedUsers.keys()) {
+      if (key.endsWith(`:${socketId}`) || this.vacatedUsers.get(key)?.socketId === socketId) {
+        this.vacatedUsers.delete(key);
+      }
+    }
+  }
+
+  /** جایگزینی شناسهٔ سوکت قدیمی با جدید در state جاری (پس از ریفرش/بازاتصال) */
+  private swapPlayerIds(state: GameState, oldId: string, newId: string): GameState {
+    const next = JSON.parse(JSON.stringify(state)) as Record<string, unknown> & {
+      players?: { id: string }[];
+      turn?: string;
+      winner?: string | null;
+      scores?: Record<string, number>;
+      playerCash?: Record<string, number>;
+      playerCards?: Record<string, number>;
+      playerDice?: Record<string, unknown>;
+      playerDiceRemaining?: Record<string, number>;
+      board?: unknown;
+    };
+    if (Array.isArray(next.players)) {
+      for (const p of next.players) if (p.id === oldId) p.id = newId;
+    }
+    if (next.turn === oldId) next.turn = newId;
+    if (next.winner === oldId) next.winner = newId;
+    if (next.scores && oldId in next.scores) {
+      next.scores[newId] = next.scores[oldId];
+      delete next.scores[oldId];
+    }
+    // وگاس: نقشه‌های کلیدخورده با playerId
+    for (const mapName of ['playerCash', 'playerCards', 'playerDice', 'playerDiceRemaining'] as const) {
+      const map = next[mapName] as Record<string, unknown> | undefined;
+      if (map && oldId in map) {
+        map[newId] = map[oldId];
+        delete map[oldId];
+      }
+    }
+    if (Array.isArray(next.board)) {
+      for (const casino of next.board as { dice?: Record<string, number>; stack?: { winnerIndex?: string | null; runnerUpIndex?: string | null } }[]) {
+        if (casino?.dice && oldId in casino.dice) {
+          casino.dice[newId] = casino.dice[oldId];
+          delete casino.dice[oldId];
+        }
+        if (casino?.stack) {
+          if (casino.stack.winnerIndex === oldId) casino.stack.winnerIndex = newId;
+          if (casino.stack.runnerUpIndex === oldId) casino.stack.runnerUpIndex = newId;
+        }
+      }
+    }
+    return next as GameState;
   }
 
   private issueSeatKey(client: Socket, roomCode: string) {
@@ -248,25 +311,48 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       // ۲) بازپسگیری صندلی خالی شده (بعد از قطع اتصال/رفرش)
-      if (room.players.includes(client.id)) {
-        // اتصال مجدد همان نشست
-      } else {
-        const vacatedUserId = this.getVacatedUser(roomCode, client.id);
+      if (!room.players.includes(client.id)) {
         const boundUserId = this.socketUsers.get(client.id);
-        const sameUser = vacatedUserId && boundUserId && vacatedUserId === boundUserId;
-        const sameSeatKey =
-          seatKey && this.seatKeys.get(`${roomCode}:${client.id}`)?.value === seatKey;
-        if (sameUser || sameSeatKey) {
-          // صندلی خالی شده توسط همان کاربر/نشست → جابهجایی بهجای صندلی جدید
-          const oldSocketId = room.players.find((p) => p !== client.id && this.getVacatedUser(roomCode, p) === boundUserId);
-          if (oldSocketId) {
-            await this.roomService.swapPlayer(roomCode, oldSocketId, client.id);
-            this.vacatedUsers.delete(`${roomCode}:${oldSocketId}`);
-            this.issueSeatKey(client, roomCode);
-            await client.join(roomCode);
-            this.server.to(roomCode).emit('roomUpdate', room);
-            return;
+        let oldSocketId: string | undefined;
+
+        // (الف) کاربر لاگین‌شده: همان کاربر روی سوکت دیگری هنوز نشسته است (ریفرش)
+        if (boundUserId) {
+          oldSocketId = room.players.find(
+            (p) => p !== client.id && this.socketUsers.get(p) === boundUserId,
+          );
+        }
+        // (ب) صندلی خالی‌شده (disconnect اجرا شده) — با userId یا seatKey یا socketId
+        if (!oldSocketId) {
+          const reclaimEntry =
+            (boundUserId ? this.getVacatedEntry(`${roomCode}:user:${boundUserId}`) : null) ??
+            (seatKey ? this.getVacatedEntry(`${roomCode}:key:${seatKey}`) : null) ??
+            this.getVacatedEntry(`${roomCode}:${client.id}`);
+          oldSocketId = reclaimEntry?.socketId;
+        }
+        // (ج) race ریفرش: سوکت قدیمی هنوز متصل است و همین seatKey را دارد
+        if (!oldSocketId && seatKey) {
+          const hit = [...this.seatKeys.entries()].find(
+            ([k, v]) => k.startsWith(`${roomCode}:`) && v.value === seatKey,
+          );
+          oldSocketId = hit ? hit[0].split(':').pop() : undefined;
+        }
+
+        if (oldSocketId && room.players.includes(oldSocketId)) {
+          // همان نشست/کاربر دوباره متصل شد → جابه‌جایی به صندلی قبلی
+          await this.roomService.swapPlayer(roomCode, oldSocketId, client.id);
+          if (room.currentState) {
+            const swapped = this.swapPlayerIds(room.currentState, oldSocketId, client.id);
+            await this.roomService.saveState(roomCode, swapped);
+            this.server.to(roomCode).emit('gameState', swapped);
+            this.scheduleTurnTimer(roomCode, swapped);
           }
+          this.clearVacatedBySocket(oldSocketId);
+          this.issueSeatKey(client, roomCode);
+          await client.join(roomCode);
+          const freshRoom = await this.roomService.getRoom(roomCode);
+          this.server.to(roomCode).emit('roomUpdate', freshRoom);
+          this.emitSystemMessage(roomCode, 'بازیکن دوباره متصل شد', this.socketUsers.get(client.id), 'success', this.socketUsernames.get(client.id));
+          return;
         }
       }
 
