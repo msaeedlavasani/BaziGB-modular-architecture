@@ -1,225 +1,334 @@
-/**
- * قوانین خالص وگاس — تاس و شرط‌بندی (تغییرناپذیر)
- * ⚠️ بدون Match Point و Win by 2 (قانون جداسازی: فقط نرد و دوز)
- */
 import {
+  GameAdapter,
+  Player,
+  MatchConfig,
   DEFAULT_MATCH,
-  diceSteps,
-  rollDicePair,
   sanitizeMatch,
-  switchTurn,
-  type GameAdapter,
-  type MatchConfig,
-  type Move,
-  type Player,
+  deepClone,
 } from '@bazigb/engine';
-import {
-  INITIAL_CHIPS,
-  MAX_BET,
-  TRACK_LENGTH,
-  type VegasBoard,
-  type VegasMove,
-  type VegasState,
-} from './types';
+import { CasinoData, VegasMove, VegasState, TOTAL_ROUNDS, DICE_PER_PLAYER } from './types';
 
-/** ساخت وضعیت اولیه */
-export function createState(players: Player[], match?: MatchConfig): VegasState {
-  // وگاس هرگز matchPoint ندارد — sanitizeMatch این را تضمین میکند
-  const safe = sanitizeMatch('vegas', match ?? DEFAULT_MATCH);
-  const [p1, p2] = players;
+/**
+ * قوانین وگاس — بازسازی کامل نسخه قدیمی BaziGB روی رابط GameAdapter جدید.
+ * `board` در state همان ۶ کازینو است (قرارداد GameState).
+ */
+
+const DENOMS = [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000];
+const COPIES_PER_DENOM = 6; // 6 نسخه از هر ارزش → ۵۴ کارت
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildDeck(): number[] {
+  const deck: number[] = [];
+  for (let i = 0; i < COPIES_PER_DENOM; i++) deck.push(...DENOMS);
+  return shuffle(deck);
+}
+
+/** ریختن n تاس شش‌وجهی */
+export function rollDiceN(n: number): number[] {
+  return Array.from({ length: n }, () => 1 + Math.floor(Math.random() * 6));
+}
+
+/** پخش دسته‌های پول روی ۶ کازینو (باارزش‌ترین روی کازینو ۶) */
+function dealRound(): CasinoData[] {
+  const deck = buildDeck();
+  const stacks: number[][] = [];
+  for (let i = 0; i < 6; i++) {
+    const a = deck[i * 2];
+    const b = deck[i * 2 + 1];
+    stacks.push([Math.max(a, b), Math.min(a, b)]);
+  }
+  // مرتب‌سازی نزولی بر اساس مجموع؛ تساوی → کارت بالاتر
+  stacks.sort((x, y) => y[0] + y[1] - (x[0] + x[1]) || y[0] - x[0]);
+
+  const casinos: CasinoData[] = [];
+  for (let i = 0; i < 6; i++) {
+    const stack = stacks[5 - i]; // کازینو ۶ (ایندکس ۵) باارزش‌ترین دسته را می‌گیرد
+    casinos.push({
+      dice: {},
+      stack:
+        stack !== undefined
+          ? { cards: stack, winnerIndex: null, runnerUpIndex: null, burned: false, swept: false }
+          : null,
+    });
+  }
+  return casinos;
+}
+
+/** پرداخت یک کازینو و به‌روزرسانی دفتر پول/کارت‌ها */
+function resolveCasino(
+  casino: CasinoData,
+  playerCash: Record<string, number>,
+  playerCards: Record<string, number>,
+): CasinoData {
+  if (!casino.stack) return casino;
+  const stack = { ...casino.stack };
+  const entries = Object.entries(casino.dice).filter(([, c]) => c > 0);
+
+  const pay = (pId: string, amount: number, cards: number) => {
+    playerCash[pId] = (playerCash[pId] ?? 0) + amount;
+    playerCards[pId] = (playerCards[pId] ?? 0) + cards;
+  };
+
+  if (entries.length === 0) {
+    stack.burned = true;
+    return { ...casino, stack };
+  }
+
+  entries.sort((a, b) => b[1] - a[1]);
+
+  // قانون خانگی: همهٔ ۸ تاس روی یک کازینو → هر دو کارت (sweep)
+  const swept = entries.filter(([, c]) => c === DICE_PER_PLAYER);
+  if (swept.length === 1) {
+    const pId = swept[0][0];
+    stack.swept = true;
+    stack.winnerIndex = pId;
+    pay(pId, stack.cards[0] + stack.cards[1], 2);
+    return { ...casino, stack };
+  }
+  if (swept.length > 1) {
+    stack.burned = true;
+    return { ...casino, stack };
+  }
+
+  // تساوی در رتبه اول → کل دسته می‌سوزد
+  const topCount = entries[0][1];
+  if (entries.filter(([, c]) => c === topCount).length > 1) {
+    stack.burned = true;
+    return { ...casino, stack };
+  }
+
+  const winner = entries[0][0];
+  stack.winnerIndex = winner;
+  pay(winner, stack.cards[0], 1);
+
+  const rest = entries.slice(1);
+  if (rest.length > 0) {
+    const runnerCount = rest[0][1];
+    if (rest.filter(([, c]) => c === runnerCount).length > 1) {
+      stack.burned = true; // کارت پایین‌تر سوخت
+    } else {
+      const runner = rest[0][0];
+      stack.runnerUpIndex = runner;
+      pay(runner, stack.cards[1], 1);
+    }
+  } else {
+    stack.burned = true;
+  }
+
+  return { ...casino, stack };
+}
+
+/** محاسبه برندهٔ کل بازی: بیشترین پول، تساوی‌شکن کارت، بعد مساوی */
+function computeWinner(state: VegasState): string | null {
+  let best = -1;
+  let leaders: string[] = [];
+  for (const pId of Object.keys(state.playerCash)) {
+    const cash = state.playerCash[pId] ?? 0;
+    if (cash > best) {
+      best = cash;
+      leaders = [pId];
+    } else if (cash === best) {
+      leaders.push(pId);
+    }
+  }
+  if (leaders.length === 1) return leaders[0];
+  let bestCards = -1;
+  let cardLeaders: string[] = [];
+  for (const pId of leaders) {
+    const cards = state.playerCards[pId] ?? 0;
+    if (cards > bestCards) {
+      bestCards = cards;
+      cardLeaders = [pId];
+    } else if (cards === bestCards) {
+      cardLeaders.push(pId);
+    }
+  }
+  return cardLeaders.length === 1 ? cardLeaders[0] : null; // مساوی
+}
+
+function resolveRound(state: VegasState): VegasState {
+  const playerCash = { ...state.playerCash };
+  const playerCards = { ...state.playerCards };
+  const board = state.board.map((casino) => resolveCasino(casino, playerCash, playerCards));
+
+  const next: VegasState = {
+    ...state,
+    board,
+    playerCash,
+    playerCards,
+    phase: 'roundEnd',
+  };
+
+  if (state.round >= state.totalRounds) {
+    next.phase = 'finished';
+    next.winner = computeWinner(next);
+  }
+  return next;
+}
+
+/** نوبت بعدی: اولین بازیکنی که هنوز تاس دارد */
+function nextTurn(state: VegasState): string {
+  const players = state.players;
+  const idx = players.findIndex((p) => p.id === state.turn);
+  for (let i = 1; i <= players.length; i++) {
+    const p = players[(idx + i) % players.length];
+    if ((state.playerDiceRemaining[p.id] ?? 0) > 0) return p.id;
+  }
+  return state.turn;
+}
+
+/** ایجاد وضعیت اولیه (راند ۱) */
+export const createState = (players: Player[], match?: MatchConfig): VegasState => {
+  const scores: Record<string, number> = {};
+  const playerCash: Record<string, number> = {};
+  const playerCards: Record<string, number> = {};
+  const playerDiceRemaining: Record<string, number> = {};
+  for (const p of players) {
+    scores[p.id] = 0;
+    playerCash[p.id] = 0;
+    playerCards[p.id] = 0;
+    playerDiceRemaining[p.id] = DICE_PER_PLAYER;
+  }
   return {
     gameId: 'vegas',
-    board: { length: TRACK_LENGTH },
-    turn: p1.id,
-    phase: 'bet',
-    winner: null,
-    history: [],
-    match: safe,
-    scores: { [p1.id]: INITIAL_CHIPS, [p2.id]: INITIAL_CHIPS },
+    board: dealRound(),
+    playerCash,
+    playerCards,
+    playerDice: {},
+    playerDiceRemaining,
     round: 1,
-    players: [p1, p2],
-    positions: { [p1.id]: 0, [p2.id]: 0 },
-    pot: 0,
-    bets: { [p1.id]: 0, [p2.id]: 0 },
-    dice: [],
-    maxRounds: 20,
+    totalRounds: TOTAL_ROUNDS,
+    phase: 'playing',
+    turn: players[0]?.id ?? '',
+    winner: null,
+    players,
+    history: [],
+    match: sanitizeMatch('vegas', match ?? DEFAULT_MATCH),
+    scores,
+    rolled: false,
   };
-}
+};
 
-/** آیا بازیکن به پایان مسیر رسیده است؟ */
-export function reachedEnd(state: VegasState, playerId: string): boolean {
-  return (state.positions[playerId] ?? 0) >= state.board.length;
-}
-
-/** حرکات قانونی بر اساس فاز */
-export function getLegalMoves(state: VegasState): VegasMove[] {
+/** حرکت‌های قانونی نوبت جاری */
+export const getLegalMoves = (state: VegasState): VegasMove[] => {
   if (state.phase === 'finished') return [];
-  const player = state.turn;
-  const chips = state.scores[player] ?? 0;
-
-  if (state.phase === 'bet') {
-    const max = Math.min(MAX_BET, chips);
-    const moves: VegasMove[] = [];
-    for (let amount = 1; amount <= max; amount++) {
-      moves.push({ player, kind: 'bet', amount });
-    }
-    return moves;
+  if (state.phase === 'roundEnd') {
+    return state.round < state.totalRounds ? [{ player: state.turn, kind: 'nextRound' }] : [];
   }
-
-  if (state.phase === 'roll') {
-    return [{ player, kind: 'roll' }];
+  if (!state.rolled) {
+    return [{ player: state.turn, kind: 'roll' }];
   }
+  const hand = state.playerDice[state.turn] ?? [];
+  const values = Array.from(new Set(hand)).filter((v) => v >= 1 && v <= 6).sort((a, b) => a - b);
+  return values.map((value) => ({ player: state.turn, kind: 'place', value }));
+};
 
-  if (state.phase === 'move') {
-    const pos = state.positions[player] ?? 0;
-    const steps = diceSteps(state.dice);
-    let to = pos;
-    const chain: Move[] = [];
-    for (const step of steps) {
-      const from = to;
-      to = Math.min(to + step, state.board.length);
-      chain.push({ player, kind: 'move', from, to });
-    }
-    return [{ player, kind: 'move', from: pos, to, chain }];
-  }
-
-  return [];
-}
-
-/** پایان راند: پرداخت پات و بررسی پایان مسابقه */
-function resolveRound(state: VegasState, winnerId: string): VegasState {
-  const pot = state.pot;
-  const chips = { ...state.scores, [winnerId]: (state.scores[winnerId] ?? 0) + pot };
-  const loser = state.players.find((p) => p.id !== winnerId)?.id;
-  const loserBroke = loser !== undefined && (chips[loser] ?? 0) <= 0;
-  const history = [...state.history];
-
-  if (loserBroke || state.round >= state.maxRounds) {
-    return {
-      ...state,
-      scores: chips,
-      history,
-      phase: 'finished',
-      winner: winnerId,
-    };
-  }
-
-  // راند جدید
-  return {
-    ...state,
-    scores: chips,
-    history,
-    positions: { [state.players[0].id]: 0, [state.players[1].id]: 0 },
-    pot: 0,
-    bets: { [state.players[0].id]: 0, [state.players[1].id]: 0 },
-    dice: [],
-    phase: 'bet',
-    turn: state.players[0].id,
-    round: state.round + 1,
-  };
-}
-
-/** اعمال حرکت (با اعتبارسنجی کامل) */
-export function applyMove(state: VegasState, move: VegasMove): VegasState {
-  if (state.phase === 'finished') throw new Error('بازی تمام شده است');
-  if (move.player !== state.turn) throw new Error('نوبت این بازیکن نیست');
-  const history = [...state.history, move];
-
-  if (move.kind === 'bet') {
-    if (state.phase !== 'bet') throw new Error('در این مرحله شرط مجاز نیست');
-    const chips = state.scores[state.turn] ?? 0;
-    if (move.amount < 1 || move.amount > Math.min(MAX_BET, chips)) {
-      throw new Error('مبلغ شرط نامعتبر است');
-    }
-    return {
-      ...state,
-      history,
-      scores: { ...state.scores, [state.turn]: chips - move.amount },
-      bets: { ...state.bets, [state.turn]: move.amount },
-      pot: state.pot + move.amount,
-      phase: 'roll',
-    };
-  }
-
+export const applyMove = (state: VegasState, move: VegasMove): VegasState => {
   if (move.kind === 'roll') {
-    if (state.phase !== 'roll') throw new Error('در این مرحله تاس مجاز نیست');
-    const dice = rollDicePair();
-    return { ...state, history, dice: [...dice], phase: 'move' };
-  }
-
-  if (move.kind === 'move') {
-    if (state.phase !== 'move') throw new Error('در این مرحله حرکت مجاز نیست');
-    // اعتبارسنجی زنجیره گام به گام (Combined Moves)
-    let pos = state.positions[state.turn] ?? 0;
-    const steps = diceSteps(state.dice);
-    if (move.chain.length !== steps.length) throw new Error('زنجیره حرکت ناقص است');
-    move.chain.forEach((step, i) => {
-      const prev = i === 0 ? pos : Number(move.chain[i - 1].to);
-      const expectedFrom = prev;
-      const expectedTo = Math.min(prev + steps[i], state.board.length);
-      if (Number(step.from) !== expectedFrom || Number(step.to) !== expectedTo) {
-        throw new Error('گام زنجیره نامعتبر است');
-      }
-    });
-    pos = move.to;
-
-    if (pos >= state.board.length) {
-      return resolveRound({ ...state, history, positions: { ...state.positions, [state.turn]: pos } }, state.turn);
-    }
-
+    if (state.phase !== 'playing' || state.rolled) return state;
+    const count = state.playerDiceRemaining[move.player] ?? 0;
+    if (count <= 0) return state;
     return {
       ...state,
-      history,
-      positions: { ...state.positions, [state.turn]: pos },
-      dice: [],
-      phase: 'bet',
-      turn: switchTurn(state.turn, state.players),
+      playerDice: { ...state.playerDice, [move.player]: rollDiceN(count) },
+      rolled: true,
     };
   }
 
-  throw new Error('حرکت نامعتبر است');
-}
+  if (move.kind === 'place') {
+    if (state.phase !== 'playing' || !state.rolled || move.player !== state.turn) return state;
+    const hand = state.playerDice[move.player] ?? [];
+    const count = hand.filter((d) => d === move.value).length;
+    if (count === 0 || move.value! < 1 || move.value! > 6) return state;
 
-/** اعتبارسنجی و اعمال زنجیره حرکات ترکیبی */
-export function applyChain(state: VegasState, chain: VegasMove[]): VegasState {
-  if (chain.length === 0) throw new Error('زنجیره خالی است');
-  let s = state;
-  for (const step of chain) {
-    s = applyMove(s, step);
+    const board = state.board.map((c) => ({ ...c, dice: { ...c.dice } }));
+    const casino = board[move.value! - 1];
+    casino.dice[move.player] = (casino.dice[move.player] ?? 0) + count;
+
+    let next: VegasState = {
+      ...state,
+      board,
+      playerDice: { ...state.playerDice, [move.player]: [] },
+      playerDiceRemaining: {
+        ...state.playerDiceRemaining,
+        [move.player]: (state.playerDiceRemaining[move.player] ?? 0) - count,
+      },
+      rolled: false,
+    };
+
+    const allDone = Object.values(next.playerDiceRemaining).every((c) => c <= 0);
+    if (allDone) {
+      next = resolveRound(next);
+    } else {
+      next = { ...next, turn: nextTurn(next) };
+    }
+    return next;
   }
-  return s;
-}
 
-export function isFinished(state: VegasState): boolean {
-  return state.phase === 'finished';
-}
+  if (move.kind === 'nextRound') {
+    if (state.phase !== 'roundEnd' || state.round >= state.totalRounds) return state;
+    const players = state.players;
+    const playerDiceRemaining: Record<string, number> = {};
+    for (const p of players) playerDiceRemaining[p.id] = DICE_PER_PLAYER;
+    return {
+      ...state,
+      board: dealRound(),
+      playerDice: {},
+      playerDiceRemaining,
+      round: state.round + 1,
+      phase: 'playing',
+      turn: players[0]?.id ?? state.turn,
+      rolled: false,
+    };
+  }
 
-export function getWinner(state: VegasState): string | null {
-  return state.winner;
-}
+  return state;
+};
 
-/** وضعیت برای کلاینت */
-export function serialize(state: VegasState) {
-  return {
-    gameId: state.gameId,
-    positions: state.positions,
-    chips: state.scores,
-    pot: state.pot,
-    bets: state.bets,
-    dice: state.dice,
-    phase: state.phase,
-    turn: state.turn,
-    winner: state.winner,
-    round: state.round,
-  };
-}
+export const applyChain = (state: VegasState, chain: VegasMove[]): VegasState => {
+  let current = deepClone(state);
+  for (const move of chain) {
+    const legal = getLegalMoves(current);
+    const ok = legal.some(
+      (m) => m.kind === move.kind && (m as { value?: number }).value === (move as { value?: number }).value,
+    );
+    if (!ok) throw new Error('Invalid move in chain');
+    current = applyMove(current, move);
+  }
+  return current;
+};
 
-/** تطبیقگر رسمی بازی وگاس (قرارداد GameAdapter) */
-export const Vegas: GameAdapter<VegasBoard, VegasMove> = {
+export const isFinished = (state: VegasState) => state.phase === 'finished';
+export const getWinner = (state: VegasState) => state.winner;
+
+export const serialize = (state: VegasState) => ({
+  board: state.board,
+  playerCash: state.playerCash,
+  playerCards: state.playerCards,
+  playerDice: state.playerDice,
+  playerDiceRemaining: state.playerDiceRemaining,
+  round: state.round,
+  totalRounds: state.totalRounds,
+  phase: state.phase,
+  turn: state.turn,
+  winner: state.winner,
+  scores: state.scores,
+  rolled: state.rolled,
+});
+
+export const Vegas: GameAdapter<CasinoData[], VegasMove> = {
   gameId: 'vegas',
   name: 'وگاس',
-  minPlayers: 2,
-  maxPlayers: 2,
+  minPlayers: 1,
+  maxPlayers: 5,
   createState,
   getLegalMoves,
   applyMove,

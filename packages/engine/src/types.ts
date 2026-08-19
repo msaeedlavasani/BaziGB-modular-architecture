@@ -30,7 +30,7 @@ export interface Player {
   score?: number;
 }
 
-export type GamePhase = 'waiting' | 'playing' | 'finished' | 'bet' | 'roll' | 'move';
+export type GamePhase = 'waiting' | 'playing' | 'finished' | 'bet' | 'roll' | 'move' | 'roundEnd';
 
 /**
  * پیکربندی مسابقه.
@@ -66,6 +66,8 @@ export interface Move {
   chain?: Move[];
   /** مبلغ شرط (وگاس) */
   amount?: number;
+  /** مقدار انتخاب‌شده (وگاس): کدام عدد تاس روی کدام کازینو گذاشته شود */
+  value?: number;
   /** مهره ترقی (شطرنج): q/r/b/n */
   promotion?: string;
   /** توضیح اختیاری برای لاگ/UI */

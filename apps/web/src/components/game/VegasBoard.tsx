@@ -1,88 +1,138 @@
 'use client';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import Paper from '@mui/material/Paper';
 import Chip from '@mui/material/Chip';
-import type { VegasMove, VegasState } from '@bazigb/game-vegas';
-import { diceSteps } from '@bazigb/engine';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
+import CircularProgress from '@mui/material/CircularProgress';
+import { Banknote, Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Flame, Loader2, Trophy } from 'lucide-react';
+import type { CasinoData, VegasMove, VegasState } from '@bazigb/game-vegas';
 import Dice3D from './Dice3D';
+import { soundService } from '@/lib/sound-service';
 
 interface Props {
   state: VegasState;
   onMove: (move: VegasMove) => void;
   disabled?: boolean;
+  /** شناسه بازیکن محلی (برای برچسب «شما») */
+  youId?: string;
 }
 
-const GOLD = '#EEAC2F';
-const BLUE = '#7FA8D9';
+const DiceIcons = [null, Dice1, Dice2, Dice3, Dice4, Dice5, Dice6];
+const DICE_PALETTE = ['#f59e0b', '#3b82f6', '#10b981', '#a855f7', '#ef4444'];
 
-/**
- * برد وگاس — مسیر ۱۲ نقطه‌ای با ظاهر میز کازینو (میز چرمی سبز، چیپ‌های
- * سه‌بعدی، تاس) روی قوانین انجین جدید: شرط → ریختن تاس → حرکت ترکیبی.
- */
-export default function VegasBoard({ state, onMove, disabled }: Props) {
-  const myId = state.players[0]?.id ?? 'p1';
-  const botId = state.players[1]?.id ?? 'p2';
-  const myPos = state.positions?.[myId] ?? 0;
-  const botPos = state.positions?.[botId] ?? 0;
-  const myChips = state.scores?.[myId] ?? 0;
-  const botChips = state.scores?.[botId] ?? 0;
-  const isMyTurn = state.turn === myId && state.phase !== 'finished';
+function playerColor(pIdx: number): string {
+  return DICE_PALETTE[pIdx % DICE_PALETTE.length];
+}
 
-  const renderToken = (pos: number, color: string) => {
-    if (pos >= 12) {
-      return (
-        <Box sx={{ position: 'absolute', right: 8, top: color === GOLD ? 4 : 'auto', bottom: color === GOLD ? 'auto' : 4, fontSize: 22, zIndex: 3 }}>
-          🏁
+/** کارت پول یک کازینو */
+function MoneyCard({
+  value,
+  ownerIdx,
+  resolved,
+  swept,
+}: {
+  value: number;
+  ownerIdx: string | null;
+  resolved: boolean;
+  swept: boolean;
+}) {
+  const color = ownerIdx !== null ? playerColor(parseInt(ownerIdx, 10) % DICE_PALETTE.length) : undefined;
+  const burned = resolved && ownerIdx === null;
+  return (
+    <Box
+      sx={{
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 0.5,
+        borderRadius: 2,
+        border: '1px solid',
+        px: 2,
+        py: 1.5,
+        boxShadow: swept ? '0 0 14px rgba(250,204,21,0.45)' : 1,
+        transition: 'all 0.2s',
+        opacity: burned ? 0.4 : 1,
+        filter: burned ? 'grayscale(1)' : 'none',
+        bgcolor: color ? `${color}1f` : 'rgba(16,185,129,0.08)',
+        borderColor: color ? color : swept ? 'rgba(250,204,21,0.6)' : 'rgba(16,185,129,0.25)',
+      }}
+    >
+      <Banknote size={12} style={{ color: color ?? '#34d399' }} />
+      <Typography variant="caption" sx={{ fontSize: '10px', fontWeight: 900, lineHeight: 1, color: color ?? '#34d399' }}>
+        ${value.toLocaleString()}
+      </Typography>
+      {burned && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: -6,
+            right: -6,
+            borderRadius: '50%',
+            bgcolor: '#2C3A45',
+            p: 0.5,
+            color: '#94A3B8',
+            display: 'flex',
+          }}
+          title="Burned"
+        >
+          <Flame size={10} />
         </Box>
-      );
-    }
-    return (
-      <Box
-        sx={{
-          position: 'absolute',
-          right: `calc(${(pos / 12) * 100}% + ${6 + (pos / 12) * 12}px)`,
-          top: color === GOLD ? 6 : 'auto',
-          bottom: color === GOLD ? 'auto' : 6,
-          width: 26,
-          height: 26,
-          borderRadius: '50%',
-          zIndex: 3,
-          background: `radial-gradient(circle at 35% 30%, ${color === GOLD ? '#FFD27A' : '#9DBEDD'} 0%, ${color} 55%, ${color === GOLD ? '#8A6410' : '#16324F'} 100%)`,
-          boxShadow: [
-            'inset 0 2px 3px rgba(255,255,255,0.45)',
-            'inset 0 -3px 6px rgba(0,0,0,0.4)',
-            'inset 0 0 0 2px rgba(255,255,255,0.18)',
-            '0 2px 3px rgba(0,0,0,0.55)',
-            '0 8px 12px rgba(0,0,0,0.3)',
-          ].join(', '),
-        }}
-      />
-    );
+      )}
+    </Box>
+  );
+}
+
+export default function VegasBoard({ state, onMove, disabled = false, youId }: Props) {
+  const myId = youId ?? state.players[0]?.id ?? '';
+  const players = state.players;
+  const hand = state.playerDice[myId] ?? [];
+  const handCounts: Record<number, number> = {};
+  hand.forEach((v) => {
+    handCounts[v] = (handCounts[v] || 0) + 1;
+  });
+
+  const myIndex = players.findIndex((p) => p.id === myId);
+  const myColor = myIndex !== -1 ? playerColor(myIndex) : undefined;
+  const isMyTurn = state.turn === myId && state.phase === 'playing' && !disabled;
+
+  const handleValueClick = (value: number) => {
+    if (disabled || !isMyTurn || state.phase !== 'playing' || hand.length === 0) return;
+    soundService.play('move');
+    onMove({ player: state.turn, kind: 'place', value });
   };
 
-  const moveChain = () => {
-    const steps = diceSteps(state.dice);
-    let pos = myPos;
-    const chain: { player: string; kind: 'move'; from: number; to: number }[] = [];
-    for (const step of steps) {
-      const from = pos;
-      pos = Math.min(pos + step, 12);
-      chain.push({ player: state.turn, kind: 'move', from, to: pos });
-    }
-    onMove({ player: state.turn, kind: 'move', from: myPos, to: pos, chain });
+  const handleRollClick = () => {
+    if (disabled || !isMyTurn || state.phase !== 'playing' || hand.length > 0) return;
+    soundService.play('dice');
+    onMove({ player: state.turn, kind: 'roll' });
   };
+
+  const leaderboard = players
+    .map((p, pIdx) => ({
+      pIdx,
+      id: p.id,
+      cash: state.playerCash[p.id] ?? 0,
+      cards: state.playerCards[p.id] ?? 0,
+    }))
+    .sort((a, b) => b.cash - a.cash || b.cards - a.cards);
+
+  const isFinalRound = state.round >= state.totalRounds;
 
   return (
     <Paper
       elevation={24}
       sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2.5,
         width: '100%',
-        maxWidth: 720,
+        maxWidth: 960,
         mx: 'auto',
         p: { xs: 1.5, sm: 3 },
-        borderRadius: { xs: 3, sm: 5 },
+        borderRadius: 5,
         border: { xs: '6px solid #2a1408', sm: '9px solid #2a1408' },
         background: [
           'repeating-linear-gradient(90deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 2px, transparent 2px, transparent 7px)',
@@ -90,178 +140,493 @@ export default function VegasBoard({ state, onMove, disabled }: Props) {
           'linear-gradient(155deg, #6e3c1d 0%, #4e2912 40%, #331a0b 72%, #241105 100%)',
         ].join(', '),
         boxShadow: '0 30px 60px -15px rgba(0,0,0,0.6)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 2,
       }}
     >
-      {/* میز کازینو */}
-      <Box
-        sx={{
-          position: 'relative',
-          height: 110,
-          borderRadius: 2,
-          border: '4px solid #2b1509',
-          overflow: 'hidden',
-          background: [
-            'radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 45%)',
-            'radial-gradient(130% 120% at 50% 115%, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 55%)',
-            'repeating-linear-gradient(45deg, rgba(0,0,0,0.045) 0px, rgba(0,0,0,0.045) 1px, transparent 1px, transparent 5px)',
-            'radial-gradient(ellipse 150% 110% at 50% 50%, #38543f 0%, #26392c 55%, #152319 100%)',
-          ].join(', '),
-          display: 'flex',
-          alignItems: 'center',
-          px: 1,
-        }}
-      >
-        {/* خانه‌های مسیر */}
-        {Array.from({ length: 12 }, (_, i) => (
-          <Box
-            key={i}
+      {/* سربرگ راند + نوار پول */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Chip
+            label={`راند ${state.round}/${state.totalRounds}`}
+            size="small"
             sx={{
-              flex: 1,
-              height: '100%',
-              borderRight: '1px solid rgba(255,255,255,0.08)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              position: 'relative',
+              fontWeight: 800,
+              bgcolor: 'rgba(178, 93, 22, 0.15)',
+              color: '#F5A306',
+              border: '1px solid',
+              borderColor: 'rgba(245, 163, 6, 0.3)',
             }}
-          >
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontWeight: 700, fontSize: '0.65rem' }}>
-              {i + 1}
-            </Typography>
-            {i === 11 && (
-              <Typography sx={{ position: 'absolute', top: 2, right: 2, fontSize: 12 }}>🎯</Typography>
-            )}
-          </Box>
-        ))}
-
-        {renderToken(myPos, GOLD)}
-        {renderToken(botPos, BLUE)}
-
-        {/* برچسب بازیکن‌ها */}
-        <Box sx={{ position: 'absolute', top: 4, left: 8, display: 'flex', gap: 1.5 }}>
-          <Chip size="small" label={`شما: ${myChips} چیپ`} sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, bgcolor: 'rgba(238,172,47,0.2)', color: GOLD, border: '1px solid rgba(238,172,47,0.4)' }} />
-          <Chip size="small" label={`حریف: ${botChips} چیپ`} sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, bgcolor: 'rgba(127,168,217,0.2)', color: BLUE, border: '1px solid rgba(127,168,217,0.4)' }} />
-        </Box>
-        <Box sx={{ position: 'absolute', bottom: 4, left: 8, display: 'flex', gap: 1.5 }}>
-          <Chip size="small" label={`پات: ${state.pot}`} sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: 'rgba(0,0,0,0.35)', color: 'text.secondary' }} />
-        </Box>
-      </Box>
-
-      {/* تاس + وضعیت */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, flexWrap: 'wrap' }}>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {state.dice?.length ? (
-            <>
-              {state.dice.map((d, i) => (
-                <Dice3D key={i} value={d} size={40} />
-              ))}
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', ml: 0.5 }}>
-                {state.dice.join(' + ')}
-              </Typography>
-            </>
-          ) : (
-            <Typography variant="overline" sx={{ color: GOLD, fontWeight: 700, letterSpacing: '0.1em' }}>
-              {isMyTurn ? 'نوبت شماست' : 'در انتظار حریف…'}
-            </Typography>
+            variant="outlined"
+          />
+          {state.phase === 'roundEnd' && (
+            <Chip
+              icon={<Trophy size={14} />}
+              label="پایان راند — پرداخت‌ها انجام شد"
+              size="small"
+              sx={{
+                fontWeight: 800,
+                bgcolor: 'rgba(245, 158, 11, 0.12)',
+                color: '#FBBF24',
+                border: '1px solid',
+                borderColor: 'rgba(251, 191, 36, 0.4)',
+              }}
+              variant="outlined"
+            />
+          )}
+          {isFinalRound && state.phase === 'roundEnd' && (
+            <Chip
+              label="راند پایانی!"
+              size="small"
+              sx={{
+                fontWeight: 800,
+                bgcolor: 'rgba(16, 185, 129, 0.12)',
+                color: '#34D399',
+                border: '1px solid',
+                borderColor: 'rgba(52, 211, 153, 0.4)',
+              }}
+              variant="outlined"
+            />
           )}
         </Box>
-        <Chip
-          size="small"
-          label={
-            state.phase === 'bet' ? 'فاز شرطبندی' :
-            state.phase === 'roll' ? 'فاز تاس' :
-            state.phase === 'move' ? 'فاز حرکت' : 'پایان'
-          }
-          sx={{
-            fontSize: '0.65rem',
-            fontWeight: 800,
-            bgcolor: 'rgba(238,172,47,0.12)',
-            color: 'primary.light',
-            border: '1px solid rgba(238,172,47,0.25)',
-          }}
-        />
+
+        {/* نوار پول بازیکن‌ها */}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+          {leaderboard.map(({ pIdx, cash, cards }) => {
+            const color = playerColor(pIdx);
+            const isYou = players[pIdx]?.id === myId;
+            return (
+              <Chip
+                key={pIdx}
+                variant="outlined"
+                size="small"
+                avatar={<Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: color, ml: 1 }} />}
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary' }}>
+                      {isYou ? 'شما' : players[pIdx]?.name ?? `بازیکن ${pIdx + 1}`}
+                    </Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 900, color: 'success.light' }}>
+                      ${cash.toLocaleString()}
+                    </Typography>
+                    {cards > 0 && (
+                      <Typography variant="caption" sx={{ fontSize: '9px', fontWeight: 600, color: 'text.disabled' }}>
+                        {cards} کارت
+                      </Typography>
+                    )}
+                  </Box>
+                }
+                sx={{ bgcolor: 'rgba(3, 10, 21, 0.7)', borderColor: 'divider', px: 0.5 }}
+              />
+            );
+          })}
+        </Box>
       </Box>
 
-      {/* کنترل‌ها */}
-      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
-        {state.phase === 'bet' && !disabled && isMyTurn && (
-          <>
-            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>شرط:</Typography>
-            {[1, 3, 5, 10].map((amount) => (
-              <Button
-                key={amount}
-                size="small"
-                variant="outlined"
-                disabled={myChips < amount}
-                onClick={() => onMove({ player: state.turn, kind: 'bet', amount })}
+      {/* شبکه کازینوها */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: '1fr 1fr 1fr' },
+          gap: { xs: 1.5, sm: 2 },
+        }}
+      >
+        {state.board.map((casino: CasinoData, idx: number) => {
+          const value = idx + 1;
+          const DiceIcon = DiceIcons[value]!;
+          const totalDice = Object.values(casino.dice).reduce((a, b) => a + b, 0);
+          const resolved = state.phase === 'roundEnd' || state.phase === 'finished';
+          const stack = casino.stack;
+
+          return (
+            <Paper
+              key={idx}
+              elevation={0}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1.5,
+                p: 2,
+                borderRadius: 4,
+                bgcolor: 'rgba(3, 10, 21, 0.55)',
+                border: '1px solid',
+                borderColor: 'divider',
+                position: 'relative',
+                overflow: 'hidden',
+                minHeight: 150,
+                opacity: stack === null ? 0.6 : 1,
+              }}
+            >
+              {/* سربرگ کازینو */}
+              <Box
                 sx={{
-                  borderRadius: '50%',
-                  minWidth: 44,
-                  width: 44,
-                  height: 44,
-                  fontSize: '0.8rem',
-                  fontWeight: 900,
-                  borderColor: 'rgba(238,172,47,0.5)',
-                  color: GOLD,
-                  background: `radial-gradient(circle at 35% 30%, #FFD27A 0%, #B8860B 55%, #8A6410 100%)`,
-                  border: '2px solid #5A4126',
-                  boxShadow: 'inset 0 2px 3px rgba(255,255,255,0.4), 0 3px 6px rgba(0,0,0,0.5)',
-                  '&.Mui-disabled': { opacity: 0.35, filter: 'grayscale(1)' },
-                  '&:hover': { transform: 'scale(1.06)' },
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  borderBottom: '1px solid',
+                  borderColor: 'divider',
+                  pb: 1,
                 }}
               >
-                {amount}
-              </Button>
-            ))}
-          </>
-        )}
-        {state.phase === 'roll' && !disabled && isMyTurn && (
-          <Button
-            size="small"
-            variant="contained"
-            onClick={() => onMove({ player: state.turn, kind: 'roll' })}
-            sx={{
-              px: 3,
-              py: 1,
-              background: '#EA580C',
-              color: 'white',
-              fontWeight: 900,
-              borderRadius: 3,
-              boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)',
-              '&:hover': { transform: 'scale(1.04)', background: '#F97316' },
-            }}
-          >
-            🎲 ریختن تاس
-          </Button>
-        )}
-        {state.phase === 'move' && !disabled && isMyTurn && (
-          <Button
-            size="small"
-            variant="contained"
-            onClick={moveChain}
-            sx={{
-              px: 3,
-              py: 1,
-              background: '#EA580C',
-              color: 'white',
-              fontWeight: 900,
-              borderRadius: 3,
-              boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)',
-              '&:hover': { transform: 'scale(1.04)', background: '#F97316' },
-            }}
-          >
-            حرکت ترکیبی ⬅
-          </Button>
-        )}
-        {state.phase === 'finished' && (
-          <Typography variant="body1" sx={{ color: 'primary.main', fontWeight: 800 }}>
-            {state.winner ? (state.winner === myId ? '🎉 شما برنده شدید!' : 'حریف برنده شد') : 'مساوی!'}
-          </Typography>
-        )}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ p: 0.75, borderRadius: 2, bgcolor: 'rgba(178, 93, 22, 0.12)', color: '#F5A306', display: 'flex' }}>
+                    <DiceIcon size={22} />
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.secondary' }}>
+                    کازینو {value}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  {stack?.swept && (
+                    <Chip
+                      label="SWEEP!"
+                      size="small"
+                      sx={{
+                        fontSize: '9px',
+                        fontWeight: 900,
+                        bgcolor: 'rgba(245, 158, 11, 0.2)',
+                        color: '#FBBF24',
+                        borderColor: 'rgba(251, 191, 36, 0.5)',
+                        height: 20,
+                      }}
+                      variant="outlined"
+                    />
+                  )}
+                  {stack?.burned && (
+                    <Chip
+                      label="سوخت"
+                      size="small"
+                      sx={{
+                        fontSize: '9px',
+                        fontWeight: 900,
+                        bgcolor: 'rgba(244, 63, 94, 0.15)',
+                        color: '#FB7185',
+                        borderColor: 'rgba(251, 113, 133, 0.4)',
+                        height: 20,
+                      }}
+                      variant="outlined"
+                    />
+                  )}
+                  {totalDice > 0 && (
+                    <Chip
+                      icon={<Dice6 size={12} />}
+                      label={totalDice}
+                      size="small"
+                      sx={{
+                        fontSize: '10px',
+                        fontWeight: 900,
+                        bgcolor: 'background.paper',
+                        borderColor: 'divider',
+                        height: 20,
+                        '& .MuiChip-icon': { color: 'text.disabled' },
+                      }}
+                      variant="outlined"
+                    />
+                  )}
+                </Box>
+              </Box>
+
+              {/* دسته پول: ۲ کارت روی هم */}
+              <Box sx={{ minHeight: 44, display: 'flex', alignItems: 'center' }}>
+                {stack ? (
+                  <Box sx={{ display: 'flex', '& > * + *': { ml: -1 } }}>
+                    {stack.cards.map((cardVal, i) => {
+                      const ownerIdx = i === 0 ? stack.winnerIndex : stack.runnerUpIndex;
+                      const resolvedOwner = resolved ? ownerIdx : null;
+                      return (
+                        <MoneyCard key={i} value={cardVal} ownerIdx={resolvedOwner} resolved={resolved} swept={stack.swept} />
+                      );
+                    })}
+                  </Box>
+                ) : (
+                  <Typography variant="caption" sx={{ fontSize: '10px', fontWeight: 600, color: 'text.disabled' }}>
+                    پولی این راند نیست
+                  </Typography>
+                )}
+              </Box>
+
+              {/* تاس‌های بازیکن‌ها روی کازینو */}
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 'auto' }}>
+                {players.map((p, pIdx) => {
+                  const count = casino.dice[p.id] ?? 0;
+                  if (count === 0) return null;
+                  const color = playerColor(pIdx);
+                  const isYou = p.id === myId;
+                  return (
+                    <Box key={p.id} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                      <Chip
+                        label={isYou ? 'شما' : p.name ?? `P${pIdx + 1}`}
+                        size="small"
+                        sx={{
+                          height: 16,
+                          fontSize: '8px',
+                          fontWeight: 900,
+                          bgcolor: `${color}26`,
+                          color,
+                          border: 'none',
+                          '& .MuiChip-label': { px: 1 },
+                        }}
+                      />
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 0.25, maxWidth: 84 }}>
+                        {Array.from({ length: count }).map((_, i) => (
+                          <Box
+                            key={i}
+                            sx={{
+                              width: 14,
+                              height: 14,
+                              borderRadius: 0.5,
+                              border: '1px solid rgba(255,255,255,0.2)',
+                              boxShadow: 1,
+                              bgcolor: color,
+                            }}
+                          />
+                        ))}
+                      </Box>
+                      <Typography variant="caption" sx={{ fontSize: '10px', fontWeight: 900, color }}>
+                        {count}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+                {totalDice === 0 && (
+                  <Typography variant="caption" sx={{ fontSize: '10px', color: 'text.disabled', fontStyle: 'italic' }}>
+                    — هنوز تاسی نرفته
+                  </Typography>
+                )}
+              </Box>
+            </Paper>
+          );
+        })}
       </Box>
+
+      {/* پنل پایین: جدول رتبه‌بندی / دست شما */}
+      {state.phase === 'roundEnd' ? (
+        <Paper
+          elevation={0}
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            p: { xs: 2, sm: 3 },
+            borderRadius: 4,
+            bgcolor: 'rgba(3, 10, 21, 0.5)',
+            border: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Trophy size={20} color="#fbbf24" />
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'text.disabled' }}>
+              جدول امتیاز
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {leaderboard.map(({ pIdx, cash, cards }, rank) => {
+              const color = playerColor(pIdx);
+              const isYou = players[pIdx]?.id === myId;
+              return (
+                <Paper
+                  key={pIdx}
+                  elevation={0}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                    borderRadius: 3,
+                    border: '1px solid',
+                    px: 2,
+                    py: 1.5,
+                    bgcolor: rank === 0 ? 'rgba(245, 158, 11, 0.1)' : 'rgba(3, 10, 21, 0.6)',
+                    borderColor: rank === 0 ? 'rgba(251, 191, 36, 0.4)' : 'divider',
+                  }}
+                >
+                  <Typography
+                    sx={{ width: 20, textAlign: 'center', fontWeight: 900, color: rank === 0 ? '#FBBF24' : 'text.disabled' }}
+                  >
+                    {rank + 1}
+                  </Typography>
+                  <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: color }} />
+                  <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                    {isYou ? 'شما' : players[pIdx]?.name ?? `بازیکن ${pIdx + 1}`}
+                  </Typography>
+                  <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.disabled' }}>
+                    {cards} کارت
+                  </Typography>
+                  <Typography variant="body2" sx={{ ml: 'auto', fontWeight: 900, color: 'success.light' }}>
+                    ${cash.toLocaleString()}
+                  </Typography>
+                </Paper>
+              );
+            })}
+          </Box>
+          <Button
+            fullWidth
+            onClick={() => {
+              soundService.play('move');
+              onMove({ player: state.turn, kind: 'nextRound' });
+            }}
+            disabled={disabled}
+            variant="contained"
+            size="large"
+            startIcon={<Dice6 size={20} />}
+            sx={{
+              py: 1.5,
+              fontWeight: 900,
+              borderRadius: 3,
+              background: '#F5A306',
+              boxShadow: '0 4px 14px 0 rgba(16, 185, 129, 0.2)',
+              '&:hover': { background: '#B25D16', opacity: 0.9 },
+              textTransform: 'none',
+            }}
+          >
+            {isFinalRound ? 'نتایج نهایی' : `شروع راند ${state.round + 1}`}
+          </Button>
+        </Paper>
+      ) : (
+        <Paper
+          elevation={0}
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
+            p: { xs: 2, sm: 3 },
+            borderRadius: 4,
+            bgcolor: 'rgba(3, 10, 21, 0.5)',
+            border: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'text.disabled' }}>
+              دست شما
+            </Typography>
+            {isMyTurn && hand.length > 0 && (
+              <Chip
+                label="یک مقدار را انتخاب کن"
+                size="small"
+                sx={{
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  bgcolor: `${myColor}20`,
+                  color: myColor,
+                  border: 'none',
+                  animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                  '@keyframes pulse': {
+                    '0%, 100%': { opacity: 1 },
+                    '50%': { opacity: 0.5 },
+                  },
+                }}
+              />
+            )}
+          </Box>
+
+          <Box
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              gap: 2,
+              minHeight: 100,
+              alignItems: 'center',
+              width: '100%',
+            }}
+          >
+            {hand.length > 0 ? (
+              Object.entries(handCounts)
+                .sort(([a], [b]) => Number(a) - Number(b))
+                .map(([valStr, count]) => {
+                  const val = Number(valStr);
+                  return (
+                    <Button
+                      key={val}
+                      onClick={() => handleValueClick(val)}
+                      disabled={disabled || !isMyTurn}
+                      variant="outlined"
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 1,
+                        p: 1.5,
+                        borderRadius: 3,
+                        bgcolor: 'rgba(11, 22, 34, 0.8)',
+                        borderColor: isMyTurn ? `${myColor}40` : 'divider',
+                        '&:hover': {
+                          bgcolor: 'rgba(44, 58, 69, 0.8)',
+                          borderColor: isMyTurn ? myColor : 'divider',
+                        },
+                        '&:disabled': { opacity: 0.5 },
+                        textTransform: 'none',
+                        minWidth: 'auto',
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', '& > * + *': { ml: -1 } }}>
+                        {Array.from({ length: Math.min(count, 5) }).map((_, i) => (
+                          <Dice3D key={i} value={val} size={32} color={myColor} />
+                        ))}
+                        {count > 5 && (
+                          <Box
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 2,
+                              bgcolor: '#2C3A45',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '0.75rem',
+                              fontWeight: 'bold',
+                              color: 'white',
+                              zIndex: 10,
+                              border: '1px solid',
+                              borderColor: '#475569',
+                            }}
+                          >
+                            +{count - 5}
+                          </Box>
+                        )}
+                      </Box>
+                      <Typography
+                        variant="caption"
+                        sx={{ fontWeight: 800, color: isMyTurn ? `${myColor}cc` : 'text.disabled', transition: 'color 0.2s' }}
+                      >
+                        گذاشتن {count} × {val}
+                      </Typography>
+                    </Button>
+                  );
+                })
+            ) : isMyTurn ? (
+              <Button
+                onClick={handleRollClick}
+                disabled={disabled}
+                variant="contained"
+                size="large"
+                startIcon={<Dice6 size={24} />}
+                sx={{
+                  px: 5,
+                  py: 2,
+                  borderRadius: 4,
+                  fontWeight: 900,
+                  fontSize: '1.05rem',
+                  background: '#F5A306',
+                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                  '&:hover': { transform: 'scale(1.05)' },
+                  '&:active': { transform: 'scale(0.95)' },
+                  transition: 'all 0.2s',
+                  '&:disabled': { opacity: 0.5, filter: 'grayscale(1)' },
+                  textTransform: 'none',
+                }}
+              >
+                🎲 ریختن تاس
+              </Button>
+            ) : (
+              <Box sx={{ color: 'text.disabled', fontWeight: 500, fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: 1 }}>
+                {disabled ? <Loader2 size={16} className="spin" /> : <CircularProgress size={16} color="inherit" />}
+                {disabled ? 'تماشای بازی…' : 'در انتظار حریف…'}
+              </Box>
+            )}
+          </Box>
+        </Paper>
+      )}
     </Paper>
   );
 }

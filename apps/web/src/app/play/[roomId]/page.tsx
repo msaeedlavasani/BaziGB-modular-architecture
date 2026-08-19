@@ -67,6 +67,7 @@ export default function PlayPage() {
   const [error, setError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [spectating, setSpectating] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   const myId = socket.id ?? '';
@@ -123,6 +124,7 @@ export default function PlayPage() {
         }
       },
       error: ({ message }) => setError(message),
+      spectate: () => setSpectating(true),
     };
     Object.entries(handlers).forEach(([event, handler]) => socket.on(event, handler as never));
 
@@ -185,7 +187,10 @@ export default function PlayPage() {
 
   const gameId = room?.gameType ?? 'tic-tac-toe';
   const isOwner = room?.players[0] === myId;
-  const humanTurn = !!state && state.phase === 'playing' && state.turn === myId;
+  // تماشاچی: اتاق پر است و من جزو بازیکنها نیستم (یا سرور spectate فرستاده)
+  const isSpectator =
+    spectating || (!!room && room.players.length > 0 && !!myId && !room.players.includes(myId));
+  const humanTurn = !!state && state.phase === 'playing' && state.turn === myId && !isSpectator;
   const isFinished = !!state && state.phase === 'finished';
 
   const turnRemainingSec =
@@ -220,7 +225,14 @@ export default function PlayPage() {
           />
         );
       case 'vegas':
-        return <VegasBoard state={state} onMove={(m) => socket.emit('makeMove', { roomCode, move: m })} disabled={disabled} />;
+        return (
+          <VegasBoard
+            state={state}
+            onMove={(m) => socket.emit('makeMove', { roomCode, move: m })}
+            disabled={disabled}
+            youId={myId}
+          />
+        );
       default:
         return null;
     }
@@ -244,7 +256,7 @@ export default function PlayPage() {
       }
     : null;
 
-  const waiting = room?.status === 'waiting';
+  const waiting = room?.status === 'waiting' && !isSpectator;
   const timerLabel = turnExpired
     ? 'نوبت منقضی شد'
     : turnWarned && turnRemainingSec !== null
@@ -262,13 +274,38 @@ export default function PlayPage() {
       roomCode={roomCode}
       onCopyRoom={handleCopy}
       copied={copied}
-      turnText={state && state.phase === 'playing' ? (humanTurn ? 'نوبت شما' : 'نوبت حریف') : null}
+      turnText={
+        isSpectator
+          ? 'تماشای زنده'
+          : state && state.phase === 'playing'
+            ? humanTurn
+              ? 'نوبت شما'
+              : 'نوبت حریف'
+            : null
+      }
       timerLabel={timerLabel}
       scores={maxRounds > 1 ? { a: scoreA, b: scoreB } : null}
       maxRounds={maxRounds}
       winner={winner}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0 }}>
+        {/* نشان تماشاچی */}
+        {isSpectator && !waiting && (
+          <Chip
+            label="👁 شما تماشاچی هستید — بازی را زنده میبینید"
+            variant="outlined"
+            sx={{
+              alignSelf: 'center',
+              borderRadius: 10,
+              borderColor: 'rgba(238,172,47,0.4)',
+              bgcolor: 'rgba(238,172,47,0.08)',
+              color: 'primary.light',
+              fontWeight: 700,
+              px: 1,
+            }}
+          />
+        )}
+
         {/* منتظر حریف */}
         {waiting && (
           <Paper

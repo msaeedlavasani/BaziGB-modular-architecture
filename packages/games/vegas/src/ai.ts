@@ -1,48 +1,42 @@
+import { pickRandom, AIDifficulty } from '@bazigb/engine';
+import { VegasState } from './types';
+
 /**
- * AI وگاس — سه سطح سختی
- * easy: شرط تصادفی کم
- * medium: شرط بر اساس موقعیت (جلو → بیشتر)
- * hard: استراتژی مارتینگل ساده (بعد از باخت شرط را دو برابر میکند)
+ * هوش مصنوعی وگاس: بعد از ریختن تاس، کدام مقدار (۱-۶) را روی کدام کازینو
+ * بگذارد؟ معیارها: ارزش دستهٔ پول آن کازینو، تقویت تاس‌های قبلی خودمان،
+ * اجتناب از کازینویی که حریف در آن جلوتر است.
  */
-import { pickRandom, randomInt, type AIDifficulty } from '@bazigb/engine';
-import { getLegalMoves } from './rules';
-import type { VegasMove, VegasState } from './types';
+export const getBestMove = (state: VegasState, difficulty: AIDifficulty): number | null => {
+  if (!state.rolled || state.phase !== 'playing') return null;
+  const hand = state.playerDice[state.turn] ?? [];
+  const counts: Record<number, number> = {};
+  for (const d of hand) counts[d] = (counts[d] ?? 0) + 1;
+  const values = Object.keys(counts).map(Number).filter((v) => v >= 1 && v <= 6);
+  if (values.length === 0) return null;
 
-function betMoves(state: VegasState): VegasMove[] {
-  return getLegalMoves(state).filter((m) => m.kind === 'bet');
-}
+  if (difficulty === 'easy') return pickRandom(values);
 
-/** انتخاب شرط بر اساس سطح سختی */
-export function getBet(state: VegasState, difficulty: AIDifficulty): VegasMove {
-  const moves = betMoves(state);
-  if (moves.length === 0) throw new Error('شرطی در دسترس نیست');
+  let best = values[0];
+  let bestScore = -Infinity;
+  for (const v of values) {
+    const casino = state.board[v - 1];
+    const stackTotal = casino.stack ? casino.stack.cards[0] + casino.stack.cards[1] : 0;
+    let score = (counts[v] ?? 0) * (stackTotal / 10000);
+    // تقویت کازینویی که قبلاً تاس گذاشته‌ایم
+    score += (casino.dice[state.turn] ?? 0) * 1.5;
+    // جریمه اگر حریف در این کازینو جلوتر است
+    let oppLead = 0;
+    for (const [pId, c] of Object.entries(casino.dice)) {
+      if (pId !== state.turn && c > (casino.dice[state.turn] ?? 0)) oppLead += c;
+    }
+    score -= oppLead * 0.8;
+    // کازینوی بدون پول ارزش کمتری دارد
+    if (casino.stack === null) score -= 2;
 
-  if (difficulty === 'easy') return pickRandom(moves);
-
-  const myId = state.turn;
-  const myPos = state.positions[myId] ?? 0;
-  const oppId = state.players.find((p) => p.id !== myId)?.id;
-  const oppPos = oppId !== undefined ? (state.positions[oppId] ?? 0) : 0;
-  const ahead = myPos - oppPos;
-
-  if (difficulty === 'medium') {
-    if (ahead > 0) return moves[Math.min(moves.length - 1, Math.floor(moves.length * 0.8))];
-    return moves[Math.max(0, Math.floor(moves.length * 0.3))];
+    if (score > bestScore) {
+      bestScore = score;
+      best = v;
+    }
   }
-
-  // hard: مارتینگل — بعد از باخت راند قبل، شرط بیشتر
-  const lastRoundLost = state.round > 1 && state.positions[myId] === 0 && (state.bets[myId] ?? 0) > 0;
-  const targetIndex = lastRoundLost ? moves.length - 1 : Math.min(moves.length - 1, Math.floor(moves.length * 0.6));
-  return moves[targetIndex];
-}
-
-/** انتخاب حرکت تاس/حرکت (در این فازها فقط یک انتخاب وجود دارد) */
-export function getBestMove(state: VegasState, difficulty: AIDifficulty): VegasMove {
-  const legal = getLegalMoves(state);
-  if (legal.length === 0) throw new Error('حرکتی در دسترس نیست');
-  if (state.phase === 'bet') return getBet(state, difficulty);
-
-  // roll و move فقط یک گزینه دارند؛ برای easy گاهی حرکت تصادفی
-  if (difficulty === 'easy' && randomInt(1, 100) <= 15) return pickRandom(legal);
-  return legal[0];
-}
+  return best;
+};

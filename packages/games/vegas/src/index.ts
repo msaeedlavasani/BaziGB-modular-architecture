@@ -1,8 +1,7 @@
 /**
- * API عمومی بازی وگاس (MOD-005)
- * فقط: Vegas، getBestMove و تایپها — بدون جزئیات داخلی
+ * API عمومی بازی وگاس — قوانین قدیمی (کازینوها، کارت‌های پول، ۸ تاس، ۴ راند)
  */
-export { Vegas, applyChain, applyMove, createState, getLegalMoves, isFinished, reachedEnd, serialize } from './rules';
-export { getBestMove, getBet } from './ai';
-export type { VegasBetMove, VegasBoard, VegasMove, VegasMoveMove, VegasPhase, VegasRollMove, VegasState } from './types';
-export { INITIAL_CHIPS, MAX_BET, TRACK_LENGTH } from './types';
+export { Vegas, applyChain, applyMove, createState, getLegalMoves, isFinished, serialize } from './rules';
+export { getBestMove } from './ai';
+export type { CasinoData, MoneyStackData, VegasMove, VegasState } from './types';
+export { DICE_PER_PLAYER, TOTAL_ROUNDS } from './types';

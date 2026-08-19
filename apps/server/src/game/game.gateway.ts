@@ -274,7 +274,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!room.players.includes(client.id)) {
         const maxPlayers = room.gameType === 'vegas' ? 5 : 2;
         if (room.players.length >= maxPlayers) {
-          client.emit('error', { message: 'اتاق پر است' });
+          // اتاق پر است → تماشاچی: فقط به اتاق میپیوندد، بازی را زنده میبیند
+          await client.join(roomCode);
+          if (room.currentState) client.emit('gameState', room.currentState);
+          client.emit('roomUpdate', room);
+          client.emit('spectate', { room: roomCode });
+          this.emitSystemMessage(roomCode, 'یک تماشاچی به بازی پیوست', this.socketUsers.get(client.id), 'info', this.socketUsernames.get(client.id));
           return;
         }
         room = await this.roomService.joinRoom(roomCode, client.id);
@@ -302,6 +307,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const room = await this.roomService.getRoom(payload.roomCode);
       if (!room) throw new BadRequestException('اتاق یافت نشد');
+      // فقط بازیکنهای نشسته میتوانند بازی را شروع کنند (تماشاچی نه)
+      if (!room.players.includes(client.id)) throw new BadRequestException('فقط بازیکنان میتوانند بازی را شروع کنند');
       const state = this.initialState(room);
       const updated = await this.roomService.startGame(payload.roomCode, state, { resetScores: true });
       this.server.to(payload.roomCode).emit('gameState', state);
@@ -315,6 +322,22 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   /** پایان یک راند: بهروزرسانی امتیازها و بررسی پایان مسابقه */
   private async handleRoundOver(room: RoomWithParsedData, finalState: GameState) {
+    // وگاس: راندهای ۴گانه داخل خود بازی است — پایان state یعنی پایان کل مسابقه
+    if (room.gameType === 'vegas') {
+      await this.roomService.finishRoom(room.code, finalState.winner ?? '', finalState);
+      const finalRoom = await this.roomService.getRoom(room.code);
+      this.server.to(room.code).emit('gameOver', {
+        room: room.code,
+        winner: finalState.winner,
+        scores: {},
+        state: finalState,
+      });
+      this.server.to(room.code).emit('roomUpdate', finalRoom);
+      this.emitSystemMessage(room.code, 'بازی وگاس تمام شد', finalState.winner ?? undefined, 'success');
+      this.clearTurnTimers(room.code);
+      return;
+    }
+
     const winnerId = finalState.winner ?? null;
     const scores = { ...room.scores };
     if (winnerId) scores[winnerId] = (scores[winnerId] ?? 0) + 1;

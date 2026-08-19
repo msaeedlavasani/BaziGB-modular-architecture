@@ -38,9 +38,9 @@ describe('Backgammon Game Logic', () => {
     state.rolled = true;
 
     const moves = getLegalMoves(state);
-    // بازیکن ۱ از نقطه ۱۱ (۵ مهره) میتواند ۳ تا به ۸ یا ۵ تا به ۶ برود
-    expect(moves.some(m => m.from === 11 && m.to === 8 && m.amount === 3)).toBe(true);
-    expect(moves.some(m => m.from === 11 && m.to === 6 && m.amount === 5)).toBe(true);
+    // بازیکن ۱ (روشن) در جهت عقربه‌های ساعت: از نقطه ۱۱ (۵ مهره) با ۳ به ۱۴ و با ۵ به ۱۶
+    expect(moves.some(m => m.from === 11 && m.to === 14 && m.amount === 3)).toBe(true);
+    expect(moves.some(m => m.from === 11 && m.to === 16 && m.amount === 5)).toBe(true);
   });
 
   it('should handle hitting an opponent checker', () => {
@@ -66,22 +66,27 @@ describe('Backgammon Game Logic', () => {
     const moves = getLegalMoves(state);
     // فقط حرکت از بار مجاز است
     expect(moves.every(m => m.from === 'bar')).toBe(true);
-    // مقاصد: 24-2=22 و 24-5=19
-    expect(moves.some(m => m.to === 22)).toBe(true);
-    expect(moves.some(m => m.to === 19)).toBe(true);
+    // مقاصد برای رنگ ۱ (روشن): die-1 → 2-1=1 و 5-1=4
+    expect(moves.some(m => m.to === 1)).toBe(true);
+    expect(moves.some(m => m.to === 4)).toBe(true);
   });
 
   it('should handle bear off logic', () => {
     let state = createState(players);
-    // تمام مهره‌ها در خانه امن بازیکن ۱ (۰-۵)
+    // تمام مهره‌ها در خانه امن بازیکن ۱ (۱۸-۲۳)
     state.board.fill(0);
-    state.board[0] = 15;
+    state.board[18] = 15;
     expect(canBearOff(state, 'p1')).toBe(true);
 
+    // با تاس ۱ و ۲: از نقطه ۲۳ (+۱=off) و از نقطه ۲۲ (+۲=off)
+    state.board.fill(0);
+    state.board[22] = 7;
+    state.board[23] = 8;
     state.dice = [1, 2];
     state.rolled = true;
     const moves = getLegalMoves(state);
-    expect(moves.some(m => m.to === 'off')).toBe(true);
+    expect(moves.some(m => m.from === 23 && m.to === 'off' && m.amount === 1)).toBe(true);
+    expect(moves.some(m => m.from === 22 && m.to === 'off' && m.amount === 2)).toBe(true);
   });
 
   it('should switch turns after applying a full chain', () => {
@@ -90,8 +95,8 @@ describe('Backgammon Game Logic', () => {
     state.rolled = true;
     
     const chain = [
-      { player: 'p1', kind: 'move', from: 11, to: 8, amount: 3 },
-      { player: 'p1', kind: 'move', from: 18, to: 14, amount: 4 }
+      { player: 'p1', kind: 'move', from: 11, to: 14, amount: 3 },
+      { player: 'p1', kind: 'move', from: 18, to: 22, amount: 4 }
     ] as any;
 
     state = applyChain(state, chain);
@@ -113,11 +118,11 @@ describe('Backgammon Game Logic', () => {
     let state = createState(players);
     state.off[1] = 14;
     state.board.fill(0);
-    state.board[0] = 1; // یک مهره باقی‌مانده
+    state.board[23] = 1; // یک مهره باقی‌مانده در انتهای خانه امن (نقطه ۲۴)
     state.dice = [1];
     state.rolled = true;
     
-    const chain = [{ player: 'p1', kind: 'move', from: 0, to: 'off', amount: 1 }] as any;
+    const chain = [{ player: 'p1', kind: 'move', from: 23, to: 'off', amount: 1 }] as any;
     state = applyChain(state, chain);
     
     expect(state.scores['p1']).toBe(1);

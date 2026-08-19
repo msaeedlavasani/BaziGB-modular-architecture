@@ -135,6 +135,17 @@ function GameInner() {
     if (!s || s.phase === 'finished' || s.turn !== 'bot') return;
     try {
       let cur = s;
+      // وگاس: اول تاس، بعد انتخاب مقدار و گذاشتن
+      if (gameId === 'vegas') {
+        if (!cur.rolled) {
+          setState(adapter.applyMove(cur, { player: 'bot', kind: 'roll' }));
+          return;
+        }
+        const value = AI_FNS[gameId](cur, difficulty) as number | null;
+        if (value == null) return;
+        setState(adapter.applyMove(cur, { player: 'bot', kind: 'place', value }));
+        return;
+      }
       // نرد: اول تاس
       if (gameId === 'backgammon' && !(cur.dice && cur.dice.length)) {
         cur = adapter.applyChain(cur, [{ player: cur.turn, kind: 'roll' }]);
@@ -182,7 +193,7 @@ function GameInner() {
       case 'chess':
         return <ChessBoard state={state} onMove={(m) => applyLocal(m)} disabled={disabled} />;
       case 'vegas':
-        return <VegasBoard state={state} onMove={(m) => applyLocal(m)} disabled={disabled} />;
+        return <VegasBoard state={state} onMove={(m) => applyLocal(m)} disabled={disabled} youId="p1" />;
       default:
         return null;
     }

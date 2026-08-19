@@ -13,18 +13,23 @@ import { BackgammonBoard, BackgammonMove, BackgammonState } from './types';
 
 /**
  * ایجاد وضعیت اولیه بازی نرد.
+ *
+ * چیدمان مطابق رسم کاربر (نسخه آینه‌شده استاندارد):
+ * بازیکن ۱ (رنگ ۱ = مهره روشن، پایین برد): از ۰ به سمت ۲۳ حرکت می‌کند
+ * (جهت عقربه‌های ساعت ۱→۲۴) و خانه امن او ۱۸-۲۳ (بالا-راست) است.
+ * بازیکن ۲ (رنگ -۱ = مهره تیره، بالای برد): از ۲۳ به سمت ۰ حرکت می‌کند
+ * (خلاف عقربه ۲۴→۱) و خانه امن او ۰-۵ (پایین-راست) است.
  */
 export const createState = (players: Player[], match?: MatchConfig): BackgammonState => {
   const board: BackgammonBoard = new Array(24).fill(0);
   
-  // تنظیمات استاندارد مهره‌ها
-  // بازیکن ۱ (رنگ ۱): از ۲۳ به سمت ۰ حرکت می‌کند. خانه امن: ۰-۵
+  // بازیکن ۱ (روشن): ۲ در نقطه ۱ (ایندکس ۰)، ۵ در ۱۲، ۳ در ۱۷، ۵ در ۱۹
   board[0] = 2;
   board[11] = 5;
   board[16] = 3;
   board[18] = 5;
   
-  // بازیکن ۲ (رنگ -۱): از ۰ به سمت ۲۳ حرکت می‌کند. خانه امن: ۱۸-۲۳
+  // بازیکن ۲ (تیره): ۲ در نقطه ۲۴ (ایندکس ۲۳)، ۵ در ۱۳، ۳ در ۸، ۵ در ۶
   board[23] = -2;
   board[12] = -5;
   board[7] = -3;
@@ -72,8 +77,9 @@ export const canBearOff = (state: BackgammonState, playerId: string): boolean =>
   const color = getPlayerColor(state, playerId);
   if (state.bar[color] > 0) return false;
 
-  const homeStart = color === 1 ? 0 : 18;
-  const homeEnd = color === 1 ? 5 : 23;
+  // رنگ ۱ (روشن) خانه ۱۸-۲۳؛ رنگ -۱ (تیره) خانه ۰-۵
+  const homeStart = color === 1 ? 18 : 0;
+  const homeEnd = color === 1 ? 23 : 5;
 
   for (let i = 0; i < 24; i++) {
     if (color === 1 && state.board[i] > 0 && (i < homeStart || i > homeEnd)) return false;
@@ -94,14 +100,15 @@ export const getLegalDestinations = (
   const destinations: Array<number | 'off'> = [];
 
   if (from === 'bar') {
-    const to = color === 1 ? 24 - die : die - 1;
+    const to = color === 1 ? die - 1 : 24 - die;
     if (!isOpponentBlocked(state, color, to)) {
       destinations.push(to);
     }
     return destinations;
   }
 
-  const to = color === 1 ? from - die : from + die;
+  // رنگ ۱ (روشن): از +die به سمت ۲۳ (عقربه‌های ساعت)؛ رنگ -۱ (تیره): از -die
+  const to = color === 1 ? from + die : from - die;
   
   // حرکت معمولی روی تخته
   if (to >= 0 && to <= 23) {
@@ -111,13 +118,13 @@ export const getLegalDestinations = (
   } 
   // تلاش برای خارج کردن مهره
   else if (canBearOff(state, state.turn)) {
-    const distance = color === 1 ? from + 1 : 24 - from;
+    const distance = color === 1 ? 24 - from : from + 1;
     
     if (distance === die) {
       destinations.push('off');
     } else if (die > distance) {
       // قانون نرد: اگر تاس بزرگتر بود، تنها در صورتی مجاز است که هیچ مهره‌ای عقب‌تر نباشد
-      const homeRange = color === 1 ? [from + 1, 5] : [18, from - 1];
+      const homeRange = color === 1 ? [18, from - 1] : [from + 1, 5];
       let hasFurther = false;
       for (let i = homeRange[0]; i <= homeRange[1]; i++) {
         if (color === 1 && state.board[i] > 0) hasFurther = true;

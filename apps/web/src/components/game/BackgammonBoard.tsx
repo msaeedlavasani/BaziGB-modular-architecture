@@ -20,8 +20,9 @@ import { soundService } from '@/lib/sound-service';
  *   (هم برای بازی محلی با ربات و هم برای چندنفره آنلاین)
  */
 
-const CHECKER_GOLD = '#EEAC2F';
-const CHECKER_BLUE = '#7FA8D9';
+// مهره روشن (بازیکن پایین) و مهره تیره (بازیکن بالا) — مطابق رسم کاربر
+const CHECKER_LIGHT = '#F1E6CF';
+const CHECKER_DARK = '#3A3A40';
 
 interface Props {
   state: BackgammonState;
@@ -164,8 +165,8 @@ export default function BackgammonBoard({
   const renderCheckers = (count: number, isTop: boolean, keyPrefix: string, isBar = false) => {
     if (count === 0) return null;
     const absCount = Math.abs(count);
-    const gold = count > 0;
-    const color = gold ? CHECKER_GOLD : CHECKER_BLUE;
+    const light = count > 0;
+    const color = light ? CHECKER_LIGHT : CHECKER_DARK;
     const maxVisible = 5;
     const shown = Math.min(absCount, maxVisible);
     const size = isBar ? 32 : '94%';
@@ -190,7 +191,7 @@ export default function BackgammonBoard({
               borderRadius: '50%',
               mb: i < shown - 1 ? (isBar ? '-42%' : '-48%') : 0,
               zIndex: i + 1,
-              background: `radial-gradient(circle at 32% 28%, ${gold ? '#FFD27A' : '#9DBEDD'} 0%, ${color} 45%, ${gold ? '#8A6410' : '#16324F'} 100%)`,
+              background: `radial-gradient(circle at 32% 28%, ${light ? '#FFFDF5' : '#6B6B74'} 0%, ${color} 45%, ${light ? '#9A8A62' : '#16161A'} 100%)`,
               boxShadow: [
                 'inset 0 2px 3px rgba(255,255,255,0.45)',
                 'inset 0 -3px 6px rgba(0,0,0,0.4)',
@@ -209,7 +210,7 @@ export default function BackgammonBoard({
                 sx={{
                   fontSize: 12,
                   fontWeight: 800,
-                  color: gold ? '#3A2405' : '#EAF3FB',
+                  color: light ? '#3A2E18' : '#F4F4F6',
                   lineHeight: 1,
                 }}
               >
@@ -484,18 +485,18 @@ export default function BackgammonBoard({
                   height: 5,
                   borderRadius: 0.5,
                   border: '1px solid rgba(20,50,80,0.8)',
-                  background: 'linear-gradient(180deg, #7FA8D9 0%, #16324F 100%)',
+                  background: 'linear-gradient(180deg, #5A5A62 0%, #1A1A1E 100%)',
                   boxShadow: '0 1px 1px rgba(0,0,0,0.5)',
                 }}
               />
             ))}
             {(off[-1] ?? 0) > 8 && (
-              <Typography sx={{ color: CHECKER_BLUE, fontSize: 10, fontWeight: 800 }}>{off[-1]}</Typography>
+              <Typography sx={{ color: CHECKER_DARK, fontSize: 10, fontWeight: 800 }}>{off[-1]}</Typography>
             )}
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
             {(off[1] ?? 0) > 8 && (
-              <Typography sx={{ color: CHECKER_GOLD, fontSize: 10, fontWeight: 800 }}>{off[1]}</Typography>
+              <Typography sx={{ color: CHECKER_LIGHT, fontSize: 10, fontWeight: 800 }}>{off[1]}</Typography>
             )}
             {Array.from({ length: Math.min(Math.abs(off[1] ?? 0), 8) }, (_, i) => (
               <Box
@@ -504,8 +505,8 @@ export default function BackgammonBoard({
                   width: { xs: 22, sm: 34 },
                   height: 5,
                   borderRadius: 0.5,
-                  border: '1px solid rgba(80,50,10,0.8)',
-                  background: 'linear-gradient(180deg, #FFD27A 0%, #8A6410 100%)',
+                  border: '1px solid rgba(60,50,20,0.8)',
+                  background: 'linear-gradient(180deg, #F1E6CF 0%, #9A8A62 100%)',
                   boxShadow: '0 1px 1px rgba(0,0,0,0.5)',
                 }}
               />
