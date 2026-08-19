@@ -57,6 +57,49 @@ describe('Backgammon Game Logic', () => {
     expect(state.bar[-1]).toBe(1);
   });
 
+  it('should play all 4 dice with doubles after a hit (bar entry + moves)', () => {
+    // سیاه مهرهٔ سفید را زده → سفید روی بار (بار[1]=1)
+    let state = createState(players);
+    state.bar[1] = 1;
+    state.board.fill(0);
+    state.board[0] = 1; // سفید باقی‌مانده در خانه امن
+    state.dice = [6, 6, 6, 6];
+    state.rolled = true;
+    state.turn = 'p1';
+
+    // ورود از بار با تاس ۶ → نقطه ۵ (6-1)، سپس ۵→۱۱→۱۷→۲۳
+    const chain = [
+      { player: 'p1', kind: 'move', from: 'bar', to: 5, amount: 6 },
+      { player: 'p1', kind: 'move', from: 5, to: 11, amount: 6 },
+      { player: 'p1', kind: 'move', from: 11, to: 17, amount: 6 },
+      { player: 'p1', kind: 'move', from: 17, to: 23, amount: 6 },
+    ] as any;
+
+    state = applyChain(state, chain);
+    expect(state.dice.length).toBe(0);
+    expect(state.turn).toBe('p2');
+    expect(state.bar[1]).toBe(0);
+    expect(state.board[23]).toBe(1);
+  });
+
+  it('should pass automatically when bar entry is blocked with doubles', () => {
+    let state = createState(players);
+    state.bar[1] = 1;
+    state.board.fill(0);
+    state.board[5] = -3; // نقطه ۵ با ۳ مهرهٔ سیاه بسته است
+    state.board[0] = 1;
+    state.dice = [6, 6, 6, 6];
+    state.rolled = true;
+    state.turn = 'p1';
+
+    const moves = getLegalMoves(state);
+    expect(moves.length).toBe(0);
+
+    state = applyChain(state, []);
+    expect(state.turn).toBe('p2');
+    expect(state.bar[1]).toBe(1); // سفید هنوز روی بار است
+  });
+
   it('should enforce bar entry rules', () => {
     let state = createState(players);
     state.bar[1] = 1;

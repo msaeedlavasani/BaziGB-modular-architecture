@@ -54,6 +54,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     { value: string | null; at: number; socketId: string; seatKey?: string }
   >();
   private readonly seatKeys = new Map<string, { value: string; at: number }>();
+  /** پشتهٔ آندو (هر اتاق): اسنپشات state قبل از هر اقدام + شناسهٔ انجام‌دهنده */
   private readonly undoStacks = new Map<string, { state: GameState; actorId: string }[]>();
   private readonly turnTimers = new Map<string, NodeJS.Timeout>();
   private readonly turnWarnTimers = new Map<string, NodeJS.Timeout>();
@@ -411,6 +412,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // وگاس: راندهای ۴گانه داخل خود بازی است — پایان state یعنی پایان کل مسابقه
     if (room.gameType === 'vegas') {
       await this.roomService.finishRoom(room.code, finalState.winner ?? '', finalState);
+      this.undoStacks.delete(room.code);
       const finalRoom = await this.roomService.getRoom(room.code);
       this.server.to(room.code).emit('gameOver', {
         room: room.code,
@@ -436,6 +438,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     if (matchWinner) {
       await this.roomService.finishRoom(room.code, matchWinner, finalState);
+      this.undoStacks.delete(room.code);
       const userIds = room.players.map((p) => this.socketUsers.get(p) ?? p);
       const finalRoom = await this.roomService.getRoom(room.code);
       this.server.to(room.code).emit('gameOver', {

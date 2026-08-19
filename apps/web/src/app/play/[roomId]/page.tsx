@@ -9,7 +9,7 @@ import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
-import { Play, Share2, Users } from 'lucide-react';
+import { Play, Share2, Undo2, Users } from 'lucide-react';
 
 import { connectSocket, socket, rejoinRoom } from '@/lib/socket';
 import { fetchRoom } from '@/lib/rooms';
@@ -290,6 +290,23 @@ export default function PlayPage() {
       winner={winner}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0 }}>
+        {/* دکمه آندو — بازگردانی آخرین حرکت خود (سرور اعتبارسنجی می‌کند) */}
+        {!waiting && !isSpectator && state && state.phase === 'playing' && (
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Button
+              size="small"
+              variant="outlined"
+              color="primary"
+              onClick={() => socket.emit('undo', { room: roomCode })}
+              startIcon={<Undo2 size={14} />}
+              sx={{ borderRadius: 3, fontWeight: 700, textTransform: 'none' }}
+              title="بازگردانی آخرین حرکت خودتان"
+            >
+              آندو
+            </Button>
+          </Box>
+        )}
+
         {/* نشان تماشاچی */}
         {isSpectator && !waiting && (
           <Chip

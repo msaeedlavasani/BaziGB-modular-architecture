@@ -7,6 +7,7 @@ const nextConfig = {
   // با همان آدرس وب (مثلاً http://192.168.x.x:3000) به سرور وصل شوند
   // و «بازی با حریف آنلاین» بین دو دستگاه کار کند.
   async rewrites() {
+    // در پروداکشن، API_PROXY_TARGET باید http://localhost:3001 باشد
     const target = process.env.API_PROXY_TARGET ?? 'http://localhost:3001';
     return [
       {
@@ -29,3 +30,4 @@ const nextConfig = {
 };
 
 export default nextConfig;
+

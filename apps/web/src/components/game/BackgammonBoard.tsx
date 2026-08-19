@@ -484,11 +484,11 @@ export default function BackgammonBoard({
           }}
         >
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: 1 }}>
-            {renderCheckers(Math.abs(bar[-1] ?? 0), true, 'bar-b', true)}
+            {renderCheckers(bar[-1] ?? 0, true, 'bar-b', true)}
           </Box>
           <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: 8, fontWeight: 700 }}>BAR</Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pb: 1 }}>
-            {renderCheckers(Math.abs(bar[1] ?? 0), false, 'bar-g', true)}
+            {renderCheckers(bar[1] ?? 0, false, 'bar-g', true)}
           </Box>
         </Box>
 
