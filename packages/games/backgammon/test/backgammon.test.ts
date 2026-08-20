@@ -214,10 +214,10 @@ describe('Backgammon Game Logic', () => {
 
       state.cube = 2;
       state.cubeOwner = 'p1';
-      expect(canOfferDouble(state, 'p1')).toBe(false); // وقتی cubeOwner===player نامجاز
+      expect(canOfferDouble(state, 'p1')).toBe(true); // مالک کیوب مجاز است
 
       state.cubeOwner = 'p2';
-      expect(canOfferDouble(state, 'p1')).toBe(true);
+      expect(canOfferDouble(state, 'p1')).toBe(false); // غیرمالک نامجاز است
 
       state.doubling = { offeredBy: 'p2' };
       expect(canOfferDouble(state, 'p1')).toBe(false); // وقتی doubling معلق نامجاز

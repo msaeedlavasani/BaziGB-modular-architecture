@@ -21,6 +21,7 @@ import {
   ToggleButtonGroup,
   alpha,
   Button,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
@@ -78,6 +79,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
+  const [roomStatusFilter, setRoomStatusFilter] = useState('ALL');
+  const [selectedRoomCodes, setSelectedRoomCodes] = useState<string[]>([]);
   const [page, setPage] = useState(0);
   const take = 50;
 
@@ -220,6 +223,43 @@ export default function AdminPage() {
       console.error(err);
     } finally {
       setActionLoading(false);
+    }
+  }
+
+  const filteredRooms = rooms.filter(r =>
+    roomStatusFilter === 'ALL' ? true : r.status === roomStatusFilter.toLowerCase()
+  );
+
+  async function handleBulkDeleteRooms() {
+    if (selectedRoomCodes.length === 0) return;
+    if (!confirm(`آیا از حذف ${selectedRoomCodes.length} اتاق انتخابی مطمئن هستید؟`)) return;
+
+    setActionLoading(true);
+    try {
+      await api.delete('/admin/rooms/bulk', { codes: selectedRoomCodes });
+      setSelectedRoomCodes([]);
+      await loadData();
+    } catch (err: any) {
+      alert(err?.message || 'خطا در حذف گروهی اتاق‌ها');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  function handleSelectRoom(code: string, checked: boolean) {
+    if (checked) {
+      setSelectedRoomCodes((prev) => [...prev, code]);
+    } else {
+      setSelectedRoomCodes((prev) => prev.filter((c) => c !== code));
+    }
+  }
+
+  function handleSelectAllFilteredRooms(checked: boolean) {
+    if (checked) {
+      const allCodes = filteredRooms.map((r) => r.code);
+      setSelectedRoomCodes(allCodes);
+    } else {
+      setSelectedRoomCodes([]);
     }
   }
 
@@ -424,11 +464,48 @@ export default function AdminPage() {
 
           {/* Rooms Table */}
           <Paper elevation={0} sx={{ p: 3, borderRadius: 4, bgcolor: alpha('#0B1622', 0.6), border: '1px solid', borderColor: 'divider' }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, mb: 3 }}>مدیریت اتاق‌ها</Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>مدیریت اتاق‌ها</Typography>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                {selectedRoomCodes.length > 0 && (
+                  <Button
+                    variant="contained"
+                    color="error"
+                    size="small"
+                    startIcon={<Trash2 size={16} />}
+                    onClick={handleBulkDeleteRooms}
+                    disabled={actionLoading}
+                    sx={{ borderRadius: 2 }}
+                  >
+                    حذف {selectedRoomCodes.length} مورد
+                  </Button>
+                )}
+                <ToggleButtonGroup
+                  value={roomStatusFilter}
+                  exclusive
+                  onChange={(_, val) => val && setRoomStatusFilter(val)}
+                  size="small"
+                  sx={{ bgcolor: '#030A15', borderRadius: 3 }}
+                >
+                  <ToggleButton value="ALL" sx={{ color: 'white', px: 2 }}>همه</ToggleButton>
+                  <ToggleButton value="WAITING" sx={{ color: 'white', px: 2 }}>در انتظار</ToggleButton>
+                  <ToggleButton value="PLAYING" sx={{ color: 'white', px: 2 }}>در حال بازی</ToggleButton>
+                  <ToggleButton value="FINISHED" sx={{ color: 'white', px: 2 }}>پایان یافته</ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+            </Box>
             <TableContainer>
               <Table>
                 <TableHead>
                   <TableRow>
+                    <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>
+                      <Checkbox
+                        indeterminate={selectedRoomCodes.length > 0 && selectedRoomCodes.length < filteredRooms.length}
+                        checked={filteredRooms.length > 0 && selectedRoomCodes.length === filteredRooms.length}
+                        onChange={(e) => handleSelectAllFilteredRooms(e.target.checked)}
+                        sx={{ color: 'text.secondary', '&.Mui-checked': { color: '#F5A306' } }}
+                      />
+                    </TableCell>
                     <TableCell sx={{ color: 'text.secondary', fontWeight: 700, textAlign: 'right' }}>کد اتاق</TableCell>
                     <TableCell sx={{ color: 'text.secondary', fontWeight: 700, textAlign: 'right' }}>بازی</TableCell>
                     <TableCell sx={{ color: 'text.secondary', fontWeight: 700, textAlign: 'right' }}>وضعیت</TableCell>
@@ -436,21 +513,38 @@ export default function AdminPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {rooms.length === 0 ? (
-                    <TableRow><TableCell colSpan={4} align="center" sx={{ py: 4 }}><Typography sx={{ color: 'text.disabled' }}>اتاقی یافت نشد</Typography></TableCell></TableRow>
+                  {filteredRooms.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4 }}><Typography sx={{ color: 'text.disabled' }}>اتاقی یافت نشد</Typography></TableCell></TableRow>
                   ) : (
-                    rooms.map((r) => (
-                      <TableRow key={r.code}>
+                    filteredRooms.map((r) => (
+                      <TableRow key={r.code} selected={selectedRoomCodes.includes(r.code)}>
+                        <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>
+                          <Checkbox
+                            checked={selectedRoomCodes.includes(r.code)}
+                            onChange={(e) => handleSelectRoom(r.code, e.target.checked)}
+                            sx={{ color: 'text.secondary', '&.Mui-checked': { color: '#F5A306' } }}
+                          />
+                        </TableCell>
                         <TableCell sx={{ color: 'white', fontWeight: 600, textAlign: 'right' }}>{r.code}</TableCell>
                         <TableCell sx={{ color: 'text.secondary', textAlign: 'right' }}>{r.gameType}</TableCell>
-                        <TableCell sx={{ textAlign: 'right' }}><Chip label={r.status} size="small" color={r.status === 'playing' ? 'success' : 'default'} variant="outlined" /></TableCell>
+                        <TableCell sx={{ textAlign: 'right' }}>
+                          <Chip
+                            label={
+                              r.status === 'waiting' ? 'در انتظار' :
+                              r.status === 'playing' ? 'در حال بازی' : 'پایان یافته'
+                            }
+                            size="small"
+                            color={r.status === 'playing' ? 'success' : r.status === 'waiting' ? 'warning' : 'default'}
+                            variant="outlined"
+                          />
+                        </TableCell>
                         <TableCell sx={{ textAlign: 'center' }}>
                           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-                            <IconButton size="small" color="error" onClick={async () => {
-                              if (confirm(`آیا از حذف اتاق ${r.code} مطمئن هستید؟`)) {
-                                try { await api.delete(`/admin/rooms/${r.code}`); loadData(); } catch (err: any) { alert(err.message || 'خطا در حذف اتاق'); }
-                              }
-                            }}><Trash2 size={16} /></IconButton>
+                             <IconButton size="small" color="error" onClick={async () => {
+                               if (confirm(`آیا از حذف اتاق ${r.code} مطمئن هستید؟`)) {
+                                 try { await api.delete(`/admin/rooms/${encodeURIComponent(r.code)}`); loadData(); } catch (err: any) { alert(err.message || 'خطا در حذف اتاق'); }
+                               }
+                             }}><Trash2 size={16} /></IconButton>
                             <Button size="small" component={Link} href={`/play/${r.code}`} variant="outlined" sx={{ borderRadius: 2, fontSize: '0.7rem' }}>ورود</Button>
                           </Box>
                         </TableCell>

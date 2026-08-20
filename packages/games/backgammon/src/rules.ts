@@ -73,8 +73,8 @@ export const rollDiceFor = (state: BackgammonState): BackgammonState => {
 };
 
 export function canOfferDouble(state: BackgammonState, playerId: string): boolean {
-  return state.phase === 'playing' && !state.rolled && state.doubling === null
-    && (state.cube ?? 1) < 64 && (state.cubeOwner === null || state.cubeOwner !== playerId);
+  return state.phase === 'playing' && state.turn === playerId && !state.rolled && state.doubling === null
+    && (state.cube ?? 1) < 64 && (state.cubeOwner === null || state.cubeOwner === playerId);
 }
 
 export function offerDouble(state: BackgammonState, playerId: string): BackgammonState {
@@ -221,6 +221,7 @@ const isOpponentBlocked = (state: BackgammonState, color: number, to: number): b
  * دریافت لیست تمام حرکت‌های تکی قانونی.
  */
 export const getLegalMoves = (state: BackgammonState): BackgammonMove[] => {
+  if (state.doubling !== null) return [];
   if (!state.rolled) {
     return [{ player: state.turn, kind: 'roll' }];
   }
@@ -256,6 +257,7 @@ export const getLegalMoves = (state: BackgammonState): BackgammonMove[] => {
  * اعمال یک حرکت تکی بر وضعیت بازی.
  */
 export const applyMove = (state: BackgammonState, move: BackgammonMove): BackgammonState => {
+  if (state.doubling !== null) throw new Error('Cannot move while double is pending');
   if (move.kind === 'roll') return rollDiceFor(state);
 
   const newState = deepClone(state);

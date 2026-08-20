@@ -258,6 +258,16 @@ export class AdminController {
     return { ok: true, id };
   }
 
+  @Delete('rooms/bulk')
+  @Roles('ADMIN')
+  async deleteRoomsBulk(@Body('codes') codes: string[]) {
+    if (!Array.isArray(codes) || codes.length === 0) {
+      throw new BadRequestException('لیست کدهای اتاق نامعتبر است');
+    }
+    const count = await this.roomService.deleteRoomsBulk(codes);
+    return { ok: true, count };
+  }
+
   @Delete('rooms/:code')
   @Roles('ADMIN')
   async deleteRoom(@Param('code') code: string) {

@@ -516,7 +516,7 @@ export default function BackgammonBoard({
                 ? 'rgba(180, 83, 9, 0.35)'
                 : [
                     'repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 7px)',
-                    'linear-gradient(180deg, #4c2c13 0%, #3a2110 50%, #2b1509 100%)',
+                    'linear-gradient(180deg, #3a2110 0%, #2a1408 100%)',
                   ].join(', '),
           }}
         >
@@ -579,7 +579,7 @@ export default function BackgammonBoard({
               ? 'rgba(34, 197, 94, 0.28)'
               : [
                   'repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 7px)',
-                  'linear-gradient(180deg, #4c2c13 0%, #3a2110 50%, #2b1509 100%)',
+                  'linear-gradient(180deg, #38543f 0%, #26392c 50%, #152319 100%)',
                 ].join(', '),
           }}
         >

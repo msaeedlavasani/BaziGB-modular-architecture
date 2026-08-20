@@ -335,6 +335,16 @@ export class RoomService {
     return true;
   }
 
+  /** Delete multiple rooms by their codes. */
+  async deleteRoomsBulk(codes: string[]): Promise<number> {
+    const { count } = await this.prisma.room.deleteMany({
+      where: {
+        code: { in: codes },
+      },
+    });
+    return count;
+  }
+
   /** List rooms, optionally filtered by status. */
   async listRooms(status?: RoomStatus): Promise<RoomWithParsedData[]> {
     const rooms = status

@@ -40,8 +40,8 @@ const getDotColor = (faceColor?: string) => {
 const Dot = ({ color }: { color: string }) => (
   <div
     style={{
-      width: '32%',
-      height: '32%',
+      width: '38%',
+      height: '38%',
       borderRadius: '50%',
       background: color,
       boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.25)',
@@ -49,7 +49,7 @@ const Dot = ({ color }: { color: string }) => (
   />
 );
 
-const Empty = () => <div style={{ width: '32%', height: '32%' }} />;
+const Empty = () => <div style={{ width: '38%', height: '38%' }} />;
 
 const CUBE_VALUES = [2, 4, 8, 16, 32, 64];
 
@@ -137,7 +137,7 @@ const DiceFace = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '8%',
+        padding: '5%',
         boxShadow: color ? 'inset 0 0 15px rgba(0,0,0,0.1)' : 'inset 0 0 12px rgba(107, 63, 30, 0.15)',
         backfaceVisibility: 'hidden',
         WebkitBackfaceVisibility: 'hidden',

@@ -443,7 +443,7 @@ export default function ProfilePage() {
                   fontSize: '0.875rem',
                 }}
               >
-                Dashboard
+                پنل مدیریت
               </Button>
             )}
           </Box>
