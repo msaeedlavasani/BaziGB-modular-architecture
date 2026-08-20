@@ -30,4 +30,6 @@ export interface ChessState extends GameState<ChessBoard, ChessMove> {
   };
   enPassant: number | null;
   halfmove: number;
+  drawReason?: 'threefold' | 'fifty-move' | 'insufficient-material' | 'stalemate';
+  positionHistory: string[];
 }

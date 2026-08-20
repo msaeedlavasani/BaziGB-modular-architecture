@@ -30,7 +30,12 @@ npm run dev          # وب:3000 + سرور:3001
 3. **Hard Refresh (Ctrl+F5)** پس از هر دیپلوی به کاربر یادآوری شود.
 4. **شاخهها:** تکبرنچ `main` — همه کارها روی `main`؛ دیپلوی فقط با تأیید صریح.
 
-## گزارش خطاهای رایج
+## بکاپ دیتابیس
 
-- **Timeout در npm ci سرور:** منتظر بمانید و `systemctl status bazigb-server` را چک کنید — دستور را با اتصال جدید تکرار نکنید (در صورت قطع ssh از لولهٔ `tar czf - | ssh 'tar xzf -'` برای انتقال استفاده کنید).
-- **برد خاکستری (Gray Board):** Hard Refresh (Ctrl+F5)؛ در صورت تداوم: `systemctl restart bazigb-web` و بررسی لاگ با `journalctl -u bazigb-web -n 50`.
+- **مسیر بکاپ‌ها:** `/opt/bazigb/backups/`
+- **فرکانس:** روزانه ساعت 03:00 بامداد (توسط `systemd timer`).
+- **مدت نگهداری (Retention):** ۷ روز.
+- **نحوه بازیابی:**
+  1. توقف سرویس: `systemctl stop bazigb-server`
+  2. جایگزینی فایل دیتابیس: `cp /opt/bazigb/backups/dev-YYYYmmdd-HHMM.db /opt/bazigb/apps/server/prisma/dev.db`
+  3. شروع مجدد: `systemctl start bazigb-server`

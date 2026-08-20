@@ -125,4 +125,86 @@ describe('Chess Game Logic', () => {
     expect(kingInCheck(state.board, 'black')).toBe(false);
     expect(getLegalMoves(state).length).toBe(0);
   });
+
+  it('8. Draw: Stalemate (via applyMove)', () => {
+    let state = createState(players);
+    state.board.fill(null);
+    state.board[56] = { type: 'k', color: 'black' }; // a1
+    state.board[42] = { type: 'k', color: 'white' }; // c3
+    state.board[33] = { type: 'q', color: 'white' }; // b4
+    state.turn = 'p1';
+    state.castling = { K: false, Q: false, k: false, q: false };
+
+    state = applyMove(state, { player: 'p1', kind: 'move', from: 33, to: 41 });
+
+    expect(state.phase).toBe('finished');
+    expect(state.winner).toBeNull();
+    expect(state.drawReason).toBe('stalemate');
+  });
+
+  it('9. Draw: Insufficient Material (K vs K)', () => {
+    let state = createState(players);
+    state.board.fill(null);
+    state.board[60] = { type: 'k', color: 'white' }; // e8
+    state.board[4] = { type: 'k', color: 'black' }; // e1
+    state.castling = { K: false, Q: false, k: false, q: false };
+
+    // فقط دو شاه روی تخته؛ سیاه یک حرکت قانونی شاه انجام می‌دهد
+    state.turn = 'p2';
+    state = applyMove(state, { player: 'p2', kind: 'move', from: 4, to: 5 });
+
+    expect(state.phase).toBe('finished');
+    expect(state.winner).toBeNull();
+    expect(state.drawReason).toBe('insufficient-material');
+  });
+
+  it('10. Draw: Fifty-move rule', () => {
+    let state = createState(players);
+    state.board.fill(null);
+    state.board[60] = { type: 'k', color: 'white' };
+    state.board[4] = { type: 'k', color: 'black' };
+    state.board[56] = { type: 'n', color: 'white' };
+    state.halfmove = 99;
+    state.turn = 'p1';
+    state.castling = { K: false, Q: false, k: false, q: false };
+    
+    state = applyMove(state, { player: 'p1', kind: 'move', from: 56, to: 41 });
+
+    expect(state.phase).toBe('finished');
+    expect(state.winner).toBeNull();
+    expect(state.drawReason).toBe('fifty-move');
+  });
+
+  it('11. Draw: Threefold repetition', () => {
+    let state = createState(players);
+    state.board.fill(null);
+    state.board[60] = { type: 'k', color: 'white' };
+    state.board[4] = { type: 'k', color: 'black' };
+    state.board[62] = { type: 'n', color: 'white' }; // g1
+    state.board[1] = { type: 'n', color: 'black' }; // b8
+    state.turn = 'p1';
+    state.castling = { K: false, Q: false, k: false, q: false };
+    
+    // سیکل‌ها: g1-f3, b8-c6, f3-g1, c6-b8 (هر سیکل به پوزیشن شروع برمی‌گردد)
+    // نکته: طبق FIDE هر پوزیشنِ ۳ بار تکرارشده تساوی است — پوزیشن «اسب سفید در f3»
+    // در حرکت ۹ (اوایل سیکل سوم) به تکرار سوم می‌رسد؛ پس انجین وسط سیکل سوم پایان می‌دهد
+    // و حرکت‌های بعدی روی بازی تمام‌شده مجاز نیستند.
+    const cycleMoves = [
+      { player: 'p1', kind: 'move', from: 62, to: 45 },
+      { player: 'p2', kind: 'move', from: 1, to: 18 },
+      { player: 'p1', kind: 'move', from: 45, to: 62 },
+      { player: 'p2', kind: 'move', from: 18, to: 1 },
+    ] as const;
+    for (let cycle = 0; cycle < 3; cycle++) {
+      for (const mv of cycleMoves) {
+        if (state.phase === 'finished') break;
+        state = applyMove(state, mv as never);
+      }
+      if (state.phase === 'finished') break;
+    }
+
+    expect(state.phase).toBe('finished');
+    expect(state.winner).toBeNull();
+    expect(state.drawReason).toBe('threefold');
+  });
 });

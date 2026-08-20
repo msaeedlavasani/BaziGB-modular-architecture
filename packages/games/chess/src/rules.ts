@@ -35,7 +35,7 @@ export function createState(players: Player[], match?: MatchConfig): ChessState 
     { ...players[1], color: 'black' },
   ];
 
-  return {
+  const state: ChessState = {
     gameId: 'chess',
     board,
     turn: players[0].id,
@@ -48,8 +48,66 @@ export function createState(players: Player[], match?: MatchConfig): ChessState 
     players: coloredPlayers,
     castling: { K: true, Q: true, k: true, q: true },
     enPassant: null,
-    halfmove: 0
+    halfmove: 0,
+    positionHistory: []
   };
+
+  state.positionHistory.push(getPositionKey(state));
+  return state;
+}
+
+/**
+ * تولید کلید وضعیت برای بررسی تکرار سه‌باره
+ */
+export function getPositionKey(state: ChessState): string {
+  const boardKey = state.board.map(c => c ? `${c.color[0]}${c.type}` : '.').join('');
+  const castlingKey = [
+    state.castling.K ? 'K' : '',
+    state.castling.Q ? 'Q' : '',
+    state.castling.k ? 'k' : '',
+    state.castling.q ? 'q' : ''
+  ].join('');
+  const epKey = state.enPassant !== null ? state.enPassant.toString() : '-';
+  const player = state.players.find(p => p.id === state.turn);
+  const turnKey = player ? (player.color as string)[0] : '?';
+  
+  return `${boardKey}|${castlingKey}|${epKey}|${turnKey}`;
+}
+
+/**
+ * بررسی تساوی به دلیل کمبود مهره
+ */
+export function isInsufficientMaterial(board: ChessBoard): boolean {
+  const pieces: { type: ChessPiece, color: 'white' | 'black', index: number }[] = [];
+  for (let i = 0; i < 64; i++) {
+    const cell = board[i];
+    if (cell) pieces.push({ ...cell, index: i });
+  }
+  
+  // شاه در مقابل شاه
+  if (pieces.length === 2) return true;
+
+  if (pieces.length === 3) {
+    const minorPiece = pieces.find(p => p.type === 'n' || p.type === 'b');
+    // شاه و یک مهره سبک در مقابل شاه
+    if (minorPiece) return true;
+  }
+
+  if (pieces.length === 4) {
+    const whiteMinor = pieces.find(p => p.color === 'white' && (p.type === 'b' || p.type === 'n'));
+    const blackMinor = pieces.find(p => p.color === 'black' && (p.type === 'b' || p.type === 'n'));
+
+    if (whiteMinor && blackMinor && whiteMinor.type === 'b' && blackMinor.type === 'b') {
+      const isWhiteSquare = (idx: number) => {
+        const r = Math.floor(idx / 8), c = idx % 8;
+        return (r + c) % 2 === 0;
+      };
+      // فیل‌های هم‌رنگ
+      if (isWhiteSquare(whiteMinor.index) === isWhiteSquare(blackMinor.index)) return true;
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -330,7 +388,7 @@ function applyMoveInternal(state: ChessState, move: ChessMove, isSimulation: boo
     state.enPassant = null;
   }
 
-  // ۵۰ حرکت (ساده‌سازی شده)
+  // ۵۰ حرکت
   if (piece.type === 'p' || target) state.halfmove = 0;
   else state.halfmove++;
 
@@ -338,12 +396,35 @@ function applyMoveInternal(state: ChessState, move: ChessMove, isSimulation: boo
     const nextTurn = switchTurn(state.turn, state.players);
     state.turn = nextTurn;
     
+    // ثبت کلید پوزیشن برای تکرار ۳ باره
+    const currentKey = getPositionKey(state);
+    state.positionHistory.push(currentKey);
+
+    const occurrences = state.positionHistory.filter(k => k === currentKey).length;
+    
     const nextMoves = getLegalMoves(state);
     const inCheck = kingInCheck(state.board, state.players.find(p => p.id === nextTurn)!.color as 'white' | 'black');
 
     if (nextMoves.length === 0) {
       state.phase = 'finished';
-      state.winner = inCheck ? move.player : null; // کیش‌مات یا پات
+      if (inCheck) {
+        state.winner = move.player;
+      } else {
+        state.winner = null;
+        state.drawReason = 'stalemate';
+      }
+    } else if (occurrences >= 3) {
+      state.phase = 'finished';
+      state.winner = null;
+      state.drawReason = 'threefold';
+    } else if (state.halfmove >= 100) {
+      state.phase = 'finished';
+      state.winner = null;
+      state.drawReason = 'fifty-move';
+    } else if (isInsufficientMaterial(state.board)) {
+      state.phase = 'finished';
+      state.winner = null;
+      state.drawReason = 'insufficient-material';
     }
   }
 
@@ -381,9 +462,16 @@ export function serialize(state: ChessState) {
     turn: state.turn,
     phase: state.phase,
     winner: state.winner,
+    history: state.history,
+    match: state.match,
+    scores: state.scores,
+    round: state.round,
+    players: state.players,
     castling: state.castling,
     enPassant: state.enPassant,
-    historyCount: state.history.length
+    halfmove: state.halfmove,
+    positionHistory: state.positionHistory,
+    drawReason: state.drawReason,
   };
 }
 
