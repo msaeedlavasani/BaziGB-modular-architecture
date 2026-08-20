@@ -67,4 +67,4 @@ apps/server (NestJS)  apps/web (Next.js)
 
 - سرور تولید: `193.151.153.204` — روش: Zero Build (rsync + آرتیفکت محلی)
 - دیتابیس PostgreSQL در داکر؛ دامنه `bazigb.ir` + Caddy (SSL خودکار)
-- **قانون:** شاخه تولید دست نمیخورد؛ تغییرات در `refactor/modular-architecture`
+- **قانون:** تکبرنچ `main` — توسعه و تولید روی یک شاخه (شاخه ماژولارسازی حذف شد)

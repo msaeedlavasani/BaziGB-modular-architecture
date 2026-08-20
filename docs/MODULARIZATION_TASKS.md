@@ -12,7 +12,7 @@ MOD-001 (Branch) → MOD-002..005 (API بازیها) → MOD-006 (تستهای �
 
 | ID | شرح | ریسک | وضعیت |
 | --- | --- | --- | --- |
-| MOD-001 | ایجاد شاخه امن `refactor/modular-architecture` | LOW | ✅ انجام شد (همراه با ساخت اولیه) |
+| MOD-001 | ایجاد شاخه امن `refactor/modular-architecture` | LOW | ✅ انجام شد — شاخه پس از ادغام کامل حذف شد (2026-08-20) |
 | MOD-002 | API عمومی Backgammon: `Backgammon`, `getLegalDestinations`, `canBearOff`, `getMoveHints`, `getBestMoveSequence` | LOW | ✅ انجام شد |
 | MOD-003 | API عمومی Chess: `ChessGame` + تایپها | LOW | ✅ انجام شد |
 | MOD-004 | API عمومی Tic-Tac-Toe: `TicTacToe`, `getBestMove` | LOW | ✅ انجام شد |
@@ -29,7 +29,7 @@ MOD-001 (Branch) → MOD-002..005 (API بازیها) → MOD-006 (تستهای �
 
 ## قوانین اجرا (غیرقابل تغییر)
 
-1. شاخه تولید دست نمیخورد — همه کارها در `refactor/modular-architecture`
-2. هیچ دیپلویی از شاخه ماژولار به پروداکشن بدون تأیید صریح
+1. تکبرنچ `main` — همه کارها روی `main`
+2. هیچ دیپلویی به پروداکشن بدون تأیید صریح
 3. کامیتهای کوچک و منطقی
 4. بعد از هر تسک: تست مرتبط + بیلد پکیج → سپس کامیت
