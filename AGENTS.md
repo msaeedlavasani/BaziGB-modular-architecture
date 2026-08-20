@@ -1,10 +1,35 @@
 # BaziGB — AI Engineering & Workflow Standard
 
-**Version:** 5.0.0
+**Version:** 6.0.0
 
 This document defines how AI agents must inspect, reason about, plan, modify, validate, and document work in the BaziGB repository.
 
 It is an engineering governance document. It is NOT a duplicate of the project's architecture, product strategy, or visual design documentation.
+
+## 0. AI ENTRY PROTOCOL
+
+`AI_CONTEXT_MAP.md` is the repository navigation map.
+
+At the beginning of every task:
+
+1. Read `AI_CONTEXT_MAP.md`.
+2. Read `AGENTS.md`.
+3. Classify the task.
+4. Follow the relevant route in `AI_CONTEXT_MAP.md`.
+5. Identify the closest existing implementation.
+6. Inspect only the context required to make a correct decision.
+
+Do not treat all repository files as equally relevant.
+
+Do not read the entire repository by default.
+
+The required operating sequence is:
+
+`task → route → relevant rules → closest analogue → dependencies → plan → implementation → validation`
+
+Never use:
+
+`repository → read everything → decide later`
 
 ## 1. SOURCE OF TRUTH
 
@@ -15,11 +40,14 @@ When information conflicts, use this priority:
 3. `AGENTS.md`
 4. `DESIGN_SYSTEM.md`
 5. Current architecture and operational documentation
-6. Active task documentation
-7. Historical reports, audits, handoffs, and migration documents
-8. AI assumptions or general knowledge
+6. `ai/*` operational documentation
+7. Active task documentation
+8. Historical reports, audits, handoffs, and migration documents
+9. AI assumptions or general knowledge
 
 Never invent project facts. If a required fact cannot be verified from the repository, explicitly state that it is unknown.
+
+If documentation conflicts with code, detect and report the conflict rather than silently choosing an assumption.
 
 ## 2. CURRENT STATE VS TARGET STATE
 
@@ -37,19 +65,48 @@ A TARGET or DEBT item must not be implemented merely because it appears in docum
 
 ## 3. TASK MODES
 
+### DISCOVERY
+
+Discovery is mandatory before implementation for every non-trivial task.
+
+Use `AI_CONTEXT_MAP.md` to route context. Determine the minimum sufficient context rather than reading the entire repository.
+
 ### PLAN MODE
 
 PLAN MODE is the default for new features, multi-file changes, refactors, architectural changes, dependency changes, security changes, database changes, real-time architecture changes, and large UI changes.
 
 Before implementation:
-1. Inspect the repository.
-2. Identify existing components, APIs, abstractions, and dependencies.
-3. Identify affected modules.
-4. Identify architecture risks.
-5. Produce a concise implementation plan.
-6. Wait for approval.
+1. Inspect the relevant repository context.
+2. Identify existing components, APIs, abstractions, assets, and dependencies.
+3. Identify the closest existing implementation.
+4. Identify affected modules.
+5. Identify architecture and design risks.
+6. Identify human inputs that are genuinely missing.
+7. Produce a concise implementation plan.
+8. Wait for approval when the task has not explicitly authorized autonomous execution.
 
-The plan should include User Intent, Repository Findings, Files/Modules Affected, Implementation Steps, Risks, and Validation.
+The plan should include User Intent, Repository Findings, Closest Analogue, Reuse/Creation Analysis, Files/Modules Affected, Assets, Implementation Steps, Risks, Human Input, and Validation.
+
+### AUTONOMOUS FEATURE MODE
+
+If the user explicitly asks to implement/proceed autonomously, the AI may perform the planning phase internally and proceed directly to implementation when the task fits established architecture.
+
+The internal sequence remains:
+
+`DISCOVER → CLASSIFY → ANALYZE → PLAN INTERNALLY → IMPLEMENT → VALIDATE → REPORT`
+
+Do NOT ask for approval for decisions already established by repository rules, design rules, existing patterns, or current code.
+
+Autonomous execution must stop and request human input when:
+
+- a genuine product decision is missing,
+- a major architectural decision is required,
+- a new package boundary must be introduced,
+- an essential dependency cannot be resolved safely,
+- required accurate visual assets are genuinely unavailable,
+- implementation would violate an explicit constraint.
+
+Autonomous mode does NOT permit skipping discovery, planning, validation, or reporting.
 
 ### EXECUTE MODE
 
@@ -61,10 +118,31 @@ Even in EXECUTE MODE:
 - Do not modify unrelated files.
 - Do not perform broad rewrites for local problems.
 - Do not change package boundaries without justification.
+- Do not skip validation.
 
-Stop and request approval if the requested change requires a new architectural decision that has not been established.
+## 4. CONTEXT NAVIGATION
 
-## 4. MINIMAL CHANGE PRINCIPLE
+Use `AI_CONTEXT_MAP.md` for task routing.
+
+Before reading source files, determine the task type.
+
+Then inspect in this order:
+
+1. governance/rules
+2. relevant domain/design documentation
+3. relevant package/module architecture
+4. reusable systems
+5. closest analogue
+6. directly affected implementation
+7. tests and validation configuration
+
+Do not recursively inspect unrelated directories.
+
+For an unfamiliar file, first determine its package/module, imports, consumers, and relevance. Read it only when evidence indicates it is required.
+
+The objective is **minimum sufficient context**, not maximum available context.
+
+## 5. MINIMAL CHANGE PRINCIPLE
 
 Prefer the smallest correct change over the largest possible cleanup.
 
@@ -73,12 +151,30 @@ Before creating a component, hook, utility, service, type, abstraction, or API, 
 Prefer:
 
 ```text
-reuse → extend → compose → create
+reuse → compose → extend → create
 ```
 
 Do not create duplicate abstractions merely because an existing implementation is inconvenient. Do not refactor unrelated code during a feature or bug fix.
 
-## 5. ARCHITECTURAL BOUNDARIES
+## 6. COMPONENT AND DESIGN SYSTEM DISCIPLINE
+
+For frontend work, follow `DESIGN_SYSTEM.md` and `ai/COMPONENT_REGISTRY.md`.
+
+Before creating a reusable component:
+
+1. search the component registry,
+2. inspect the actual implementation,
+3. find the closest analogue,
+4. determine whether reuse is sufficient,
+5. determine whether composition is sufficient,
+6. determine whether extension is sufficient,
+7. create only when responsibility is genuinely new.
+
+If a new durable reusable component is created, update the registry.
+
+Do not create feature-local copies of existing shared components.
+
+## 7. ARCHITECTURAL BOUNDARIES
 
 BaziGB is a modular monorepo. The intended dependency direction is:
 
@@ -99,7 +195,7 @@ Games should expose public APIs rather than requiring consumers to import privat
 
 If a task appears to require breaking a package boundary: explain why, identify alternatives, and request approval before proceeding.
 
-## 6. SERVER AUTHORITY
+## 8. SERVER AUTHORITY
 
 For multiplayer gameplay, the server is authoritative.
 
@@ -109,7 +205,7 @@ Client-side prediction or optimistic UI may exist only as presentation behavior 
 
 Never move game rules into React merely to simplify UI implementation.
 
-## 7. REAL-TIME AND CONCURRENCY
+## 9. REAL-TIME AND CONCURRENCY
 
 For real-time features:
 - validate incoming client actions on the server
@@ -125,7 +221,7 @@ For real-time features:
 
 Do not introduce Redis, queues, distributed locks, or similar infrastructure unless the current task requires it. A technology mentioned in a roadmap is NOT automatically a current dependency.
 
-## 8. TYPE SAFETY
+## 10. TYPE SAFETY
 
 Prefer strict TypeScript. Avoid `any`.
 
@@ -135,7 +231,7 @@ Do not assume a dependency exists. Always inspect the relevant `package.json` be
 
 Do not introduce a second validation framework if an established validation mechanism already exists and is appropriate.
 
-## 9. DEPENDENCY DISCIPLINE
+## 11. DEPENDENCY DISCIPLINE
 
 Before adding a dependency:
 1. Search for an existing solution.
@@ -147,7 +243,9 @@ Before adding a dependency:
 
 Do not upgrade dependencies opportunistically. Do not remove dependencies without verifying actual usage.
 
-## 10. FRONTEND RULES
+Framework/library versions are constraints, not opportunities for opportunistic modernization.
+
+## 12. FRONTEND RULES
 
 For frontend work:
 - follow `DESIGN_SYSTEM.md`
@@ -157,10 +255,11 @@ For frontend work:
 - reuse shared components
 - preserve accessibility
 - handle relevant loading, empty, error, and real-time/disconnection states
+- use `ai/COMPONENT_REGISTRY.md` before creating durable reusable components
 
 Do not introduce another generic UI framework. Do not create feature-local copies of existing shared components. Do not hard-code visual tokens when an existing theme token can be used.
 
-## 11. UI LIBRARY POLICY
+## 13. UI LIBRARY POLICY
 
 MUI is the primary BaziGB application UI system.
 
@@ -178,7 +277,7 @@ The rule is:
 
 > Specialized libraries provide capability. BaziGB provides visual identity.
 
-## 12. GAME UI
+## 14. GAME UI
 
 Game interfaces are different from CRUD/admin interfaces. Prioritize:
 1. game state visibility
@@ -190,29 +289,54 @@ Game interfaces are different from CRUD/admin interfaces. Prioritize:
 
 Do not turn a game screen into a collection of generic administrative cards. Do not modify game rules while implementing UI unless explicitly requested.
 
-## 13. PERFORMANCE
+For a new game, first inspect the closest existing game and shared game infrastructure. Isolate game-specific logic/UI/assets from reusable platform infrastructure.
+
+## 15. ASSET DISCIPLINE
+
+For visual features and especially new games, follow `ai/ASSET_SYSTEM.md`.
+
+Before requesting an asset:
+
+1. search existing assets,
+2. inspect the closest analogue,
+3. determine whether the asset can be generated from existing primitives,
+4. request human input only when genuinely required.
+
+When human assets are required, provide one consolidated specification instead of repeatedly asking for individual files.
+
+## 16. PERFORMANCE
 
 Optimize based on evidence. Prefer localized state, efficient event handling, stable component boundaries, appropriate memoization, and cleanup of subscriptions/timers.
 
 Do not mechanically add `React.memo`, `useMemo`, or `useCallback` to every component. Do not claim an FPS guarantee unless it has actually been measured.
 
-## 14. ERROR PREVENTION
+## 17. ERROR PREVENTION
 
 Before completing work, inspect for missing cleanup, unhandled promises, broken loading/error/empty states, RTL regressions, mobile overflow, accessibility regressions, stale imports, dead code, accidental dependency changes, and architecture-boundary violations.
 
 Do not leave placeholder implementations in production code. Do not use TODO comments as a substitute for required implementation.
 
-## 15. VALIDATION
+## 18. VALIDATION
+
+Follow `ai/VALIDATION_GATE.md`.
 
 After implementation, run the narrowest relevant validation first:
 1. typecheck affected package
 2. relevant unit tests
 3. affected build
 4. broader tests/build when appropriate
+5. architecture/design/scope review
 
 Never claim validation succeeded unless it actually ran. If validation cannot be performed, state exactly what was not verified and why.
 
-## 16. ARCHITECTURE CHANGES
+Every relevant validation result must be classified as:
+
+- PASS
+- FAIL
+- NOT RUN
+- BLOCKED
+
+## 19. ARCHITECTURE CHANGES
 
 Changes to package boundaries, public package APIs, database strategy, authentication, authorization, real-time transport, deployment model, or major dependencies require explicit architectural consideration.
 
@@ -220,17 +344,19 @@ Before implementation, identify current architecture, why it is insufficient, af
 
 Do not perform architectural changes as incidental cleanup.
 
-## 17. DOCUMENTATION DISCIPLINE
+## 20. DOCUMENTATION DISCIPLINE
 
 Documentation must explain durable knowledge and decisions. It must not duplicate the codebase unnecessarily.
 
 Use:
 
 ```text
-AGENTS.md       → AI behavior and engineering workflow
-DESIGN_SYSTEM.md → visual/UI rules
-README.md       → human-facing project overview and onboarding
-docs/           → durable architecture, operations, strategy, and history
+AI_CONTEXT_MAP.md → AI repository navigation and context routing
+AGENTS.md         → AI behavior and engineering governance
+DESIGN_SYSTEM.md  → visual/UI rules
+ai/               → AI operational contracts and registries
+README.md         → human-facing project overview and onboarding
+docs/             → durable architecture, operations, strategy, and history
 GitHub Issues / task backlog → active implementation work
 ```
 
@@ -242,7 +368,7 @@ If documentation conflicts with code:
 3. update/deprecate the outdated document
 4. record an ADR if the conflict represents an important architectural decision
 
-## 18. DOCUMENTATION BLOAT CONTROL
+## 21. DOCUMENTATION BLOAT CONTROL
 
 Before creating a new documentation file ask:
 1. Does this information already have a canonical home?
@@ -254,7 +380,9 @@ Before creating a new documentation file ask:
 
 Do not create documentation simply because a topic exists. Prefer one canonical source over multiple partially overlapping documents.
 
-## 19. ARCHITECTURAL DECISIONS
+The AI operational documents in `ai/` are intentional: they define executable workflow contracts, reusable registries, asset handoff rules, and validation gates. Do not create overlapping documents for those responsibilities.
+
+## 22. ARCHITECTURAL DECISIONS
 
 Create ADRs only when a decision meaningfully affects future development. Do not create ADRs for bug fixes, typo fixes, normal UI changes, routine refactors, or routine dependency updates.
 
@@ -265,35 +393,44 @@ An ADR explains Context, Decision, Alternatives, Consequences, Validation, and R
 ADR = WHY
 Architecture documentation = WHAT
 AGENTS = HOW AI behaves
+AI operational docs = HOW AI navigates, executes, inventories, and validates
 
 Do not mix these responsibilities.
 
-## 20. HANDOFF PROTOCOL
+## 23. HANDOFF PROTOCOL
 
 At the beginning of a new AI session:
-1. Read `AGENTS.md`.
-2. Read `DESIGN_SYSTEM.md` for frontend tasks.
-3. Inspect root/package manifests.
-4. Inspect relevant source files.
-5. Read only documentation relevant to the task.
-6. Determine CURRENT / TARGET / DEBT / UNKNOWN.
+1. Read `AI_CONTEXT_MAP.md`.
+2. Read `AGENTS.md`.
+3. Read `DESIGN_SYSTEM.md` for frontend tasks.
+4. Inspect root/package manifests only as relevant to the task.
+5. Inspect relevant source files and the closest analogue.
+6. Read only documentation routed by `AI_CONTEXT_MAP.md`.
+7. Determine CURRENT / TARGET / DEBT / UNKNOWN.
 
 At the end of a task report:
-- **Changed** — files and changes
+- **Implemented / Changed** — files and changes
+- **Reused** — existing systems/components reused
+- **Created** — genuinely new abstractions
+- **Assets Required** — consolidated human inputs
 - **Validation** — checks actually performed
 - **Risks / Limitations** — anything not verified
-- **Follow-up** — only genuinely necessary work
+- **Human Input Required** — only genuine decisions/blockers
 
 Do not generate generic handoff documents after every task.
 
-## 21. ABSOLUTE RULE
+## 24. ABSOLUTE RULE
 
-> Inspect first.
+> Route context before reading broadly.
+>
+> Inspect before implementing.
 >
 > Reuse before creating.
 >
 > Plan before changing.
 >
-> Verify before claiming.
+> Validate before claiming.
+>
+> Ask humans only when human judgment or missing input is genuinely required.
 >
 > Never invent project facts.
