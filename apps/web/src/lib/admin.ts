@@ -64,6 +64,11 @@ export async function deleteUser(id: string): Promise<void> {
   await api.delete(`/admin/users/${id}`);
 }
 
+/** Delete a room (ADMIN only). */
+export async function deleteAdminRoom(code: string): Promise<void> {
+  await api.delete(`/admin/rooms/${code}`);
+}
+
 /** Update user basic info (ADMIN only). */
 export async function updateAdminUser(
   id: string,

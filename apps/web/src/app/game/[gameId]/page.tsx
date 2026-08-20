@@ -36,6 +36,8 @@ import ChessBoard from '@/components/game/ChessBoard';
 import ChessInfo from '@/components/game/ChessInfo';
 import VegasBoard from '@/components/game/VegasBoard';
 
+import { api } from '@/lib/api';
+
 const ADAPTERS: Record<GameId, GameAdapter> = {
   'tic-tac-toe': TicTacToe,
   backgammon: Backgammon,
@@ -278,6 +280,18 @@ function GameInner() {
   })();
 
   const isFinished = !!state && state.phase === 'finished';
+  useEffect(() => {
+    if (isFinished && state && state.winner) {
+      // Record bot game result for authenticated users
+      const winnerId = state.winner === 'p1' ? 'p1' : 'p2';
+      api.post('/game/bot-result', {
+        gameId,
+        winner: winnerId,
+        state,
+      }).catch(() => { /* skip errors for local tracking */ });
+    }
+  }, [isFinished, state, gameId]);
+
   const winner = isFinished
     ? {
         label: state.winner

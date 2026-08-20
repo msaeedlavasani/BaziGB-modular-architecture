@@ -84,6 +84,9 @@ export default function BackgammonBoard({
   const doubling = (state as any)?.doubling ?? null;
   const myId = state.players.find((p) => p.color === myColorNum)?.id;
 
+  const p1Id = state.players.find((p) => p.color === 1)?.id;
+  const p2Id = state.players.find((p) => p.color === -1)?.id;
+
   // همه حرکت‌های قانونی (شامل حرکت تاس وقتی ریخته نشده)
   const legalMoves = useMemo(() => getLegalMoves(state), [state]);
 
@@ -472,7 +475,7 @@ export default function BackgammonBoard({
             'radial-gradient(130% 120% at 50% 115%, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 55%)',
             'repeating-linear-gradient(45deg, rgba(0,0,0,0.045) 0px, rgba(0,0,0,0.045) 1px, transparent 1px, transparent 5px)',
             'repeating-linear-gradient(-45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 5px)',
-            'radial-gradient(ellipse 150% 110% at 50% 50%, #7A4A24 0%, #542E15 55%, #2A1508 100%)',
+            'radial-gradient(ellipse 150% 110% at 50% 50%, #38543f 0%, #26392c 55%, #152319 100%)',
           ].join(', '),
         }}
       >
@@ -517,6 +520,36 @@ export default function BackgammonBoard({
                   ].join(', '),
           }}
         >
+          {cube > 1 && (
+            <Paper
+              elevation={6}
+              sx={{
+                position: 'absolute',
+                left: '50%',
+                width: { xs: 22, sm: 30 },
+                height: { xs: 22, sm: 30 },
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: '#B97F12',
+                color: '#FFFDF5',
+                fontWeight: 900,
+                fontSize: { xs: 11, sm: 15 },
+                borderRadius: 1,
+                zIndex: 100,
+                border: '1px solid #D4A017',
+                boxShadow: '0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
+                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                ...(cubeOwner === p1Id
+                  ? { top: '12%', transform: 'translateX(-50%)' }
+                  : cubeOwner === p2Id
+                    ? { bottom: '12%', transform: 'translateX(-50%)' }
+                    : { top: '50%', transform: 'translate(-50%, -50%)' }),
+              }}
+            >
+              {cube}
+            </Paper>
+          )}
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: 1 }}>
             {renderCheckers(-(bar[-1] ?? 0), true, 'bar-b', true)}
           </Box>
@@ -620,18 +653,6 @@ export default function BackgammonBoard({
         }}
       >
         <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, alignItems: 'center' }}>
-          {cube > 1 && (
-            <Chip
-              label={`کیوب ×${cube}${cubeOwner ? ` (${state.players.find((p) => p.id === cubeOwner)?.name})` : ''}`}
-              size="small"
-              sx={{
-                bgcolor: '#7A4A24',
-                color: '#F5EFE4',
-                fontWeight: 'bold',
-                border: '1px solid #B97F12',
-              }}
-            />
-          )}
           {showDice ? (
             (() => {
               // گروه‌بندی تاس‌ها (جفت → ۴ تاس، هر حرکت یکی مصرف می‌شود)

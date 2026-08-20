@@ -15,12 +15,16 @@ import { JwtAuthGuard } from '../auth/jwt.guard';
 import { AdminGuard } from '../common/admin.guard';
 import { Roles } from '../common/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
+import { RoomService } from '../rooms/room.service';
 import { AdminUpdateUserDto, DeactivateUserDto } from './dto/admin-user.dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class AdminController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roomService: RoomService,
+  ) {}
 
   @Get('stats')
   @Roles('ADMIN')
@@ -107,12 +111,10 @@ export class AdminController {
     const skipNum = parseInt(skip, 10) || 0;
 
     const where: any = {};
-    if (role) {
+    if (role && role !== 'ALL') {
       where.role = role;
     }
     if (q) {
-      // NOTE: `mode: 'insensitive'` is not supported by the SQLite provider —
-      // plain `contains` works on both SQLite (dev) and Postgres (prod).
       where.OR = [
         { username: { contains: q } },
         { email: { contains: q } },
@@ -254,5 +256,15 @@ export class AdminController {
     });
 
     return { ok: true, id };
+  }
+
+  @Delete('rooms/:code')
+  @Roles('ADMIN')
+  async deleteRoom(@Param('code') code: string) {
+    const ok = await this.roomService.deleteRoom(code);
+    if (!ok) {
+      throw new BadRequestException('اتاق یافت نشد');
+    }
+    return { ok: true, code };
   }
 }

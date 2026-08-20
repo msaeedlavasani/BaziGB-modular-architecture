@@ -14,6 +14,7 @@ interface Dice3DProps {
   size?: number; // px, پیش‌فرض 48
   color?: string; // رنگ اختیاری وجه‌ها
   className?: string;
+  mode?: 'dice' | 'cube';
 }
 
 const faceRotations: Record<number, string> = {
@@ -39,8 +40,8 @@ const getDotColor = (faceColor?: string) => {
 const Dot = ({ color }: { color: string }) => (
   <div
     style={{
-      width: '26%',
-      height: '26%',
+      width: '32%',
+      height: '32%',
       borderRadius: '50%',
       background: color,
       boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.25)',
@@ -48,9 +49,58 @@ const Dot = ({ color }: { color: string }) => (
   />
 );
 
-const Empty = () => <div style={{ width: '26%', height: '26%' }} />;
+const Empty = () => <div style={{ width: '32%', height: '32%' }} />;
 
-const DiceFace = ({ num, color }: { num: number; color?: string }) => {
+const CUBE_VALUES = [2, 4, 8, 16, 32, 64];
+
+const DiceFace = ({
+  num,
+  color,
+  mode = 'dice',
+}: {
+  num: number;
+  color?: string;
+  mode?: 'dice' | 'cube';
+}) => {
+  const dotColor = getDotColor(color);
+
+  if (mode === 'cube') {
+    const displayValue = CUBE_VALUES[num - 1] || 2;
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          background: color ?? 'linear-gradient(145deg, #F7E9C9 0%, #E9CD93 100%)',
+          border: `1px solid ${color ? 'rgba(0,0,0,0.1)' : 'rgba(107, 63, 30, 0.35)'}`,
+          borderRadius: '20%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: color ? 'inset 0 0 15px rgba(0,0,0,0.1)' : 'inset 0 0 12px rgba(107, 63, 30, 0.15)',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
+        }}
+      >
+        <span
+          style={{
+            color: dotColor,
+            fontWeight: 'bold',
+            fontSize: '40%',
+            fontFamily:
+              'Vazirmatn, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+            textAlign: 'center',
+            lineHeight: 1,
+          }}
+        >
+          {displayValue}
+        </span>
+      </div>
+    );
+  }
+
   // شبکه 3x3: شاخص‌ها 0..8
   const dots = Array(9).fill(false);
   switch (num) {
@@ -74,8 +124,6 @@ const DiceFace = ({ num, color }: { num: number; color?: string }) => {
       break;
   }
 
-  const dotColor = getDotColor(color);
-
   return (
     <div
       style={{
@@ -89,7 +137,7 @@ const DiceFace = ({ num, color }: { num: number; color?: string }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '10%',
+        padding: '8%',
         boxShadow: color ? 'inset 0 0 15px rgba(0,0,0,0.1)' : 'inset 0 0 12px rgba(107, 63, 30, 0.15)',
         backfaceVisibility: 'hidden',
         WebkitBackfaceVisibility: 'hidden',
@@ -120,6 +168,7 @@ export default function Dice3D({
   size = 48,
   color,
   className = '',
+  mode = 'dice',
 }: Dice3DProps): JSX.Element {
   const rotation = faceRotations[value] || faceRotations[1];
 
@@ -164,27 +213,27 @@ export default function Dice3D({
       >
         {/* جلو - وجه 1 */}
         <div style={{ position: 'absolute', inset: 0, transform: `translateZ(${size / 2}px)` }}>
-          <DiceFace num={1} color={color} />
+          <DiceFace num={1} color={color} mode={mode} />
         </div>
         {/* پشت - وجه 6 */}
         <div style={{ position: 'absolute', inset: 0, transform: `rotateY(180deg) translateZ(${size / 2}px)` }}>
-          <DiceFace num={6} color={color} />
+          <DiceFace num={6} color={color} mode={mode} />
         </div>
         {/* راست - وجه 2 */}
         <div style={{ position: 'absolute', inset: 0, transform: `rotateY(90deg) translateZ(${size / 2}px)` }}>
-          <DiceFace num={2} color={color} />
+          <DiceFace num={2} color={color} mode={mode} />
         </div>
         {/* چپ - وجه 5 */}
         <div style={{ position: 'absolute', inset: 0, transform: `rotateY(-90deg) translateZ(${size / 2}px)` }}>
-          <DiceFace num={5} color={color} />
+          <DiceFace num={5} color={color} mode={mode} />
         </div>
         {/* بالا - وجه 3 */}
         <div style={{ position: 'absolute', inset: 0, transform: `rotateX(90deg) translateZ(${size / 2}px)` }}>
-          <DiceFace num={3} color={color} />
+          <DiceFace num={3} color={color} mode={mode} />
         </div>
         {/* پایین - وجه 4 */}
         <div style={{ position: 'absolute', inset: 0, transform: `rotateX(-90deg) translateZ(${size / 2}px)` }}>
-          <DiceFace num={4} color={color} />
+          <DiceFace num={4} color={color} mode={mode} />
         </div>
       </div>
     </div>

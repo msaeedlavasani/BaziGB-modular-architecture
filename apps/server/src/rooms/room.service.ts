@@ -327,6 +327,14 @@ export class RoomService {
     return this.toParsed(updated);
   }
 
+  /** Delete a room by its code. */
+  async deleteRoom(code: string): Promise<boolean> {
+    const existing = await this.prisma.room.findUnique({ where: { code } });
+    if (!existing) return false;
+    await this.prisma.room.delete({ where: { code } });
+    return true;
+  }
+
   /** List rooms, optionally filtered by status. */
   async listRooms(status?: RoomStatus): Promise<RoomWithParsedData[]> {
     const rooms = status

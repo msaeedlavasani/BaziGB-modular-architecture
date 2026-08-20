@@ -422,14 +422,31 @@ export default function ProfilePage() {
       <Box sx={{ mx: 'auto', width: '100%', maxWidth: 896, px: { xs: 2, sm: 6 }, py: 10 }}>
         {/* Header */}
         <Box component="header" sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-          <Button
-            component={Link}
-            href="/"
-            startIcon={<ChevronLeft size={16} />}
-            sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 500, '&:hover': { color: 'text.primary' } }}
-          >
-            Back to game
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <Button
+              component={Link}
+              href="/"
+              startIcon={<ChevronLeft size={16} />}
+              sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 500, '&:hover': { color: 'text.primary' } }}
+            >
+              Back to game
+            </Button>
+            {user.role === 'ADMIN' && (
+              <Button
+                component={Link}
+                href="/admin"
+                variant="contained"
+                sx={{
+                  ...GRADIENT_BTN,
+                  height: 36,
+                  px: 2,
+                  fontSize: '0.875rem',
+                }}
+              >
+                Dashboard
+              </Button>
+            )}
+          </Box>
           <Button
             variant="outlined"
             onClick={logout}
