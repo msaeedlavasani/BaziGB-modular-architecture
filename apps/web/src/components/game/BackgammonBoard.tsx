@@ -1,7 +1,18 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Button, Typography, Paper } from '@mui/material';
+import {
+  Box,
+  Button,
+  Typography,
+  Paper,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+} from '@mui/material';
 import {
   getLegalMoves,
   getMoveHints,
@@ -32,6 +43,8 @@ interface Props {
   /** اجرای زنجیرهٔ کامل (حرکت ترکیبی یک‌کلیک) */
   onChain?: (chain: BackgammonMove[]) => void;
   onEndTurn?: () => void;
+  onOfferDouble?: () => void;
+  onRespondDouble?: (accept: boolean) => void;
   disabled?: boolean;
   isMyTurn?: boolean;
   /** رنگ بازیکن جاری: 1 (روشن) یا -1 (تیره). پیش‌فرض: بازیکن اول. */
@@ -51,6 +64,8 @@ export default function BackgammonBoard({
   onMove,
   onChain,
   onEndTurn,
+  onOfferDouble,
+  onRespondDouble,
   disabled = false,
   isMyTurn = false,
   myColor,
@@ -63,6 +78,11 @@ export default function BackgammonBoard({
   const off = state.off;
   const dice = state.dice ?? [];
   const rolled = !!state.rolled;
+
+  const cube = (state as any)?.cube ?? 1;
+  const cubeOwner = (state as any)?.cubeOwner ?? null;
+  const doubling = (state as any)?.doubling ?? null;
+  const myId = state.players.find((p) => p.color === myColorNum)?.id;
 
   // همه حرکت‌های قانونی (شامل حرکت تاس وقتی ریخته نشده)
   const legalMoves = useMemo(() => getLegalMoves(state), [state]);
@@ -85,7 +105,12 @@ export default function BackgammonBoard({
   const combinedChains = useMemo(() => {
     if (selected === null || !rolled || !onChain) return [];
     const hints = getMoveHints(state);
-    return hints.filter((chain) => chain.length > 1 && chain.every((m) => m.from === selected));
+    return hints.filter(
+      (chain) =>
+        chain.length > 1 &&
+        (chain.every((m) => m.from === selected) ||
+          (chain[0].from === selected && chain.every((m, i) => i === 0 || m.from === chain[i - 1].to))),
+    );
   }, [selected, rolled, onChain, state]);
   const combinedDests = useMemo(
     () => new Set(combinedChains.map((chain) => chain[chain.length - 1].to).filter((t) => t !== undefined)),
@@ -399,6 +424,15 @@ export default function BackgammonBoard({
   const canEndTurn = isMyTurn && !disabled && rolled && dice.length > 0 && pieceMoves.length === 0;
   const showDice = dice.length > 0;
 
+  const canDouble =
+    isMyTurn &&
+    !disabled &&
+    !rolled &&
+    cube < 64 &&
+    !doubling &&
+    state.phase === 'playing' &&
+    (cubeOwner === null || cubeOwner !== state.turn);
+
   return (
     <Paper
       elevation={24}
@@ -438,7 +472,7 @@ export default function BackgammonBoard({
             'radial-gradient(130% 120% at 50% 115%, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 55%)',
             'repeating-linear-gradient(45deg, rgba(0,0,0,0.045) 0px, rgba(0,0,0,0.045) 1px, transparent 1px, transparent 5px)',
             'repeating-linear-gradient(-45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 5px)',
-            'radial-gradient(ellipse 150% 110% at 50% 50%, #38543f 0%, #26392c 55%, #152319 100%)',
+            'radial-gradient(ellipse 150% 110% at 50% 50%, #7A4A24 0%, #542E15 55%, #2A1508 100%)',
           ].join(', '),
         }}
       >
@@ -484,7 +518,7 @@ export default function BackgammonBoard({
           }}
         >
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: 1 }}>
-            {renderCheckers(bar[-1] ?? 0, true, 'bar-b', true)}
+            {renderCheckers(-(bar[-1] ?? 0), true, 'bar-b', true)}
           </Box>
           <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: 8, fontWeight: 700 }}>BAR</Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pb: 1 }}>
@@ -586,6 +620,18 @@ export default function BackgammonBoard({
         }}
       >
         <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, alignItems: 'center' }}>
+          {cube > 1 && (
+            <Chip
+              label={`کیوب ×${cube}${cubeOwner ? ` (${state.players.find((p) => p.id === cubeOwner)?.name})` : ''}`}
+              size="small"
+              sx={{
+                bgcolor: '#7A4A24',
+                color: '#F5EFE4',
+                fontWeight: 'bold',
+                border: '1px solid #B97F12',
+              }}
+            />
+          )}
           {showDice ? (
             (() => {
               // گروه‌بندی تاس‌ها (جفت → ۴ تاس، هر حرکت یکی مصرف می‌شود)
@@ -647,6 +693,24 @@ export default function BackgammonBoard({
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1.5 }}>
+          {canDouble && (
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => onOfferDouble?.()}
+              sx={{
+                px: { xs: 1.5, sm: 2 },
+                bgcolor: '#B97F12',
+                '&:hover': { bgcolor: '#EEAC2F' },
+                color: 'white',
+                fontWeight: 'bold',
+                fontSize: { xs: '0.68rem', sm: '0.75rem' },
+                borderRadius: 2,
+              }}
+            >
+              دابل
+            </Button>
+          )}
           {canEndTurn && (
             <Button
               variant="contained"
@@ -694,6 +758,28 @@ export default function BackgammonBoard({
         </Box>
       </Box>
 
+      {doubling && doubling.offeredBy === myId && (
+        <Typography variant="caption" sx={{ color: 'primary.main', mt: 1 }}>
+          در انتظار پاسخ حریف به پیشنهاد دابل...
+        </Typography>
+      )}
+
+      <Dialog open={!!(doubling && doubling.offeredBy !== myId && !disabled)} dir="rtl">
+        <DialogTitle>پیشنهاد دابل</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            حریف پیشنهاد دوبرابر کردن امتیاز داده. اگر رد کنید بازی را با امتیاز فعلی می‌بازید.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => onRespondDouble?.(false)} color="error">
+            رد
+          </Button>
+          <Button onClick={() => onRespondDouble?.(true)} variant="contained" color="primary">
+            پذیرش
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 }

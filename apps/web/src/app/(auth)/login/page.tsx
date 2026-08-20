@@ -17,6 +17,12 @@ import { api } from '@/lib/api';
 const PHONE_RE = /^09\d{9}$/;
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
+function toEnglishDigits(input: string): string {
+  return input
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+}
+
 /**
  * ورود فقط با شماره موبایل و کد OTP (ورود ایمیل/پسورد حذف شده است).
  * کاربر جدید بعد از دریافت کد، نام کاربری خود را انتخاب می‌کند.
@@ -61,13 +67,14 @@ export default function LoginPage() {
 
   async function handleRequestOtp() {
     setServerError(null);
+    const p = toEnglishDigits(phone.trim());
     const errors = validatePhone();
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
     setSubmitting(true);
     try {
-      await api.post('/auth/otp/request', { phone });
+      await api.post('/auth/otp/request', { phone: p });
       setStep('verify');
       setTimer(60);
     } catch (error: any) {
@@ -98,11 +105,13 @@ export default function LoginPage() {
 
     setSubmitting(true);
     try {
-      const res = await loginWithOtp(phone, code, isNewUser ? username : undefined);
-      if (res.isNewUser && !isNewUser) {
-        setIsNewUser(true);
-      } else {
+      const p = toEnglishDigits(phone.trim());
+      const c = toEnglishDigits(code.trim());
+      const res = await loginWithOtp(p, c, isNewUser ? username : undefined);
+      if (res.accessToken && res.user) {
         router.replace('/');
+      } else if (res.isNewUser) {
+        setIsNewUser(true);
       }
     } catch (error: any) {
       setServerError(error.message || 'خطا در تایید کد');
@@ -154,7 +163,7 @@ export default function LoginPage() {
             id="phone"
             type="tel"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(toEnglishDigits(e.target.value))}
             placeholder="۰۹۱۲۳۴۵۶۷۸۹"
             disabled={step !== 'request'}
             error={!!fieldErrors.phone}
@@ -207,7 +216,7 @@ export default function LoginPage() {
                 fullWidth
                 id="code"
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={(e) => setCode(toEnglishDigits(e.target.value))}
                 placeholder="------"
                 error={!!fieldErrors.code}
                 helperText={fieldErrors.code}

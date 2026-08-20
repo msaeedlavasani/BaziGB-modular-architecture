@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Persist the session ONLY when the account actually exists. When the
       // server returns isNewUser (first verify of a brand-new phone) the user
       // must finish the signup (enter a username) before any token is stored.
-      if (!res.isNewUser && res.accessToken && res.user) {
+      if (res.accessToken && res.user) {
         storeToken(res.accessToken);
         setTokenState(res.accessToken);
         setUser(res.user);

@@ -23,6 +23,8 @@ import {
   makeMoveSchema,
   nextRoundSchema,
   undoSchema,
+  doubleSchema,
+  doubleResponseSchema,
 } from '../socket-validation';
 import { WsRateLimitGuard } from '../common/ws-rate-limit.guard';
 
@@ -429,13 +431,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const winnerId = finalState.winner ?? null;
     const scores = { ...room.scores };
-    if (winnerId) scores[winnerId] = (scores[winnerId] ?? 0) + 1;
+    if (winnerId) {
+      // Get points from state (handles Mars/Cube)
+      const points = (finalState as any).scores?.[winnerId] ?? 1;
+      scores[winnerId] = (scores[winnerId] ?? 0) + points;
+    }
 
     await this.roomService.saveScores(room.code, scores);
     this.server.to(room.code).emit('matchScore', { room: room.code, scores });
 
     const target = this.matchTarget(room.maxRounds);
-    const matchWinner = winnerId && (scores[winnerId] ?? 0) >= target ? winnerId : null;
+    const loserId = room.players.find((id) => id !== winnerId);
+    const loserScore = loserId ? (scores[loserId] ?? 0) : 0;
+    const winnerScore = winnerId ? (scores[winnerId] ?? 0) : 0;
+    const leadOk = room.gameType !== 'tic-tac-toe' || (winnerScore - loserScore >= 2);
+    const matchWinner = winnerId && winnerScore >= target && leadOk ? winnerId : null;
 
     if (matchWinner) {
       await this.roomService.finishRoom(room.code, matchWinner, finalState);
@@ -635,5 +645,57 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       message: trimmed,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  @SubscribeMessage('double')
+  async handleDouble(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
+    const parsed = doubleSchema.safeParse(payload);
+    if (!parsed.success) return;
+    try {
+      const room = await this.roomService.getRoom(parsed.data.room);
+      if (!room || room.status !== 'playing' || room.gameType !== 'backgammon') return;
+      const state = room.currentState as any;
+      if (state.turn !== client.id) throw new BadRequestException('نوبت شما نیست');
+
+      // Import directly from rules to be safe
+      const { offerDouble } = await import('@bazigb/game-backgammon');
+      const next = offerDouble(state, client.id);
+
+      await this.roomService.saveState(room.code, next);
+      this.server.to(room.code).emit('gameState', next);
+      this.emitSystemMessage(room.code, 'پیشنهاد دابل (دوبرابر کردن امتیاز) داده شد', client.id, 'info', this.socketUsernames.get(client.id));
+    } catch (error) {
+      client.emit('error', { message: error instanceof Error ? error.message : 'خطا در پیشنهاد دابل' });
+    }
+  }
+
+  @SubscribeMessage('doubleResponse')
+  async handleDoubleResponse(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
+    const parsed = doubleResponseSchema.safeParse(payload);
+    if (!parsed.success) return;
+    try {
+      const room = await this.roomService.getRoom(parsed.data.room);
+      if (!room || room.status !== 'playing' || room.gameType !== 'backgammon') return;
+      const state = room.currentState as any;
+      if (!state.doubling || state.doubling.offeredBy === client.id) throw new BadRequestException('پاسخ غیرمجاز');
+
+      const { respondDouble } = await import('@bazigb/game-backgammon');
+      const next = respondDouble(state, client.id, parsed.data.accept);
+
+      await this.roomService.saveState(room.code, next);
+      const updated = await this.roomService.getRoom(room.code);
+      this.server.to(room.code).emit('gameState', next);
+      this.server.to(room.code).emit('roomUpdate', updated);
+
+      if (next.phase === 'finished') {
+        this.emitSystemMessage(room.code, 'پیشنهاد دابل رد شد و راند به پایان رسید');
+        await this.handleRoundOver(updated!, next);
+      } else {
+        this.emitSystemMessage(room.code, 'پیشنهاد دابل پذیرفته شد (امتیاز دوبرابر)', client.id, 'success', this.socketUsernames.get(client.id));
+        this.scheduleTurnTimer(room.code, next);
+      }
+    } catch (error) {
+      client.emit('error', { message: error instanceof Error ? error.message : 'خطا در پاسخ دابل' });
+    }
   }
 }

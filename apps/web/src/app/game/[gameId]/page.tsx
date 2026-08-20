@@ -24,6 +24,7 @@ import {
 } from '@bazigb/engine';
 import { Undo2 } from 'lucide-react';
 import { TicTacToe, getBestMove as tttAI } from '@bazigb/game-tic-tac-toe';
+import * as BG from '@bazigb/game-backgammon';
 import { Backgammon, getBestMoveSequence, type BackgammonMove } from '@bazigb/game-backgammon';
 import { ChessGame, getBestMove as chessAI } from '@bazigb/game-chess';
 import { Vegas, getBestMove as vegasAI } from '@bazigb/game-vegas';
@@ -77,7 +78,10 @@ function GameInner() {
   const adapter = ADAPTERS[gameId];
 
   const [difficulty, setDifficulty] = useState<AIDifficulty>('medium');
-  const [match, setMatch] = useState({ matchPoint: false, winByTwo: false, targetScore: 5 });
+  const [match, setMatch] = useState(() => {
+    if (gameId === 'tic-tac-toe') return { matchPoint: true, winByTwo: true, targetScore: 5 };
+    return { matchPoint: false, winByTwo: false, targetScore: 5 };
+  });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [state, setState] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +89,7 @@ function GameInner() {
   const [undoStack, setUndoStack] = useState<any[]>([]);
 
   const stateRef = useRef(state);
+  const isBotRunning = useRef(false);
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
@@ -92,7 +97,7 @@ function GameInner() {
   const players = useMemo<Player[]>(
     () => [
       { id: 'p1', name: 'شما', color: COLORS[gameId][0] },
-      { id: 'bot', name: 'ربات', color: COLORS[gameId][1], isBot: true },
+      { id: 'p2', name: 'ربات', color: COLORS[gameId][1], isBot: true },
     ],
     [gameId],
   );
@@ -147,31 +152,58 @@ function GameInner() {
   }, []);
 
   // حرکت ربات (فقط حالت محلی)
-  const runBot = useCallback(() => {
+  const runBot = useCallback(async () => {
+    if (isBotRunning.current) return;
     const s = stateRef.current;
-    if (!s || s.phase === 'finished' || s.turn !== 'bot') return;
+    if (!s || s.phase === 'finished' || s.turn !== 'p2') return;
+    isBotRunning.current = true;
     try {
       let cur = s;
       // وگاس: اول تاس، بعد انتخاب مقدار و گذاشتن
       if (gameId === 'vegas') {
         if (!cur.rolled) {
-          setState(adapter.applyMove(cur, { player: 'bot', kind: 'roll' }));
+          setState(adapter.applyMove(cur, { player: 'p2', kind: 'roll' }));
+          isBotRunning.current = false;
           return;
         }
         const value = AI_FNS[gameId](cur, difficulty) as number | null;
-        if (value == null) return;
-        setState(adapter.applyMove(cur, { player: 'bot', kind: 'place', value }));
+        if (value == null) {
+          isBotRunning.current = false;
+          return;
+        }
+        setState(adapter.applyMove(cur, { player: 'p2', kind: 'place', value }));
+        isBotRunning.current = false;
         return;
       }
-      // نرد: اول تاس
-      if (gameId === 'backgammon' && !(cur.dice && cur.dice.length)) {
-        cur = adapter.applyChain(cur, [{ player: cur.turn, kind: 'roll' }]);
+      // نرد: گام‌به‌گام
+      if (gameId === 'backgammon') {
+        if (!cur.rolled) {
+          const next = adapter.applyChain(cur, [{ player: 'p2', kind: 'roll' }]);
+          setState(next);
+          isBotRunning.current = false;
+          return;
+        }
+        const move = AI_FNS[gameId](cur, difficulty);
+        if (move === null || (Array.isArray(move) && move.length === 0)) {
+          setState(adapter.applyChain(cur, []));
+        } else if (Array.isArray(move)) {
+          const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+          let tempState = cur;
+          for (const m of move) {
+            await sleep(800);
+            tempState = adapter.applyChain(tempState, [m]);
+            setState(tempState);
+            if (tempState.phase === 'finished') break;
+          }
+        }
+        isBotRunning.current = false;
+        return;
       }
+
       const move = AI_FNS[gameId](cur, difficulty);
       let next;
       if (move === null || (Array.isArray(move) && move.length === 0)) {
-        // پاس خودکار (نرد)
-        next = gameId === 'backgammon' ? adapter.applyChain(cur, []) : cur;
+        next = cur;
       } else if (Array.isArray(move)) {
         next = adapter.applyChain(cur, move as never);
       } else {
@@ -180,15 +212,35 @@ function GameInner() {
       setState(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطای ربات');
+    } finally {
+      isBotRunning.current = false;
     }
   }, [adapter, difficulty, gameId]);
 
   useEffect(() => {
-    if (state && state.phase === 'playing' && state.turn === 'bot') {
-      const t = setTimeout(runBot, 500);
+    if (state && state.phase === 'playing' && state.turn === 'p2') {
+      const delay = gameId === 'backgammon' && !state.rolled ? 900 : 800;
+      const t = setTimeout(runBot, delay);
       return () => clearTimeout(t);
     }
-  }, [state, runBot]);
+  }, [state, runBot, gameId]);
+
+  useEffect(() => {
+    if (state && state.phase === 'playing' && state.doubling && state.doubling.offeredBy === 'p1') {
+      const t = setTimeout(() => {
+        const s = stateRef.current;
+        if (!s || !s.doubling) return;
+        const off = s.off ?? {};
+        const accept = (off[-1] ?? 0) >= ((off[1] ?? 0) - 3);
+        const fn = (BG as any).respondDouble;
+        if (fn) {
+          setState(fn(s, 'p2', accept));
+        }
+      }, 900);
+      return () => clearTimeout(t);
+    }
+  }, [state]);
+
 
   const board = (() => {
     if (!state) return null;
@@ -204,6 +256,14 @@ function GameInner() {
             onMove={(m: BackgammonMove) => applyLocal(m)}
             onChain={(chain) => applyLocal(chain)}
             onEndTurn={() => applyLocal([])}
+            onOfferDouble={() => {
+              const fn = (BG as any).offerDouble;
+              if (fn) setState(fn(stateRef.current, 'p1'));
+            }}
+            onRespondDouble={(accept) => {
+              const fn = (BG as any).respondDouble;
+              if (fn) setState(fn(stateRef.current, 'p1', accept));
+            }}
             isMyTurn={humanTurn}
             myColor={1}
           />
@@ -226,7 +286,7 @@ function GameInner() {
             : 'ربات برنده شد'
           : 'مساوی!',
         sub: gameId === 'backgammon' && state.scores
-          ? `امتیاز نهایی — شما ${state.scores[myId] ?? 0} : ${state.scores.bot ?? 0} ربات`
+          ? `امتیاز نهایی — شما ${state.scores[myId] ?? 0} : ${state.scores.p2 ?? 0} ربات`
           : undefined,
         onRematch: newGame,
       }
@@ -234,7 +294,7 @@ function GameInner() {
 
   const scores =
     state && state.scores && supportsMatchPoint(gameId)
-      ? { a: state.scores[myId] ?? 0, b: state.scores.bot ?? 0 }
+      ? { a: state.scores[myId] ?? 0, b: state.scores.p2 ?? 0 }
       : null;
 
   const settings = (
@@ -259,23 +319,29 @@ function GameInner() {
               <Switch
                 size="small"
                 checked={match.matchPoint}
-                onChange={(e) => setMatch({ ...match, matchPoint: e.target.checked })}
+                onChange={(e) => {
+                  const matchPoint = e.target.checked;
+                  const winByTwo = gameId === 'tic-tac-toe' ? true : match.winByTwo;
+                  setMatch({ ...match, matchPoint, winByTwo });
+                }}
               />
             }
             label={<Typography variant="body2">مسابقه</Typography>}
           />
           {match.matchPoint && (
             <>
-              <FormControlLabel
-                control={
-                  <Switch
-                    size="small"
-                    checked={match.winByTwo}
-                    onChange={(e) => setMatch({ ...match, winByTwo: e.target.checked })}
-                  />
-                }
-                label={<Typography variant="body2">برد با ۲</Typography>}
-              />
+              {gameId !== 'tic-tac-toe' && (
+                <FormControlLabel
+                  control={
+                    <Switch
+                      size="small"
+                      checked={match.winByTwo}
+                      onChange={(e) => setMatch({ ...match, winByTwo: e.target.checked })}
+                    />
+                  }
+                  label={<Typography variant="body2">برد با ۲</Typography>}
+                />
+              )}
               <FormControl size="small" sx={{ minWidth: 90 }}>
                 <InputLabel>هدف</InputLabel>
                 <Select

@@ -160,4 +160,47 @@ describe('GameGateway Unit Tests', () => {
     expect(server.to).not.toHaveBeenCalled();
     expect(roomService.saveState).not.toHaveBeenCalled();
   });
+
+  it('6. Tic-Tac-Toe Win-by-2 Rule', async () => {
+    // (الف) سناریوی عدم برنده (3-2 با هدف 3)
+    const room1: any = {
+      code: 'ROOM1',
+      gameType: 'tic-tac-toe',
+      players: ['p1', 'p2'],
+      scores: { p1: 2, p2: 2 },
+      maxRounds: 5,
+      status: 'playing',
+    };
+    const finalState1: any = { winner: 'p1' };
+
+    roomService.getRoom.mockResolvedValue(room1);
+    vi.spyOn(gateway as any, 'initialState').mockReturnValue({});
+
+    await (gateway as any).handleRoundOver(room1, finalState1);
+
+    // p1 = 2+1 = 3. scores = {p1:3, p2:2}. lead = 1 < 2.
+    // matchWinner must be null.
+    expect(roomService.finishRoom).not.toHaveBeenCalled();
+    expect(roomService.startGame).toHaveBeenCalledWith(room1.code, expect.anything());
+
+    // (ب) سناریوی برنده (3-1 با هدف 3)
+    vi.clearAllMocks();
+    const room2: any = {
+      code: 'ROOM2',
+      gameType: 'tic-tac-toe',
+      players: ['p1', 'p2'],
+      scores: { p1: 2, p2: 1 },
+      maxRounds: 5,
+      status: 'playing',
+    };
+    const finalState2: any = { winner: 'p1' };
+
+    roomService.getRoom.mockResolvedValue(room2);
+
+    await (gateway as any).handleRoundOver(room2, finalState2);
+
+    // p1 = 2+1 = 3. scores = {p1:3, p2:1}. lead = 2.
+    // matchWinner must be 'p1'.
+    expect(roomService.finishRoom).toHaveBeenCalledWith(room2.code, 'p1', finalState2);
+  });
 });

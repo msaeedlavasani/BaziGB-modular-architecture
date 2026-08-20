@@ -10,7 +10,12 @@ export {
   isFinished, 
   getWinner, 
   rollDiceFor, 
-  serialize 
+  serialize,
+  canOfferDouble,
+  offerDouble,
+  respondDouble,
+  getGameMultiplier,
+  CUBE_VALUES
 } from './rules';
 
 export { getBestMoveSequence } from './ai';

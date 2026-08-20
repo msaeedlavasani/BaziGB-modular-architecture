@@ -40,6 +40,15 @@ describe('updateMatchScore — امتیازدهی مسابقه', () => {
     expect(r.matchWinner).toBeNull();
   });
 
+  it('updateMatchScore با پارامتر points اختیاری', () => {
+    const r = updateMatchScore('backgammon', { p1: 0, p2: 0 }, 'p1', {
+      matchPoint: false,
+      winByTwo: false,
+      targetScore: 1,
+    }, 2);
+    expect(r.scores.p1).toBe(2);
+  });
+
   it('matchPoint: رسیدن به targetScore = برنده مسابقه', () => {
     const r = updateMatchScore('backgammon', { p1: 6, p2: 4 }, 'p1', {
       matchPoint: true,

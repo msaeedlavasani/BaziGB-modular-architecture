@@ -5,7 +5,12 @@ import {
   getLegalMoves, 
   applyMove, 
   applyChain, 
-  canBearOff 
+  canBearOff,
+  canOfferDouble,
+  offerDouble,
+  respondDouble,
+  getGameMultiplier,
+  serialize
 } from '../src/index';
 
 const players = [
@@ -20,6 +25,8 @@ describe('Backgammon Game Logic', () => {
     expect(state.board[23]).toBe(-2);
     expect(state.bar[1]).toBe(0);
     expect(state.bar[-1]).toBe(0);
+    expect(state.cube).toBe(1);
+    expect(state.cubeOwner).toBeNull();
     
     const totalP1 = state.board.reduce((acc, val) => acc + (val > 0 ? val : 0), 0);
     expect(totalP1).toBe(15);
@@ -189,6 +196,144 @@ describe('Backgammon Game Logic', () => {
     const chain = [{ player: 'p1', kind: 'move', from: 23, to: 'off', amount: 1 }] as any;
     state = applyChain(state, chain);
     
-    expect(state.scores['p1']).toBe(1);
+    // Mars (gammon) چون p2 هیچ مهره‌ای خارج نکرده است → امتیاز ۲
+    expect(state.scores['p1']).toBe(2);
+  });
+
+  describe('Doubling Cube', () => {
+    it('canOfferDouble: rules validation', () => {
+      let state = createState(players);
+      expect(canOfferDouble(state, 'p1')).toBe(true);
+
+      state.rolled = true;
+      expect(canOfferDouble(state, 'p1')).toBe(false); // بعد از roll مجاز نیست
+
+      state.rolled = false;
+      state.cube = 64;
+      expect(canOfferDouble(state, 'p1')).toBe(false); // cube=64 مجاز نیست
+
+      state.cube = 2;
+      state.cubeOwner = 'p1';
+      expect(canOfferDouble(state, 'p1')).toBe(false); // وقتی cubeOwner===player نامجاز
+
+      state.cubeOwner = 'p2';
+      expect(canOfferDouble(state, 'p1')).toBe(true);
+
+      state.doubling = { offeredBy: 'p2' };
+      expect(canOfferDouble(state, 'p1')).toBe(false); // وقتی doubling معلق نامجاز
+    });
+
+    it('offerDouble should set pending offer', () => {
+      let state = createState(players);
+      state = offerDouble(state, 'p1');
+      expect(state.doubling).toEqual({ offeredBy: 'p1' });
+    });
+
+    it('respondDouble accept: double cube and transfer ownership', () => {
+      let state = createState(players);
+      state.doubling = { offeredBy: 'p1' };
+      state.turn = 'p1';
+
+      state = respondDouble(state, 'p2', true);
+      expect(state.cube).toBe(2);
+      expect(state.cubeOwner).toBe('p2');
+      expect(state.doubling).toBeNull();
+      expect(state.turn).toBe('p1'); // turn ثابت میماند
+    });
+
+    it('respondDouble decline: finish game and award points', () => {
+      let state = createState(players);
+      state.cube = 2;
+      state.doubling = { offeredBy: 'p1' };
+      
+      state = respondDouble(state, 'p2', false);
+      // Game (round) finished, new round starts if match not over
+      expect(state.round).toBe(2);
+      expect(state.scores['p1']).toBe(2); // cube=2
+    });
+  });
+
+  describe('Game Multipliers (Mars & Backgammon)', () => {
+    it('getGameMultiplier: normal win (multiplier 1)', () => {
+      let state = createState(players);
+      state.off[-1] = 1;
+      // Move p2 checkers out of p1's home (18-23)
+      state.board[23] = 0;
+      state.board[12] = -7;
+      expect(getGameMultiplier(state, 1)).toBe(1);
+    });
+
+    it('getGameMultiplier: gammon (multiplier 2)', () => {
+      let state = createState(players);
+      state.off[-1] = 0;
+      // هیچ مهره‌ای در خانه برنده یا بار نیست
+      state.board.fill(0);
+      state.board[10] = -15; // همه در نیمه اول
+      expect(getGameMultiplier(state, 1)).toBe(2);
+    });
+
+    it('getGameMultiplier: backgammon (multiplier 3) - checker in winner home', () => {
+      let state = createState(players);
+      state.off[-1] = 0;
+      state.board.fill(0);
+      state.board[20] = -1; // در خانه بازیکن ۱ (۱۸-۲۳)
+      expect(getGameMultiplier(state, 1)).toBe(3);
+    });
+
+    it('getGameMultiplier: backgammon (multiplier 3) - checker in bar', () => {
+      let state = createState(players);
+      state.off[-1] = 0;
+      state.bar[-1] = 1;
+      expect(getGameMultiplier(state, 1)).toBe(3);
+    });
+
+    it('Combined Cube and Multiplier', () => {
+      let state = createState(players);
+      state.cube = 2;
+      state.off[1] = 14;
+      state.board.fill(0);
+      state.board[23] = 1; // یک مهره p1 باقی‌مانده
+      // p2 هیچ مهره‌ای خارج نکرده (gammon)
+      state.off[-1] = 0;
+      state.dice = [1];
+      state.rolled = true;
+      
+      const chain = [{ player: 'p1', kind: 'move', from: 23, to: 'off', amount: 1 }] as any;
+      state = applyChain(state, chain);
+      
+      // 2 (cube) * 2 (gammon) = 4
+      expect(state.scores['p1']).toBe(4);
+    });
+  });
+
+  it('Carry-over: cube and owner should persist across rounds', () => {
+    let state = createState(players);
+    state.cube = 4;
+    state.cubeOwner = 'p2';
+    state.off[1] = 14;
+    state.board.fill(0);
+    state.board[23] = 1;
+    state.off[-1] = 1; // Normal win (multiplier 1)
+    state.dice = [1];
+    state.rolled = true;
+    
+    const chain = [{ player: 'p1', kind: 'move', from: 23, to: 'off', amount: 1 }] as any;
+    state = applyChain(state, chain);
+    
+    expect(state.round).toBe(2);
+    expect(state.cube).toBe(4);
+    expect(state.cubeOwner).toBe('p2');
+  });
+
+  it('serialize should include cube fields', () => {
+    let state = createState(players);
+    state.cube = 2;
+    state.cubeOwner = 'p1';
+    state.doubling = { offeredBy: 'p1' };
+    
+    const data = serialize(state);
+    expect(data.cube).toBe(2);
+    expect(data.cubeOwner).toBe('p1');
+    expect(data.doubling).toEqual({ offeredBy: 'p1' });
   });
 });

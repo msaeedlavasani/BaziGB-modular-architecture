@@ -25,19 +25,30 @@ const faceRotations: Record<number, string> = {
   6: 'rotateX(0deg) rotateY(180deg)',
 };
 
-const Dot = ({ inverted = false }: { inverted?: boolean }) => (
+const getDotColor = (faceColor?: string) => {
+  if (!faceColor) return '#4A2912'; // Bronze
+  const hex = faceColor.replace('#', '');
+  const fullHex = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
+  const r = parseInt(fullHex.substring(0, 2), 16);
+  const g = parseInt(fullHex.substring(2, 4), 16);
+  const b = parseInt(fullHex.substring(4, 6), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 165 ? '#4A2912' : '#F5EFE4';
+};
+
+const Dot = ({ color }: { color: string }) => (
   <div
     style={{
-      width: '20%',
-      height: '20%',
+      width: '26%',
+      height: '26%',
       borderRadius: '50%',
-      background: inverted ? '#ffffff' : '#0f172a',
-      boxShadow: inverted ? 'inset 0 1px 1px rgba(255,255,255,0.4)' : 'inset 0 1px 2px rgba(0,0,0,0.6)',
+      background: color,
+      boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.25)',
     }}
   />
 );
 
-const Empty = () => <div style={{ width: '20%', height: '20%' }} />;
+const Empty = () => <div style={{ width: '26%', height: '26%' }} />;
 
 const DiceFace = ({ num, color }: { num: number; color?: string }) => {
   // شبکه 3x3: شاخص‌ها 0..8
@@ -63,6 +74,8 @@ const DiceFace = ({ num, color }: { num: number; color?: string }) => {
       break;
   }
 
+  const dotColor = getDotColor(color);
+
   return (
     <div
       style={{
@@ -70,14 +83,14 @@ const DiceFace = ({ num, color }: { num: number; color?: string }) => {
         inset: 0,
         width: '100%',
         height: '100%',
-        background: color ?? '#ffffff',
-        border: `1px solid ${color ? 'rgba(0,0,0,0.1)' : '#e2e8f0'}`,
-        borderRadius: '15%',
+        background: color ?? 'linear-gradient(145deg, #F7E9C9 0%, #E9CD93 100%)',
+        border: `1px solid ${color ? 'rgba(0,0,0,0.1)' : 'rgba(107, 63, 30, 0.35)'}`,
+        borderRadius: '20%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '18%',
-        boxShadow: 'inset 0 0 15px rgba(0,0,0,0.1)',
+        padding: '10%',
+        boxShadow: color ? 'inset 0 0 15px rgba(0,0,0,0.1)' : 'inset 0 0 12px rgba(107, 63, 30, 0.15)',
         backfaceVisibility: 'hidden',
         WebkitBackfaceVisibility: 'hidden',
       }}
@@ -89,12 +102,12 @@ const DiceFace = ({ num, color }: { num: number; color?: string }) => {
           gridTemplateRows: 'repeat(3, 1fr)',
           width: '100%',
           height: '100%',
-          gap: '2px',
+          gap: 0,
           placeItems: 'center',
         }}
       >
         {dots.map((hasDot, i) =>
-          hasDot ? <Dot key={i} inverted={!!color} /> : <Empty key={i} />,
+          hasDot ? <Dot key={i} color={dotColor} /> : <Empty key={i} />,
         )}
       </div>
     </div>

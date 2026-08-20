@@ -23,4 +23,7 @@ export type BackgammonState = GameState<BackgammonBoard, BackgammonMove> & {
   bar: Record<number, number>;
   off: Record<number, number>;
   rolled: boolean;
+  cube: number;                             // 1|2|4|8|16|32|64
+  cubeOwner: string | null;                 // playerId holder
+  doubling: { offeredBy: string } | null;   // pending offer
 };

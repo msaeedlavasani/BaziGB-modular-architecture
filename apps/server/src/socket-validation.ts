@@ -41,3 +41,12 @@ export const undoSchema = z.object({
 export const nextRoundSchema = z.object({
   room: z.string(),
 });
+
+export const doubleSchema = z.object({
+  room: z.string(),
+});
+
+export const doubleResponseSchema = z.object({
+  room: z.string(),
+  accept: z.boolean(),
+});

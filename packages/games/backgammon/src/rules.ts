@@ -11,6 +11,8 @@ import {
 } from '@bazigb/engine';
 import { BackgammonBoard, BackgammonMove, BackgammonState } from './types';
 
+export const CUBE_VALUES = [1, 2, 4, 8, 16, 32, 64] as const;
+
 /**
  * ایجاد وضعیت اولیه بازی نرد.
  *
@@ -49,7 +51,10 @@ export const createState = (players: Player[], match?: MatchConfig): BackgammonS
     players,
     bar: { 1: 0, '-1': 0 },
     off: { 1: 0, '-1': 0 },
-    rolled: false
+    rolled: false,
+    cube: 1,
+    cubeOwner: null,
+    doubling: null
   };
 };
 
@@ -66,6 +71,71 @@ export const rollDiceFor = (state: BackgammonState): BackgammonState => {
   newState.rolled = true;
   return newState;
 };
+
+export function canOfferDouble(state: BackgammonState, playerId: string): boolean {
+  return state.phase === 'playing' && !state.rolled && state.doubling === null
+    && (state.cube ?? 1) < 64 && (state.cubeOwner === null || state.cubeOwner !== playerId);
+}
+
+export function offerDouble(state: BackgammonState, playerId: string): BackgammonState {
+  if (!canOfferDouble(state, playerId)) throw new Error('پیشنهاد دابل مجاز نیست');
+  const next = deepClone(state);
+  next.doubling = { offeredBy: playerId };
+  return next;
+}
+
+export function respondDouble(state: BackgammonState, responderId: string, accept: boolean): BackgammonState {
+  if (!state.doubling || responderId === state.doubling.offeredBy || state.phase !== 'playing') {
+    throw new Error('پاسخ دابل مجاز نیست');
+  }
+  const next = deepClone(state);
+  if (accept) {
+    const idx = CUBE_VALUES.indexOf(next.cube as (typeof CUBE_VALUES)[number]);
+    next.cube = CUBE_VALUES[Math.min(idx + 1, CUBE_VALUES.length - 1)];
+    next.cubeOwner = responderId;
+    next.doubling = null;
+    // turn بدون تغییر میماند — پیشنهاددهنده تاس میریزد
+    return next;
+  }
+  // decline: بازی همینجا تمام میشود؛ پیشنهاددهنده امتیاز فعلی (cube، ضریب ۱) را میگیرد
+  next.doubling = null;
+  next.phase = 'finished';
+  next.winner = state.doubling.offeredBy;
+  return finishRound(next, state.doubling.offeredBy, next.cube ?? 1);
+}
+
+export function getGameMultiplier(state: BackgammonState, winnerColor: number): 1 | 2 | 3 {
+  const loserColor = -winnerColor as 1 | -1;
+  // مارس در خانه (backgammon): loser در بار یا مهرهای در خانه برنده دارد
+  if ((state.bar[loserColor] ?? 0) > 0) return 3;
+  const homeStart = winnerColor === 1 ? 18 : 0;
+  const homeEnd = winnerColor === 1 ? 23 : 5;
+  for (let i = homeStart; i <= homeEnd; i++) {
+    if ((winnerColor === 1 && state.board[i] < 0) || (winnerColor === -1 && state.board[i] > 0)) return 3;
+  }
+  // مارس (gammon): هیچ مهرهای از loser خارج نشده
+  if ((state.off[loserColor] ?? 0) === 0) return 2;
+  return 1;
+}
+
+function finishRound(state: BackgammonState, winnerId: string, points: number): BackgammonState {
+  const result = updateMatchScore('backgammon', state.scores, winnerId, state.match, points);
+  state.scores = result.scores;
+  if (result.matchWinner) {
+    state.phase = 'finished';
+    state.winner = result.matchWinner;
+    return state;
+  }
+  // راند بعد — کیوب و مالکش بین راندها منتقل میشوند
+  const nextRoundStarter = state.players.find((p) => p.id !== winnerId)!;
+  const nextState = createState(state.players, state.match);
+  nextState.scores = state.scores;
+  nextState.round = state.round + 1;
+  nextState.turn = nextRoundStarter.id;
+  nextState.cube = state.cube ?? 1;
+  nextState.cubeOwner = state.cubeOwner ?? null;
+  return nextState;
+}
 
 const getPlayerColor = (state: BackgammonState, playerId: string): number => {
   const p = state.players.find(x => x.id === playerId);
@@ -243,21 +313,9 @@ export const applyChain = (state: BackgammonState, chain: BackgammonMove[]): Bac
   // بررسی اتمام نوبت یا برد
   const color = getPlayerColor(currentState, state.turn);
   if (currentState.off[color] === 15) {
-    const result = updateMatchScore('backgammon', currentState.scores, currentState.turn, currentState.match);
-    currentState.scores = result.scores;
-    if (result.matchWinner) {
-      currentState.phase = 'finished';
-      currentState.winner = result.matchWinner;
-    } else {
-      // شروع راند جدید
-      const nextRoundStarter = currentState.players.find(p => p.id !== state.turn)!;
-      const nextState = createState(currentState.players, currentState.match);
-      nextState.scores = currentState.scores;
-      nextState.round = currentState.round + 1;
-      nextState.turn = nextRoundStarter.id;
-      return nextState;
-    }
-    return currentState;
+    const multiplier = getGameMultiplier(currentState, color);
+    const points = multiplier * (currentState.cube ?? 1);
+    return finishRound(currentState, state.turn, points);
   }
 
   // اگر تمام تاس‌ها مصرف شده یا حرکتی باقی نمانده
@@ -312,7 +370,10 @@ export const serialize = (state: BackgammonState) => ({
   scores: state.scores,
   round: state.round,
   match: state.match,
-  rolled: state.rolled
+  rolled: state.rolled,
+  cube: state.cube,
+  cubeOwner: state.cubeOwner,
+  doubling: state.doubling
 });
 
 export const Backgammon: GameAdapter<BackgammonBoard, BackgammonMove> = {

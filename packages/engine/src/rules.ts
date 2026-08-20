@@ -49,12 +49,13 @@ export function updateMatchScore(
   scores: Record<PlayerId, number>,
   roundWinner: PlayerId | null,
   match: MatchConfig,
+  points = 1,
 ): MatchResult {
   const safe = sanitizeMatch(gameId, match);
   const next = { ...scores };
 
   if (roundWinner) {
-    next[roundWinner] = (next[roundWinner] ?? 0) + 1;
+    next[roundWinner] = (next[roundWinner] ?? 0) + points;
   }
 
   let matchWinner: PlayerId | null = null;
