@@ -491,6 +491,11 @@ export default function BackgammonBoard({
               <stop offset="45%" stopColor="#dfbd85" />
               <stop offset="100%" stopColor="#bf9257" />
             </linearGradient>
+            <linearGradient id="bgPtLight" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#f5e0b2" />
+              <stop offset="45%" stopColor="#dfbd85" />
+              <stop offset="100%" stopColor="#bf9257" />
+            </linearGradient>
           </defs>
         </svg>
 
@@ -513,10 +518,10 @@ export default function BackgammonBoard({
             py: 0.75,
             bgcolor:
               selected === 'bar'
-                ? 'rgba(180, 83, 9, 0.35)'
+                ? 'rgba(240, 217, 181, 0.4)'
                 : [
-                    'repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 7px)',
-                    'linear-gradient(180deg, #3a2110 0%, #2a1408 100%)',
+                    'repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 10px)',
+                    'linear-gradient(180deg, #f0d9b5 0%, #b58863 50%, #f0d9b5 100%)',
                   ].join(', '),
           }}
         >
@@ -531,13 +536,13 @@ export default function BackgammonBoard({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                bgcolor: '#B97F12',
-                color: '#FFFDF5',
+                bgcolor: '#2a1408', // تیره برای کنتراست روی پنل روشن
+                color: '#f0d9b5',
                 fontWeight: 900,
                 fontSize: { xs: 11, sm: 15 },
                 borderRadius: 1,
                 zIndex: 100,
-                border: '1px solid #D4A017',
+                border: '1px solid #b58863',
                 boxShadow: '0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
                 transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                 ...(cubeOwner === p1Id
@@ -553,7 +558,7 @@ export default function BackgammonBoard({
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: 1 }}>
             {renderCheckers(-(bar[-1] ?? 0), true, 'bar-b', true)}
           </Box>
-          <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: 8, fontWeight: 700 }}>BAR</Typography>
+          <Typography sx={{ color: 'rgba(42, 20, 8, 0.8)', fontSize: 8, fontWeight: 900, letterSpacing: 1 }}>BAR</Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pb: 1 }}>
             {renderCheckers(bar[1] ?? 0, false, 'bar-g', true)}
           </Box>
