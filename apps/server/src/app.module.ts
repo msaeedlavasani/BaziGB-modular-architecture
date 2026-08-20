@@ -15,7 +15,8 @@ import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['../.env', '.env'] }),
+    // envFilePath نسبی به cwd است؛ در systemd تولید cwd=apps/server است (روت ریپو=/opt/bazigb)
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['../../.env', '../.env', '.env'] }),
     PrismaModule,
     CommonModule,
     AuthModule,
