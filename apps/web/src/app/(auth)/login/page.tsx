@@ -11,6 +11,7 @@ import {
   Paper,
   Alert,
   CircularProgress,
+  alpha,
 } from '@mui/material';
 import { api } from '@/lib/api';
 
@@ -130,169 +131,160 @@ export default function LoginPage() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-      {serverError && (
-        <Alert severity="error" variant="outlined" sx={{ borderRadius: 2 }}>
-          {serverError}
-        </Alert>
-      )}
-
-      <Paper
-        component="form"
-        onSubmit={handleVerifyOtp}
-        noValidate
-        elevation={0}
-        sx={{
-          p: 3,
-          borderRadius: 4,
-          bgcolor: 'rgba(11, 22, 34, 0.6)',
-          border: '1px solid',
-          borderColor: 'divider',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2.5,
-          direction: 'rtl',
-        }}
-      >
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600 }} color="text.secondary">
-            شماره موبایل
+    <Box sx={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', py: 12 }}>
+      <Box sx={{ width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography variant="h3" sx={{ fontWeight: 900, color: 'primary.main', mb: 2 }}>
+            خوش آمدید
           </Typography>
-          <TextField
-            fullWidth
-            id="phone"
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(toEnglishDigits(e.target.value))}
-            placeholder="۰۹۱۲۳۴۵۶۷۸۹"
-            disabled={step !== 'request'}
-            error={!!fieldErrors.phone}
-            helperText={fieldErrors.phone}
-            variant="outlined"
-            size="small"
-            InputProps={{
-              sx: {
-                bgcolor: 'rgba(3, 10, 21, 0.6)',
-                borderRadius: 2,
-                direction: 'ltr',
-              },
-            }}
-          />
+          <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+            {step === 'request' ? 'برای شروع شماره موبایل خود را وارد کنید' : 'کد تایید ارسال شده را وارد کنید'}
+          </Typography>
         </Box>
 
-        {step === 'request' ? (
-          <Button
-            fullWidth
-            onClick={handleRequestOtp}
-            disabled={submitting}
-            variant="contained"
-            size="large"
-            sx={{
-              py: 1.5,
-              fontWeight: 600,
-              borderRadius: 2,
-              background: '#F5A306',
-            }}
-          >
-            {submitting ? <CircularProgress size={24} color="inherit" /> : 'دریافت کد تایید'}
-          </Button>
-        ) : (
-          <>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="body2" sx={{ fontWeight: 600 }} color="text.secondary">
-                  کد تایید
-                </Typography>
-                <Button
-                  size="small"
-                  disabled={timer > 0 || submitting}
-                  onClick={handleRequestOtp}
-                  sx={{ minWidth: 0, p: 0 }}
-                >
-                  {timer > 0 ? `${timer} ثانیه` : 'ارسال مجدد'}
-                </Button>
-              </Box>
-              <TextField
-                fullWidth
-                id="code"
-                value={code}
-                onChange={(e) => setCode(toEnglishDigits(e.target.value))}
-                placeholder="------"
-                error={!!fieldErrors.code}
-                helperText={fieldErrors.code}
-                variant="outlined"
-                size="small"
-                InputProps={{
-                  sx: {
-                    bgcolor: 'rgba(3, 10, 21, 0.6)',
-                    borderRadius: 2,
-                    textAlign: 'center',
-                    letterSpacing: 4,
-                    direction: 'ltr',
-                  },
-                }}
-              />
-            </Box>
+        {serverError && (
+          <Alert severity="error" variant="outlined" sx={{ borderRadius: 2 }}>
+            {serverError}
+          </Alert>
+        )}
 
-            {isNewUser && (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600 }} color="text.secondary">
-                  نام کاربری (لاتین)
-                </Typography>
-                <TextField
-                  fullWidth
-                  id="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="e.g. boardmaster"
-                  error={!!fieldErrors.username}
-                  helperText={fieldErrors.username || 'فقط حروف انگلیسی، اعداد و _'}
-                  variant="outlined"
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      bgcolor: 'rgba(3, 10, 21, 0.6)',
-                      borderRadius: 2,
-                      direction: 'ltr',
-                    },
-                  }}
-                />
-              </Box>
-            )}
-
-            <Button
-              type="submit"
+        <Paper
+          component="form"
+          onSubmit={handleVerifyOtp}
+          noValidate
+          elevation={0}
+          sx={{
+            p: 8,
+            borderRadius: 4,
+            bgcolor: alpha('#0B1622', 0.6),
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 5,
+          }}
+        >
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
+              شماره موبایل
+            </Typography>
+            <TextField
               fullWidth
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(toEnglishDigits(e.target.value))}
+              placeholder="۰۹۱۲۳۴۵۶۷۸۹"
+              disabled={step !== 'request'}
+              error={!!fieldErrors.phone}
+              helperText={fieldErrors.phone}
+              InputProps={{
+                sx: {
+                  direction: 'ltr',
+                  fontWeight: 700,
+                  fontSize: '1.1rem',
+                  letterSpacing: '0.05em'
+                },
+              }}
+            />
+          </Box>
+
+          {step === 'request' ? (
+            <Button
+              fullWidth
+              onClick={handleRequestOtp}
               disabled={submitting}
               variant="contained"
               size="large"
               sx={{
-                py: 1.5,
-                fontWeight: 600,
-                borderRadius: 2,
-                background: '#F5A306',
+                py: 2,
+                fontWeight: 900,
+                fontSize: '1rem',
               }}
             >
-              {submitting ? <CircularProgress size={24} color="inherit" /> : isNewUser ? 'ثبت‌نام و ورود' : 'ورود'}
+              {submitting ? <CircularProgress size={24} color="inherit" /> : 'دریافت کد تایید'}
             </Button>
+          ) : (
+            <>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
+                    کد تایید
+                  </Typography>
+                  <Button
+                    size="small"
+                    disabled={timer > 0 || submitting}
+                    onClick={handleRequestOtp}
+                    sx={{ minWidth: 0, p: 0, fontWeight: 700 }}
+                  >
+                    {timer > 0 ? `${timer} ثانیه تا ارسال مجدد` : 'ارسال مجدد کد'}
+                  </Button>
+                </Box>
+                <TextField
+                  fullWidth
+                  value={code}
+                  onChange={(e) => setCode(toEnglishDigits(e.target.value))}
+                  placeholder="------"
+                  error={!!fieldErrors.code}
+                  helperText={fieldErrors.code}
+                  InputProps={{
+                    sx: {
+                      direction: 'ltr',
+                      textAlign: 'center',
+                      letterSpacing: 8,
+                      fontWeight: 900,
+                      fontSize: '1.25rem'
+                    },
+                  }}
+                />
+              </Box>
 
-            <Button
-              fullWidth
-              variant="text"
-              size="small"
-              onClick={() => {
-                setStep('request');
-                setIsNewUser(false);
-                setCode('');
-                setServerError(null);
-              }}
-              sx={{ color: 'text.secondary' }}
-            >
-              تغییر شماره موبایل
-            </Button>
-          </>
-        )}
-      </Paper>
+              {isNewUser && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
+                    نام کاربری (لاتین)
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="e.g. player_one"
+                    error={!!fieldErrors.username}
+                    helperText={fieldErrors.username || 'حروف، اعداد و _ (۳ تا ۲۰ کاراکتر)'}
+                  />
+                </Box>
+              )}
+
+              <Button
+                type="submit"
+                fullWidth
+                disabled={submitting}
+                variant="contained"
+                size="large"
+                sx={{
+                  py: 2,
+                  fontWeight: 900,
+                  fontSize: '1rem',
+                }}
+              >
+                {submitting ? <CircularProgress size={24} color="inherit" /> : isNewUser ? 'ثبت‌نام و ورود' : 'ورود به حساب'}
+              </Button>
+
+              <Button
+                fullWidth
+                variant="text"
+                size="small"
+                onClick={() => {
+                  setStep('request');
+                  setIsNewUser(false);
+                  setCode('');
+                  setServerError(null);
+                }}
+                sx={{ color: 'text.secondary', fontWeight: 600 }}
+              >
+                ویرایش شماره موبایل
+              </Button>
+            </>
+          )}
+        </Paper>
+      </Box>
     </Box>
   );
 }

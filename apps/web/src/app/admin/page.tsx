@@ -20,6 +20,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   alpha,
+  useTheme,
   Button,
   Checkbox,
   Dialog,
@@ -69,6 +70,7 @@ import {
 } from 'lucide-react';
 
 export default function AdminPage() {
+  const theme = useTheme();
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
@@ -325,92 +327,88 @@ export default function AdminPage() {
         flex: 1,
         flexDirection: 'column',
         alignItems: 'center',
-        p: 3,
-        bgcolor: '#030A15',
-        color: 'white',
+        p: { xs: 4, sm: 8 },
+        bgcolor: 'background.default',
+        color: 'text.primary',
         direction: 'rtl',
       }}
     >
-        <Box sx={{ width: '100%', maxWidth: 'lg', display: 'flex', flexDirection: 'column', gap: 4, py: 4 }}>
+        <Box sx={{ width: '100%', maxWidth: 'lg', display: 'flex', flexDirection: 'column', gap: 10, py: 4 }}>
           {/* Header */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h4" sx={{ fontWeight: 800, color: '#F5A306' }}>
+            <Typography variant="h2" sx={{ fontWeight: 900, color: 'primary.main' }}>
               پنل مدیریت
             </Typography>
             <Button
               component={Link}
               href="/lobby"
               startIcon={<ArrowLeft size={20} />}
-              sx={{ color: 'text.secondary', '&:hover': { color: 'white' } }}
+              sx={{ color: 'text.secondary', fontWeight: 600 }}
             >
               بازگشت به لابی
             </Button>
           </Box>
 
           {/* Stats */}
-          <Grid container spacing={3}>
+          <Grid container spacing={6}>
             <Grid item xs={12} sm={6} md={4}>
-              <Paper elevation={0} sx={{ p: 3, borderRadius: 4, bgcolor: alpha('#0B1622', 0.6), border: '1px solid', borderColor: 'divider' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                  <Users color="#F5A306" size={24} />
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>کل کاربران</Typography>
+              <Paper elevation={0} sx={{ p: 6, borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.4) }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 4, mb: 2 }}>
+                  <Users color={theme.palette.primary.main} size={28} />
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>کل کاربران</Typography>
                 </Box>
-                <Typography variant="h3" sx={{ fontWeight: 800 }}>{stats?.users.total || 0}</Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>{stats?.users.admins || 0} مدیر</Typography>
+                <Typography variant="h3" sx={{ fontWeight: 900 }}>{stats?.users.total || 0}</Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>{stats?.users.admins || 0} مدیر سیستم</Typography>
               </Paper>
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
-              <Paper elevation={0} sx={{ p: 3, borderRadius: 4, bgcolor: alpha('#0B1622', 0.6), border: '1px solid', borderColor: 'divider' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                  <PlayCircle color="#10b981" size={24} />
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>اتاق‌های فعال</Typography>
+              <Paper elevation={0} sx={{ p: 6, borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.4) }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 4, mb: 2 }}>
+                  <PlayCircle color={theme.palette.success.main} size={28} />
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>اتاق‌های فعال</Typography>
                 </Box>
-                <Typography variant="h3" sx={{ fontWeight: 800 }}>{stats?.rooms.playing || 0}</Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>{stats?.rooms.waiting || 0} در انتظار</Typography>
+                <Typography variant="h3" sx={{ fontWeight: 900 }}>{stats?.rooms.playing || 0}</Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>{stats?.rooms.waiting || 0} در انتظار بازیکن</Typography>
               </Paper>
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
-              <Paper elevation={0} sx={{ p: 3, borderRadius: 4, bgcolor: alpha('#0B1622', 0.6), border: '1px solid', borderColor: 'divider' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                  <Trophy color="#f59e0b" size={24} />
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>بازی‌های انجام شده</Typography>
+              <Paper elevation={0} sx={{ p: 6, borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.4) }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 4, mb: 2 }}>
+                  <Trophy color={theme.palette.warning.main} size={28} />
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>کل بازی‌ها</Typography>
                 </Box>
-                <Typography variant="h3" sx={{ fontWeight: 800 }}>{stats?.games.total || 0}</Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>در تمامی سبک‌ها</Typography>
+                <Typography variant="h3" sx={{ fontWeight: 900 }}>{stats?.games.total || 0}</Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>آمار تمامی سبک‌ها</Typography>
               </Paper>
             </Grid>
           </Grid>
 
-          {/* Users Table */}
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 4, bgcolor: alpha('#0B1622', 0.6), border: '1px solid', borderColor: 'divider' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>مدیریت کاربران</Typography>
+          {/* Users Management */}
+          <Paper elevation={0} sx={{ p: 8, borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.2) }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 6 }}>
+              <Typography variant="h5" sx={{ fontWeight: 900 }}>مدیریت کاربران</Typography>
               <IconButton onClick={loadData} size="small" sx={{ color: 'text.secondary' }}>
-                <RefreshCw size={18} />
+                <RefreshCw size={20} />
               </IconButton>
             </Box>
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mb: 3, alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 4, mb: 6, alignItems: 'center' }}>
               <TextField
-                placeholder="جستجو..."
-                variant="outlined"
-                size="small"
+                placeholder="جستجو بر اساس نام یا ایمیل..."
+                fullWidth
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                sx={{
-                  flexGrow: 1,
-                  '& .MuiOutlinedInput-root': { borderRadius: 3, bgcolor: '#030A15', color: 'white' },
-                }}
+                sx={{ flexGrow: 1 }}
               />
               <ToggleButtonGroup
                 value={roleFilter}
                 exclusive
                 onChange={(_, val) => val && setRoleFilter(val)}
                 size="small"
-                sx={{ bgcolor: '#030A15', borderRadius: 3 }}
+                sx={{ borderRadius: 2.5 }}
               >
-                <ToggleButton value="ALL" sx={{ color: 'white', px: 2 }}>همه</ToggleButton>
-                <ToggleButton value="USER" sx={{ color: 'white', px: 2 }}>کاربر</ToggleButton>
-                <ToggleButton value="ADMIN" sx={{ color: 'white', px: 2 }}>مدیر</ToggleButton>
+                <ToggleButton value="ALL" sx={{ px: 4, fontWeight: 700 }}>همه</ToggleButton>
+                <ToggleButton value="USER" sx={{ px: 4, fontWeight: 700 }}>کاربران</ToggleButton>
+                <ToggleButton value="ADMIN" sx={{ px: 4, fontWeight: 700 }}>مدیران</ToggleButton>
               </ToggleButtonGroup>
             </Box>
 
@@ -418,40 +416,40 @@ export default function AdminPage() {
               <Table sx={{ minWidth: 650 }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 700, textAlign: 'right' }}>نام کاربری</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 700, textAlign: 'right' }}>ایمیل / موبایل</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 700, textAlign: 'right' }}>نقش</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 700, textAlign: 'right' }}>برد / باخت</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 700, textAlign: 'center' }}>عملیات</TableCell>
+                    <TableCell sx={{ textAlign: 'right' }}>نام کاربری</TableCell>
+                    <TableCell sx={{ textAlign: 'right' }}>اطلاعات تماس</TableCell>
+                    <TableCell sx={{ textAlign: 'right' }}>نقش</TableCell>
+                    <TableCell sx={{ textAlign: 'right' }}>برد / باخت</TableCell>
+                    <TableCell sx={{ textAlign: 'center' }}>عملیات</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {loading ? (
-                    <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4 }}><CircularProgress size={24} /></TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} align="center" sx={{ py: 12 }}><CircularProgress size={32} /></TableCell></TableRow>
                   ) : users.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4 }}><Typography sx={{ color: 'text.disabled' }}>کاربری یافت نشد</Typography></TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} align="center" sx={{ py: 12 }}><Typography sx={{ color: 'text.disabled', fontWeight: 600 }}>کاربری یافت نشد</Typography></TableCell></TableRow>
                   ) : (
                     users.map((u) => (
-                      <TableRow key={u.id} sx={{ opacity: u.deactivated ? 0.6 : 1 }}>
-                        <TableCell sx={{ color: 'white', fontWeight: 600, textAlign: 'right' }}>{u.username}</TableCell>
+                      <TableRow key={u.id} sx={{ opacity: u.deactivated ? 0.5 : 1 }}>
+                        <TableCell sx={{ fontWeight: 700, textAlign: 'right' }}>{u.username}</TableCell>
                         <TableCell sx={{ color: 'text.secondary', textAlign: 'right' }}>{u.email || u.phone || '-'}</TableCell>
                         <TableCell sx={{ textAlign: 'right' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Chip label={u.role === 'ADMIN' ? 'مدیر' : 'کاربر'} size="small" sx={{ bgcolor: u.role === 'ADMIN' ? alpha('#f43f5e', 0.2) : alpha('#F5A306', 0.2), color: u.role === 'ADMIN' ? '#fb7185' : '#F5A306', fontWeight: 700 }} />
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Chip label={u.role === 'ADMIN' ? 'مدیر' : 'کاربر'} size="small" color={u.role === 'ADMIN' ? 'error' : 'primary'} variant="outlined" />
                             {u.id !== user?.id && (
-                              <IconButton size="small" onClick={() => setRoleTarget(u)} sx={{ color: 'text.secondary' }}>
+                              <IconButton size="small" onClick={() => setRoleTarget(u)} sx={{ color: 'text.disabled' }}>
                                 {u.role === 'ADMIN' ? <Shield size={16} /> : <ShieldCheck size={16} />}
                               </IconButton>
                             )}
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ color: 'white', textAlign: 'right' }}>{u.wins} / {u.losses}</TableCell>
+                        <TableCell sx={{ fontWeight: 600, textAlign: 'right' }}>{u.wins} / {u.losses}</TableCell>
                         <TableCell sx={{ textAlign: 'center' }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
-                            <IconButton size="small" onClick={() => setEditTarget(u)} sx={{ color: 'text.secondary', '&:hover': { color: '#F5A306' } }}><Pencil size={16} /></IconButton>
-                            <IconButton size="small" onClick={() => setResetTarget(u)} sx={{ color: 'text.secondary', '&:hover': { color: '#fbbf24' } }}><RotateCcw size={16} /></IconButton>
-                            <IconButton size="small" onClick={() => setDeactivateTarget(u)} sx={{ color: 'text.secondary', '&:hover': { color: u.deactivated ? '#34d399' : '#f43f5e' } }}>{u.deactivated ? <ShieldCheck size={16} /> : <Ban size={16} />}</IconButton>
-                            {u.id !== user?.id && <IconButton size="small" onClick={() => setDeleteTarget(u)} sx={{ color: 'text.secondary', '&:hover': { color: '#f43f5e' } }}><Trash2 size={16} /></IconButton>}
+                          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                            <IconButton size="small" onClick={() => setEditTarget(u)} sx={{ '&:hover': { color: 'primary.main' } }}><Pencil size={16} /></IconButton>
+                            <IconButton size="small" onClick={() => setResetTarget(u)} sx={{ '&:hover': { color: 'warning.main' } }}><RotateCcw size={16} /></IconButton>
+                            <IconButton size="small" onClick={() => setDeactivateTarget(u)} sx={{ '&:hover': { color: u.deactivated ? 'success.main' : 'error.main' } }}>{u.deactivated ? <ShieldCheck size={16} /> : <Ban size={16} />}</IconButton>
+                            {u.id !== user?.id && <IconButton size="small" onClick={() => setDeleteTarget(u)} sx={{ '&:hover': { color: 'error.main' } }}><Trash2 size={16} /></IconButton>}
                           </Box>
                         </TableCell>
                       </TableRow>
@@ -462,11 +460,11 @@ export default function AdminPage() {
             </TableContainer>
           </Paper>
 
-          {/* Rooms Table */}
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 4, bgcolor: alpha('#0B1622', 0.6), border: '1px solid', borderColor: 'divider' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>مدیریت اتاق‌ها</Typography>
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          {/* Rooms Management */}
+          <Paper elevation={0} sx={{ p: 8, borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.2) }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 6 }}>
+              <Typography variant="h5" sx={{ fontWeight: 900 }}>مدیریت اتاق‌ها</Typography>
+              <Box sx={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                 {selectedRoomCodes.length > 0 && (
                   <Button
                     variant="contained"
@@ -475,7 +473,6 @@ export default function AdminPage() {
                     startIcon={<Trash2 size={16} />}
                     onClick={handleBulkDeleteRooms}
                     disabled={actionLoading}
-                    sx={{ borderRadius: 2 }}
                   >
                     حذف {selectedRoomCodes.length} مورد
                   </Button>
@@ -485,12 +482,12 @@ export default function AdminPage() {
                   exclusive
                   onChange={(_, val) => val && setRoomStatusFilter(val)}
                   size="small"
-                  sx={{ bgcolor: '#030A15', borderRadius: 3 }}
+                  sx={{ borderRadius: 2.5 }}
                 >
-                  <ToggleButton value="ALL" sx={{ color: 'white', px: 2 }}>همه</ToggleButton>
-                  <ToggleButton value="WAITING" sx={{ color: 'white', px: 2 }}>در انتظار</ToggleButton>
-                  <ToggleButton value="PLAYING" sx={{ color: 'white', px: 2 }}>در حال بازی</ToggleButton>
-                  <ToggleButton value="FINISHED" sx={{ color: 'white', px: 2 }}>پایان یافته</ToggleButton>
+                  <ToggleButton value="ALL" sx={{ px: 3, fontWeight: 700 }}>همه</ToggleButton>
+                  <ToggleButton value="WAITING" sx={{ px: 3, fontWeight: 700 }}>در انتظار</ToggleButton>
+                  <ToggleButton value="PLAYING" sx={{ px: 3, fontWeight: 700 }}>درحال‌بازی</ToggleButton>
+                  <ToggleButton value="FINISHED" sx={{ px: 3, fontWeight: 700 }}>پایان‌یافته</ToggleButton>
                 </ToggleButtonGroup>
               </Box>
             </Box>
@@ -498,35 +495,33 @@ export default function AdminPage() {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>
+                    <TableCell padding="checkbox">
                       <Checkbox
                         indeterminate={selectedRoomCodes.length > 0 && selectedRoomCodes.length < filteredRooms.length}
                         checked={filteredRooms.length > 0 && selectedRoomCodes.length === filteredRooms.length}
                         onChange={(e) => handleSelectAllFilteredRooms(e.target.checked)}
-                        sx={{ color: 'text.secondary', '&.Mui-checked': { color: '#F5A306' } }}
                       />
                     </TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 700, textAlign: 'right' }}>کد اتاق</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 700, textAlign: 'right' }}>بازی</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 700, textAlign: 'right' }}>وضعیت</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 700, textAlign: 'center' }}>عملیات</TableCell>
+                    <TableCell sx={{ textAlign: 'right' }}>کد اتاق</TableCell>
+                    <TableCell sx={{ textAlign: 'right' }}>نوع بازی</TableCell>
+                    <TableCell sx={{ textAlign: 'right' }}>وضعیت</TableCell>
+                    <TableCell sx={{ textAlign: 'center' }}>عملیات</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {filteredRooms.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4 }}><Typography sx={{ color: 'text.disabled' }}>اتاقی یافت نشد</Typography></TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} align="center" sx={{ py: 12 }}><Typography sx={{ color: 'text.disabled', fontWeight: 600 }}>اتاقی یافت نشد</Typography></TableCell></TableRow>
                   ) : (
                     filteredRooms.map((r) => (
                       <TableRow key={r.code} selected={selectedRoomCodes.includes(r.code)}>
-                        <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>
+                        <TableCell padding="checkbox">
                           <Checkbox
                             checked={selectedRoomCodes.includes(r.code)}
                             onChange={(e) => handleSelectRoom(r.code, e.target.checked)}
-                            sx={{ color: 'text.secondary', '&.Mui-checked': { color: '#F5A306' } }}
                           />
                         </TableCell>
-                        <TableCell sx={{ color: 'white', fontWeight: 600, textAlign: 'right' }}>{r.code}</TableCell>
-                        <TableCell sx={{ color: 'text.secondary', textAlign: 'right' }}>{r.gameType}</TableCell>
+                        <TableCell sx={{ fontWeight: 800, fontFamily: 'monospace', fontSize: '1.1rem', textAlign: 'right', color: 'primary.main' }}>{r.code}</TableCell>
+                        <TableCell sx={{ textAlign: 'right', fontWeight: 600 }}>{r.gameType}</TableCell>
                         <TableCell sx={{ textAlign: 'right' }}>
                           <Chip
                             label={
@@ -539,13 +534,13 @@ export default function AdminPage() {
                           />
                         </TableCell>
                         <TableCell sx={{ textAlign: 'center' }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
                              <IconButton size="small" color="error" onClick={async () => {
                                if (confirm(`آیا از حذف اتاق ${r.code} مطمئن هستید؟`)) {
                                  try { await api.delete(`/admin/rooms/${encodeURIComponent(r.code)}`); loadData(); } catch (err: any) { alert(err.message || 'خطا در حذف اتاق'); }
                                }
                              }}><Trash2 size={16} /></IconButton>
-                            <Button size="small" component={Link} href={`/play/${r.code}`} variant="outlined" sx={{ borderRadius: 2, fontSize: '0.7rem' }}>ورود</Button>
+                            <Button size="small" component={Link} href={`/play/${r.code}`} variant="outlined">ورود</Button>
                           </Box>
                         </TableCell>
                       </TableRow>

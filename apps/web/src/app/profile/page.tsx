@@ -21,6 +21,8 @@ import {
   TextField,
   Typography,
   alpha,
+  useTheme,
+  Grid,
 } from '@mui/material';
 import {
   Gamepad2,
@@ -50,9 +52,7 @@ interface HistoryMatch {
   winnerId: string | null;
   roomId: string;
   gameName: string;
-  /** JSON-encoded array of participating user ids. */
   players: string;
-  /** JSON-encoded final game state. */
   data: string;
   createdAt: string;
 }
@@ -78,7 +78,7 @@ function formatGameName(name: string): string {
 function formatDate(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString('fa-IR', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -93,7 +93,7 @@ function truncateId(id: string, max = 12): string {
 
 function parsePlayers(raw: string): string[] {
   try {
-    const parsed = JSON.parse(raw) as unknown;
+    const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.map(String) : [];
   } catch {
     return [];
@@ -109,32 +109,10 @@ const RESULT_BADGE: Record<
   MatchResult,
   { label: string; color: 'success' | 'error' | 'warning' }
 > = {
-  win: { label: 'Win', color: 'success' },
-  loss: { label: 'Loss', color: 'error' },
-  draw: { label: 'Draw', color: 'warning' },
+  win: { label: 'برد', color: 'success' },
+  loss: { label: 'باخت', color: 'error' },
+  draw: { label: 'تساوی', color: 'warning' },
 };
-
-// Solid brand color used by the primary CTAs on this page.
-const GRADIENT_BTN = {
-  background: '#F5A306',
-  '&:hover': { background: '#B25D16' },
-  fontWeight: 700,
-  borderRadius: 3,
-  textTransform: 'none',
-} as const;
-
-// Shared dark-theme TextField style for the password form.
-const passwordFieldSx = {
-  '& .MuiOutlinedInput-root': {
-    borderRadius: 3,
-    color: 'white',
-    bgcolor: alpha('#030A15', 0.6),
-    '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-    '&.Mui-focused fieldset': { borderColor: '#B25D16' },
-  },
-  '& .MuiInputLabel-root': { color: 'text.secondary' },
-} as const;
 
 /* ------------------------------- UI bits -------------------------------- */
 
@@ -155,19 +133,17 @@ function StatCard({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: 2,
+        gap: 4,
         borderRadius: 4,
         bgcolor: alpha('#0B1622', 0.6),
-        border: '1px solid',
-        borderColor: alpha('#2C3A45', 0.7),
-        p: 2.5,
+        p: 5,
       }}
     >
       <Box
         sx={{
           display: 'flex',
-          width: 44,
-          height: 44,
+          width: 48,
+          height: 48,
           flexShrink: 0,
           alignItems: 'center',
           justifyContent: 'center',
@@ -180,21 +156,15 @@ function StatCard({
         {icon}
       </Box>
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.25 }}>
+        <Typography variant="h4" sx={{ fontWeight: 900, lineHeight: 1.2 }}>
           {value}
         </Typography>
         <Typography
-          variant="caption"
+          variant="overline"
           sx={{
             display: 'block',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            fontSize: '0.7rem',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
             color: 'text.secondary',
+            mt: 0.5
           }}
         >
           {label}
@@ -208,10 +178,10 @@ function SkeletonRows() {
   return (
     <>
       {Array.from({ length: 5 }).map((_, i) => (
-        <TableRow key={i} sx={{ borderTop: '1px solid', borderColor: alpha('#2C3A45', 0.8) }}>
+        <TableRow key={i}>
           {Array.from({ length: 4 }).map((__, j) => (
-            <TableCell key={j} sx={{ px: 2, py: 2, borderBottom: 'none' }}>
-              <Skeleton variant="text" width="60%" sx={{ maxWidth: 96, bgcolor: alpha('#0B1622', 0.9) }} />
+            <TableCell key={j}>
+              <Skeleton variant="text" width="60%" sx={{ bgcolor: alpha('#0B1622', 0.9) }} />
             </TableCell>
           ))}
         </TableRow>
@@ -223,6 +193,7 @@ function SkeletonRows() {
 /* ------------------------------ profile page ---------------------------- */
 
 export default function ProfilePage() {
+  const theme = useTheme();
   const router = useRouter();
   const { user, isLoading, updateUser, logout } = useAuth();
 
@@ -231,14 +202,12 @@ export default function ProfilePage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Edit profile state
   const [isEditing, setIsEditing] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Change password state
   const [pwCurrent, setPwCurrent] = useState('');
   const [pwNew, setPwNew] = useState('');
   const [pwConfirm, setPwConfirm] = useState('');
@@ -254,10 +223,8 @@ export default function ProfilePage() {
       const data = await api.get<HistoryResponse>(`/history/${user.id}`);
       setStats(data.stats);
       setMatches(data.history);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Could not load match history.',
-      );
+    } catch (err: any) {
+      setError(err?.message || 'دریافت تاریخچه بازی‌ها با خطا مواجه شد.');
     } finally {
       setLoadingHistory(false);
     }
@@ -283,7 +250,7 @@ export default function ProfilePage() {
     if (!newUsername) return;
     const USERNAME_REGEX = /^[A-Za-z0-9_]{3,20}$/;
     if (!USERNAME_REGEX.test(newUsername)) {
-      setSaveError('نام کاربری باید ۳ تا ۲۰ کاراکتر لاتین (حروف، عدد، _) باشد');
+      setSaveError('نام کاربری باید ۳ تا ۲۰ کاراکتر لاتین باشد');
       return;
     }
 
@@ -295,11 +262,7 @@ export default function ProfilePage() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
-      if (err.status === 409) {
-        setSaveError('این یوزرنیم قبلاً استفاده شده است');
-      } else {
-        setSaveError(err.message || 'خطا در بروزرسانی پروفایل');
-      }
+      setSaveError(err.message || 'خطا در بروزرسانی پروفایل');
     } finally {
       setIsSaving(false);
     }
@@ -340,7 +303,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Not signed in -> send to the login page after the session check settles.
   useEffect(() => {
     if (!isLoading && !user) {
       router.replace('/login');
@@ -349,471 +311,147 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <Box
-        sx={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          p: 6,
-          bgcolor: 'background.default',
-          color: 'text.primary',
-        }}
-      >
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-          <CircularProgress size={48} thickness={4} sx={{ color: '#F5A306' }} />
-          <Typography sx={{ color: 'text.secondary' }}>Loading your profile...</Typography>
-        </Box>
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 12, bgcolor: 'background.default' }}>
+        <CircularProgress size={48} sx={{ color: 'primary.main' }} />
+        <Typography sx={{ mt: 4, color: 'text.secondary', fontWeight: 600 }}>در حال بارگذاری...</Typography>
       </Box>
     );
   }
 
-  if (!user) {
-    return (
-      <Box
-        sx={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          p: 6,
-          bgcolor: 'background.default',
-          color: 'text.primary',
-        }}
-      >
-        <Paper
-          elevation={0}
-          sx={{
-            width: '100%',
-            maxWidth: 448,
-            borderRadius: 4,
-            bgcolor: alpha('#0B1622', 0.6),
-            border: '1px solid',
-            borderColor: '#2C3A45',
-            p: 4,
-            textAlign: 'center',
-          }}
-        >
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            Please sign in
-          </Typography>
-          <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
-            Sign in to view your stats and match history.
-          </Typography>
-          <Button component={Link} href="/login" variant="contained" size="large" fullWidth sx={{ mt: 3, ...GRADIENT_BTN }}>
-            Go to Login
-          </Button>
-        </Paper>
-      </Box>
-    );
-  }
+  if (!user) return null;
 
-  const winRate =
-    stats && stats.gamesPlayed > 0
-      ? `${((stats.wins / stats.gamesPlayed) * 100).toFixed(1)}%`
-      : '—';
-
-  const hasMatches = matches.length > 0;
+  const winRate = stats && stats.gamesPlayed > 0 ? `${((stats.wins / stats.gamesPlayed) * 100).toFixed(1)}%` : '—';
 
   return (
-    <Box sx={{ flex: 1, bgcolor: 'background.default', color: 'text.primary' }}>
-      <Box sx={{ mx: 'auto', width: '100%', maxWidth: 896, px: { xs: 2, sm: 6 }, py: 10 }}>
+    <Box sx={{ flex: 1, bgcolor: 'background.default', color: 'text.primary', direction: 'rtl' }}>
+      <Box sx={{ mx: 'auto', width: '100%', maxWidth: 1024, px: { xs: 4, sm: 8 }, py: 12 }}>
         {/* Header */}
-        <Box component="header" sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-          <Box sx={{ display: 'flex', gap: 1.5 }}>
-            <Button
-              component={Link}
-              href="/"
-              startIcon={<ChevronLeft size={16} />}
-              sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 500, '&:hover': { color: 'text.primary' } }}
-            >
-              Back to game
+        <Box component="header" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 10 }}>
+          <Box sx={{ display: 'flex', gap: 3 }}>
+            <Button component={Link} href="/lobby" startIcon={<ChevronLeft size={18} />} sx={{ color: 'text.secondary' }}>
+              بازگشت به لابی
             </Button>
             {user.role === 'ADMIN' && (
-              <Button
-                component={Link}
-                href="/admin"
-                variant="contained"
-                sx={{
-                  ...GRADIENT_BTN,
-                  height: 36,
-                  px: 2,
-                  fontSize: '0.875rem',
-                }}
-              >
+              <Button component={Link} href="/admin" variant="contained">
                 پنل مدیریت
               </Button>
             )}
           </Box>
-          <Button
-            variant="outlined"
-            onClick={logout}
-            startIcon={<LogOut size={16} />}
-            sx={{
-              borderColor: '#2C3A45',
-              color: 'text.secondary',
-              textTransform: 'none',
-              '&:hover': { bgcolor: alpha('#0B1622', 0.8), color: 'text.primary' },
-            }}
-          >
-            Sign out
+          <Button variant="outlined" onClick={logout} startIcon={<LogOut size={18} />} color="error">
+            خروج
           </Button>
         </Box>
 
         {/* Identity card */}
-        <Paper
-          elevation={0}
-          sx={{
-            mt: 8,
-            borderRadius: 4,
-            bgcolor: alpha('#0B1622', 0.6),
-            border: '1px solid',
-            borderColor: alpha('#2C3A45', 0.7),
-            p: 6,
-          }}
-        >
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2.5 }}>
+        <Paper elevation={0} sx={{ p: 8, borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.4), mb: 8 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
             <Box
               sx={{
+                width: 80,
+                height: 80,
                 display: 'flex',
-                width: 64,
-                height: 64,
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: 4,
-                background: '#F5A306',
-                fontSize: '1.5rem',
-                fontWeight: 800,
-                textTransform: 'uppercase',
-                color: 'white',
+                bgcolor: 'primary.main',
+                color: 'secondary.main',
+                fontSize: '2.5rem',
+                fontWeight: 900,
               }}
             >
-              {user.username.charAt(0) || '?'}
+              {user.username.charAt(0).toUpperCase()}
             </Box>
-            <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Box sx={{ flex: 1 }}>
               {isEditing ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxWidth: 300 }}>
-                  <TextField
-                    size="small"
-                    value={newUsername}
-                    onChange={(e) => setNewUsername(e.target.value)}
-                    placeholder="Username"
-                    disabled={isSaving}
-                    error={!!saveError}
-                    helperText={saveError}
-                    autoFocus
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        color: 'white',
-                        '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-                        '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                        '&.Mui-focused fieldset': { borderColor: '#B25D16' },
-                      },
-                    }}
-                  />
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button
-                      variant="contained"
-                      size="small"
-                      onClick={handleSaveUsername}
-                      disabled={isSaving || newUsername === user.username}
-                      startIcon={isSaving ? <CircularProgress size={16} color="inherit" /> : null}
-                      sx={{ bgcolor: '#B25D16', '&:hover': { bgcolor: '#8F470F' } }}
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={handleCancelEdit}
-                      disabled={isSaving}
-                      sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.2)' }}
-                    >
-                      Cancel
-                    </Button>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 320 }}>
+                  <TextField value={newUsername} onChange={(e) => setNewUsername(e.target.value)} disabled={isSaving} error={!!saveError} helperText={saveError} autoFocus />
+                  <Box sx={{ display: 'flex', gap: 2 }}>
+                    <Button variant="contained" size="small" onClick={handleSaveUsername} disabled={isSaving}>ذخیره</Button>
+                    <Button variant="outlined" size="small" onClick={handleCancelEdit}>انصراف</Button>
                   </Box>
                 </Box>
               ) : (
-                <>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                     <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.025em' }}>
-                       {user.username}
-                     </Typography>
-                     <IconButton
-                       size="small"
-                       onClick={handleStartEdit}
-                       title="Edit username"
-                       aria-label="ویرایش نام کاربری"
-                       sx={{ color: 'text.secondary', '&:hover': { color: 'text.primary' } }}
-                     >
-                       <Edit2 size={16} />
-                     </IconButton>
-                    {saveSuccess && (
-                      <Chip
-                        size="small"
-                        icon={<Check size={12} />}
-                        label="Saved!"
-                        sx={{
-                          color: '#10b981',
-                          fontWeight: 700,
-                          bgcolor: alpha('#10b981', 0.12),
-                          border: 'none',
-                          '& .MuiChip-icon': { color: 'inherit' },
-                        }}
-                      />
-                    )}
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Typography variant="h3" sx={{ fontWeight: 900 }}>{user.username}</Typography>
+                    <IconButton size="small" onClick={handleStartEdit}><Edit2 size={18} /></IconButton>
+                    {saveSuccess && <Chip size="small" label="تغییر کرد" color="success" />}
                   </Box>
-                  <Typography variant="body2" sx={{ color: 'text.secondary', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {user.email}
-                  </Typography>
-                </>
+                  <Typography variant="body1" sx={{ color: 'text.secondary', mt: 1 }}>{user.email || 'بدون ایمیل'}</Typography>
+                </Box>
               )}
             </Box>
-            <Typography variant="caption" sx={{ display: { xs: 'none', sm: 'block' }, ml: 'auto', fontFamily: 'monospace', color: 'text.disabled' }}>
-              ID: {truncateId(user.id, 16)}
-            </Typography>
           </Box>
         </Paper>
 
         {/* Stats */}
-        <Box sx={{ mt: 8, display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(4, 1fr)' }, gap: 2 }}>
-          <StatCard label="Games Played" value={stats ? stats.gamesPlayed : '—'} icon={<Gamepad2 size={20} />} color="#F5A306" />
-          <StatCard label="Wins" value={stats ? stats.wins : '—'} icon={<Trophy size={20} />} color="#34d399" />
-          <StatCard label="Losses" value={stats ? stats.losses : '—'} icon={<Swords size={20} />} color="#fb7185" />
-          <StatCard label="Win Rate" value={winRate} icon={<TrendingUp size={20} />} color="#B25D16" />
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 4, mb: 12 }}>
+          <StatCard label="بازی‌ها" value={stats?.gamesPlayed ?? 0} icon={<Gamepad2 size={24} />} color={theme.palette.primary.main} />
+          <StatCard label="برد" value={stats?.wins ?? 0} icon={<Trophy size={24} />} color={theme.palette.success.main} />
+          <StatCard label="باخت" value={stats?.losses ?? 0} icon={<Swords size={24} />} color={theme.palette.error.main} />
+          <StatCard label="نرخ برد" value={winRate} icon={<TrendingUp size={24} />} color={theme.palette.warning.main} />
         </Box>
 
-        {/* Change password */}
-        <Paper
-          elevation={0}
-          sx={{
-            mt: 8,
-            borderRadius: 4,
-            bgcolor: alpha('#0B1622', 0.6),
-            border: '1px solid',
-            borderColor: alpha('#2C3A45', 0.8),
-            p: 6,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2.5 }}>
-            <Lock size={20} color="#F5A306" />
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              تغییر رمز
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 360 }}>
-            {user?.hasPassword && (
-              <TextField
-                type="password"
-                size="small"
-                label="رمز فعلی"
-                value={pwCurrent}
-                onChange={(e) => setPwCurrent(e.target.value)}
-                autoComplete="current-password"
-                error={!!pwError && !pwCurrent}
-                sx={passwordFieldSx}
-              />
-            )}
-            <TextField
-              type="password"
-              size="small"
-              label="رمز جدید (حداقل ۸ کاراکتر)"
-              value={pwNew}
-              onChange={(e) => setPwNew(e.target.value)}
-              autoComplete="new-password"
-              sx={passwordFieldSx}
-            />
-            <TextField
-              type="password"
-              size="small"
-              label="تکرار رمز جدید"
-              value={pwConfirm}
-              onChange={(e) => setPwConfirm(e.target.value)}
-              autoComplete="new-password"
-              sx={passwordFieldSx}
-            />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Button
-                variant="contained"
-                onClick={handleChangePassword}
-                disabled={savingPw}
-                startIcon={savingPw ? <CircularProgress size={16} color="inherit" /> : null}
-                sx={{ bgcolor: '#B25D16', '&:hover': { bgcolor: '#8F470F' } }}
-              >
-                تغییر رمز
-              </Button>
-              {pwSuccess && (
-                <Typography sx={{ color: '#34d399', fontWeight: 600, fontSize: '0.875rem' }}>
-                  رمز تغییر کرد ✓
-                </Typography>
-              )}
+        <Grid container spacing={8}>
+          <Grid item xs={12} md={5}>
+            <Paper elevation={0} sx={{ p: 6, borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.4) }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+                <Lock size={20} color={theme.palette.primary.main} />
+                <Typography variant="h6" sx={{ fontWeight: 800 }}>تغییر رمز عبور</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {user?.hasPassword && <TextField type="password" label="رمز فعلی" value={pwCurrent} onChange={(e) => setPwCurrent(e.target.value)} />}
+                <TextField type="password" label="رمز جدید" value={pwNew} onChange={(e) => setPwNew(e.target.value)} />
+                <TextField type="password" label="تکرار رمز جدید" value={pwConfirm} onChange={(e) => setPwConfirm(e.target.value)} />
+                <Button variant="contained" onClick={handleChangePassword} disabled={savingPw} fullWidth>تغییر رمز</Button>
+                {pwSuccess && <Alert severity="success">رمز عبور با موفقیت تغییر کرد.</Alert>}
+                {pwError && <Alert severity="error">{pwError}</Alert>}
+              </Box>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} md={7}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>تاریخچه بازی‌ها</Typography>
+              <IconButton onClick={loadHistory} disabled={loadingHistory} size="small">
+                <RefreshCw size={18} className={loadingHistory ? 'animate-spin' : ''} />
+              </IconButton>
             </Box>
-            {pwError && (
-              <Alert severity="error" variant="outlined" sx={{ borderRadius: 2 }}>
-                {pwError}
-              </Alert>
-            )}
-          </Box>
-        </Paper>
-
-        {/* Match history */}
-        <Box component="section" sx={{ mt: 10 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '-0.025em' }}>
-              Match History
-              {stats && (
-                <Typography component="span" variant="body2" sx={{ ml: 1, fontWeight: 500, color: 'text.secondary' }}>
-                  ({stats.gamesPlayed} {stats.gamesPlayed === 1 ? 'game' : 'games'})
-                </Typography>
-              )}
-            </Typography>
-            <Button
-              size="small"
-              onClick={() => void loadHistory()}
-              disabled={loadingHistory}
-              startIcon={<RefreshCw size={16} className={loadingHistory ? 'animate-spin' : ''} />}
-              sx={{
-                border: '1px solid',
-                borderColor: '#2C3A45',
-                color: 'text.secondary',
-                textTransform: 'none',
-                '&:hover': { bgcolor: alpha('#0B1622', 0.8), color: 'text.primary' },
-              }}
-            >
-              Refresh
-            </Button>
-          </Box>
-
-          {error && (
-            <Alert severity="error" variant="outlined" sx={{ mt: 2, borderRadius: 2 }}>
-              {error}
-            </Alert>
-          )}
-
-          {loadingHistory && !error ? (
-            <TableContainer
-              component={Paper}
-              elevation={0}
-              sx={{ mt: 2, borderRadius: 4, border: '1px solid', borderColor: alpha('#2C3A45', 0.7), bgcolor: alpha('#030A15', 0.5), overflowX: 'auto' }}
-            >
+            <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.2) }}>
               <Table>
-                <TableBody>
-                  <SkeletonRows />
-                </TableBody>
-              </Table>
-            </TableContainer>
-          ) : hasMatches ? (
-            <TableContainer
-              component={Paper}
-              elevation={0}
-              sx={{ mt: 2, borderRadius: 4, border: '1px solid', borderColor: alpha('#2C3A45', 0.7), bgcolor: alpha('#030A15', 0.5), overflowX: 'auto' }}
-            >
-              <Table sx={{ minWidth: 560 }}>
                 <TableHead>
-                  <TableRow sx={{ borderBottom: '1px solid', borderColor: alpha('#2C3A45', 0.7) }}>
-                    <TableCell sx={{ px: 2, py: 1.5, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', borderBottom: 'none' }}>
-                      Game Type
-                    </TableCell>
-                    <TableCell sx={{ px: 2, py: 1.5, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', borderBottom: 'none' }}>
-                      Opponent
-                    </TableCell>
-                    <TableCell sx={{ px: 2, py: 1.5, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', borderBottom: 'none' }}>
-                      Date
-                    </TableCell>
-                    <TableCell align="right" sx={{ px: 2, py: 1.5, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', borderBottom: 'none' }}>
-                      Result
-                    </TableCell>
+                  <TableRow>
+                    <TableCell>نوع بازی</TableCell>
+                    <TableCell>حریف</TableCell>
+                    <TableCell>زمان</TableCell>
+                    <TableCell align="center">نتیجه</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {matches.map((match, index) => {
-                    const players = parsePlayers(match.players);
-                    const opponent = players.find((id) => id !== user.id) ?? 'unknown';
-                    const result = getResult(match, user.id);
-                    const badge = RESULT_BADGE[result];
-                    return (
-                      <TableRow
-                        key={match.id}
-                        sx={{
-                          bgcolor: index % 2 === 0 ? alpha('#0B1622', 0.3) : 'transparent',
-                          '&:hover': { bgcolor: alpha('#0B1622', 0.6) },
-                        }}
-                      >
-                        <TableCell sx={{ px: 2, py: 1.5, fontWeight: 500, color: 'text.primary', borderBottom: 'none' }}>
-                          {formatGameName(match.gameName)}
-                        </TableCell>
-                        <TableCell
-                          sx={{ px: 2, py: 1.5, fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary', borderBottom: 'none' }}
-                          title={opponent}
-                        >
-                          {opponent === 'unknown' ? 'Unknown' : truncateId(opponent)}
-                        </TableCell>
-                        <TableCell sx={{ px: 2, py: 1.5, color: 'text.secondary', borderBottom: 'none' }}>
-                          {formatDate(match.createdAt)}
-                        </TableCell>
-                        <TableCell align="right" sx={{ px: 2, py: 1.5, borderBottom: 'none' }}>
-                          <Chip
-                            label={badge.label}
-                            size="small"
-                            sx={{
-                              minWidth: 56,
-                              fontWeight: 700,
-                              bgcolor: alpha(
-                                badge.color === 'success' ? '#10b981' : badge.color === 'error' ? '#f43f5e' : '#f59e0b',
-                                0.1,
-                              ),
-                              color:
-                                badge.color === 'success'
-                                  ? '#34d399'
-                                  : badge.color === 'error'
-                                    ? '#fb7185'
-                                    : '#fbbf24',
-                              border: '1px solid',
-                              borderColor: alpha(
-                                badge.color === 'success' ? '#10b981' : badge.color === 'error' ? '#f43f5e' : '#f59e0b',
-                                0.4,
-                              ),
-                            }}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {loadingHistory ? <SkeletonRows /> : matches.length === 0 ? (
+                    <TableRow><TableCell colSpan={4} align="center" sx={{ py: 10, color: 'text.disabled' }}>هنوز بازی ثبت نشده است.</TableCell></TableRow>
+                  ) : (
+                    matches.map((match) => {
+                      const result = getResult(match, user.id);
+                      const badge = RESULT_BADGE[result];
+                      const players = parsePlayers(match.players);
+                      const opponent = players.find(p => p !== user.id) || 'Unknown';
+                      return (
+                        <TableRow key={match.id}>
+                          <TableCell sx={{ fontWeight: 700 }}>{formatGameName(match.gameName)}</TableCell>
+                          <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>{truncateId(opponent)}</TableCell>
+                          <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>{formatDate(match.createdAt)}</TableCell>
+                          <TableCell align="center">
+                            <Chip label={badge.label} color={badge.color} size="small" sx={{ minWidth: 60 }} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
-          ) : (
-            !error && (
-              <Box
-                sx={{
-                  mt: 2,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 4,
-                  border: '1px dashed',
-                  borderColor: '#2C3A45',
-                  bgcolor: alpha('#030A15', 0.4),
-                  px: 6,
-                  py: 14,
-                  textAlign: 'center',
-                }}
-              >
-                <Gamepad2 size={40} strokeWidth={1.5} color="#5B6570" />
-                <Typography sx={{ mt: 3, fontWeight: 500 }}>No matches yet</Typography>
-                <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
-                  Play a game and your results will show up here.
-                </Typography>
-                <Button component={Link} href="/" variant="contained" sx={{ mt: 5, ...GRADIENT_BTN }}>
-                  Play a Game
-                </Button>
-              </Box>
-            )
-          )}
-        </Box>
+          </Grid>
+        </Grid>
       </Box>
     </Box>
   );

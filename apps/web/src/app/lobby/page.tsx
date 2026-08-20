@@ -13,6 +13,7 @@ import {
   Users,
   Bot,
   Banknote,
+  Check,
 } from 'lucide-react';
 import {
   Box,
@@ -35,6 +36,7 @@ import {
   InputLabel,
 } from '@mui/material';
 import { createRoom, fetchRooms, Room } from '../../lib/rooms';
+import { honeyBronze } from '@/theme';
 
 const REFRESH_INTERVAL_MS = 5000;
 
@@ -183,292 +185,279 @@ export default function LobbyPage() {
         flex: 1,
         flexDirection: 'column',
         alignItems: 'center',
-        p: { xs: 2, sm: 3 },
+        p: { xs: 6, sm: 10 },
         bgcolor: 'background.default',
         color: 'text.primary',
       }}
     >
-        <Box sx={{ maxWidth: 'sm', width: '100%', display: 'flex', flexDirection: 'column', gap: { xs: 3, sm: 4 }, py: { xs: 2, sm: 4 } }}>
-          <Box component="header" sx={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box sx={{ maxWidth: 'lg', width: '100%', display: 'flex', flexDirection: 'column', gap: 12, py: 6 }}>
+          <Box component="header" sx={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Typography
-              variant="h4"
+              variant="h2"
               sx={{
                 fontWeight: 900,
-                letterSpacing: '-0.02em',
-                color: 'primary.main', // Honey Bronze
-                textShadow: '0 2px 10px rgba(238, 172, 47, 0.2)',
+                color: 'primary.main',
+                textShadow: '0 4px 20px rgba(238, 172, 47, 0.25)',
               }}
             >
               BaziGB Lobby
             </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500, opacity: 0.8 }}>
-              Create a room or join a friend with a code
+            <Typography variant="h6" sx={{ color: 'text.secondary', fontWeight: 600, opacity: 0.9 }}>
+              یک اتاق آنلاین بسازید یا با ربات هوشمند تمرین کنید
             </Typography>
           </Box>
 
           {/* Create / Join actions */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 2.5,
-                borderRadius: '16px',
-                bgcolor: 'background.paper', // Prussian Blue
-                border: '1px solid',
-                borderColor: 'divider', // Dark Coffee
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-                boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-              }}
-            >
-              <Typography
-                variant="overline"
-                sx={{ fontWeight: 800, color: 'text.secondary', letterSpacing: '0.1em' }}
+          <Grid container spacing={8}>
+            <Grid item xs={12} md={7}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 8,
+                  borderRadius: 4,
+                  bgcolor: alpha(honeyBronze.bgPaper, 0.4),
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                  height: '100%',
+                }}
               >
-                Select Game
-              </Typography>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
-                {GAME_OPTIONS.map((type) => {
-                  const meta = GAME_META[type];
-                  const selected = gameType === type;
-                  return (
-                    <ButtonBase
-                      key={type}
-                      onClick={() => setGameType(type)}
-                      sx={{
-                        width: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: 1,
-                        p: 2,
-                        borderRadius: '12px',
-                        border: '2px solid',
-                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                        bgcolor: selected ? alpha(theme.palette.primary.main, 0.08) : 'rgba(0,0,0,0.2)',
-                        borderColor: selected ? 'primary.main' : 'transparent',
-                        color: selected ? 'primary.main' : 'text.secondary',
-                        '&:hover': {
-                          bgcolor: selected ? alpha(theme.palette.primary.main, 0.12) : alpha(theme.palette.text.primary, 0.04),
-                          borderColor: selected ? 'primary.main' : alpha(theme.palette.divider, 0.5),
-                          transform: 'translateY(-2px)',
-                        },
-                      }}
-                    >
-                      <Box sx={{ color: 'inherit', display: 'flex', transform: selected ? 'scale(1.1)' : 'none', transition: 'transform 0.2s' }}>
-                        <GameIcon game={type} sx={{ fontSize: '1.75rem' }} />
-                      </Box>
-                      <Box sx={{ textAlign: 'center', minWidth: 0 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 800 }} noWrap>
-                          {meta.label}
-                        </Typography>
-                        {meta.isNew && (
-                          <Chip 
-                            label="NEW" 
-                            size="small" 
-                            sx={{ 
-                              height: 16, 
-                              fontSize: '8px', 
-                              fontWeight: 900, 
-                              bgcolor: 'success.main', 
-                              color: 'white',
-                              mt: 0.5
-                            }} 
-                          />
-                        )}
-                      </Box>
-                    </ButtonBase>
-                  );
-                })}
-              </Box>
+                <Typography
+                  variant="overline"
+                  sx={{ color: 'primary.main', fontWeight: 900, fontSize: '0.8rem' }}
+                >
+                  ۱. انتخاب بازی و تنظیمات
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 4 }}>
+                  {GAME_OPTIONS.map((type) => {
+                    const meta = GAME_META[type];
+                    const selected = gameType === type;
+                    return (
+                      <ButtonBase
+                        key={type}
+                        onClick={() => setGameType(type)}
+                        sx={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: 3,
+                          p: 6,
+                          borderRadius: 4,
+                          border: '2px solid',
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          bgcolor: selected ? alpha(theme.palette.primary.main, 0.12) : 'rgba(0,0,0,0.2)',
+                          borderColor: selected ? 'primary.main' : 'transparent',
+                          color: selected ? 'primary.main' : 'text.secondary',
+                          '&:hover': {
+                            bgcolor: selected ? alpha(theme.palette.primary.main, 0.18) : alpha(theme.palette.text.primary, 0.05),
+                            borderColor: selected ? 'primary.main' : alpha(theme.palette.divider, 0.5),
+                            transform: 'translateY(-4px)',
+                          },
+                        }}
+                      >
+                        <Box sx={{ color: 'inherit', display: 'flex', transform: selected ? 'scale(1.15)' : 'none', transition: 'transform 0.3s' }}>
+                          <GameIcon game={type} sx={{ fontSize: '2.5rem' }} />
+                        </Box>
+                        <Box sx={{ textAlign: 'center' }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                            {meta.label}
+                          </Typography>
+                          {meta.isNew && (
+                            <Chip 
+                              label="جدید" 
+                              size="small" 
+                              color="success"
+                              sx={{ 
+                                height: 18, 
+                                fontSize: '10px', 
+                                fontWeight: 900, 
+                                mt: 1
+                              }} 
+                            />
+                          )}
+                        </Box>
+                      </ButtonBase>
+                    );
+                  })}
+                </Box>
 
-              {(gameType === 'backgammon' || gameType === 'tic-tac-toe') && (
-                <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-                  <InputLabel id="match-points-label" sx={{ color: 'text.secondary' }}>Match Points</InputLabel>
-                  <Select
-                    labelId="match-points-label"
-                    label="Match Points"
-                    value={maxRounds}
-                    onChange={(e) => setMaxRounds(e.target.value as 1 | 3 | 5)}
+                {(gameType === 'backgammon' || gameType === 'tic-tac-toe') && (
+                  <FormControl fullWidth sx={{ mt: 2 }}>
+                    <InputLabel id="match-points-label" sx={{ color: 'text.secondary', fontWeight: 600 }}>امتیاز نهایی مسابقه (Match Points)</InputLabel>
+                    <Select
+                      labelId="match-points-label"
+                      label="Match Points"
+                      value={maxRounds}
+                      onChange={(e) => setMaxRounds(e.target.value as 1 | 3 | 5)}
+                    >
+                      {MATCH_POINTS_OPTIONS.map((opt) => (
+                        <MenuItem key={opt.value} value={opt.value} sx={{ fontWeight: 600 }}>
+                          {opt.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 3,
+                  }}
+                >
+                  <ButtonBase
+                    onClick={() => setMode('online')}
                     sx={{
-                      borderRadius: '10px',
-                      bgcolor: 'rgba(0,0,0,0.2)',
-                      '& .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' },
+                      p: 5,
+                      borderRadius: 3,
+                      border: '1px solid',
+                      transition: 'all 0.2s',
+                      borderColor: mode === 'online' ? 'primary.main' : 'divider',
+                      bgcolor: mode === 'online' ? alpha(theme.palette.primary.main, 0.15) : 'rgba(0,0,0,0.15)',
+                      color: mode === 'online' ? 'primary.main' : 'text.secondary',
+                      '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) }
                     }}
                   >
-                    {MATCH_POINTS_OPTIONS.map((opt) => (
-                      <MenuItem key={opt.value} value={opt.value} sx={{ fontWeight: 600 }}>
-                        {opt.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Users size={22} />
+                      <Typography variant="button" sx={{ fontWeight: 800 }}>با حریف آنلاین</Typography>
+                    </Box>
+                  </ButtonBase>
+                  <ButtonBase
+                    onClick={() => setMode('bot')}
+                    sx={{
+                      p: 5,
+                      borderRadius: 3,
+                      border: '1px solid',
+                      transition: 'all 0.2s',
+                      borderColor: mode === 'bot' ? 'primary.main' : 'divider',
+                      bgcolor: mode === 'bot' ? alpha(theme.palette.primary.main, 0.15) : 'rgba(0,0,0,0.15)',
+                      color: mode === 'bot' ? 'primary.main' : 'text.secondary',
+                      '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) }
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Bot size={22} />
+                      <Typography variant="button" sx={{ fontWeight: 800 }}>تمرین با ربات</Typography>
+                    </Box>
+                  </ButtonBase>
+                </Box>
 
-              {/* انتخاب نوع بازی: با حریف آنلاین یا با ربات */}
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: 1,
-                  '& .MuiButtonBase-root': { borderRadius: '10px', fontWeight: 800 },
-                }}
-              >
-                <ButtonBase
-                  onClick={() => setMode('online')}
-                  sx={{
-                    p: 1.25,
-                    border: '1px solid',
-                    borderColor: mode === 'online' ? 'primary.main' : 'divider',
-                    bgcolor: mode === 'online' ? alpha(theme.palette.primary.main, 0.12) : 'rgba(0,0,0,0.2)',
-                    color: mode === 'online' ? 'primary.main' : 'text.secondary',
-                  }}
-                >
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                    <Users size={18} />
-                    <Typography variant="caption" sx={{ fontWeight: 800 }}>
-                      با حریف آنلاین
-                    </Typography>
-                  </Box>
-                </ButtonBase>
-                <ButtonBase
-                  onClick={() => setMode('bot')}
-                  sx={{
-                    p: 1.25,
-                    border: '1px solid',
-                    borderColor: mode === 'bot' ? 'primary.main' : 'divider',
-                    bgcolor: mode === 'bot' ? alpha(theme.palette.primary.main, 0.12) : 'rgba(0,0,0,0.2)',
-                    color: mode === 'bot' ? 'primary.main' : 'text.secondary',
-                  }}
-                >
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                    <Bot size={18} />
-                    <Typography variant="caption" sx={{ fontWeight: 800 }}>
-                      با ربات
-                    </Typography>
-                  </Box>
-                </ButtonBase>
-              </Box>
-
-              <Button
-                fullWidth
-                variant="contained"
-                onClick={handleCreate}
-                disabled={creating}
-                startIcon={creating ? <CircularProgress size={20} color="inherit" /> : mode === 'bot' ? <Bot size={20} /> : <Plus size={20} />}
-                sx={{
-                  py: 1.5,
-                  borderRadius: '12px',
-                  bgcolor: 'primary.main',
-                  color: 'background.default',
-                  fontWeight: 800,
-                  boxShadow: `0 8px 16px ${alpha(theme.palette.primary.main, 0.2)}`,
-                  '&:hover': {
-                    bgcolor: 'primary.light',
-                    transform: 'translateY(-1px)',
-                  },
-                  '&:active': { transform: 'scale(0.98)' },
-                }}
-              >
-                {mode === 'bot' ? 'شروع بازی با ربات' : 'Create Room'}
-              </Button>
-            </Paper>
-
-            <Paper
-              component="form"
-              onSubmit={handleJoinByCode}
-              elevation={0}
-              sx={{
-                p: 2.5,
-                borderRadius: '16px',
-                bgcolor: 'background.paper',
-                border: '1px solid',
-                borderColor: 'divider',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-                height: '100%',
-                boxShadow: '0 8px 322px rgba(0,0,0,0.4)',
-              }}
-            >
-              <Typography
-                variant="overline"
-                sx={{ fontWeight: 800, color: 'text.secondary', letterSpacing: '0.1em' }}
-              >
-                Join by code
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1.5, mt: 'auto' }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={codeInput}
-                  placeholder="ABCDE"
-                  onChange={(e) => {
-                    setCodeInput(e.target.value.toUpperCase());
-                    setJoinError(null);
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      bgcolor: 'rgba(0,0,0,0.2)',
-                      borderRadius: '10px',
-                      fontFamily: 'monospace',
-                      fontWeight: 700,
-                      letterSpacing: '0.2em',
-                    }
-                  }}
-                />
                 <Button
-                  type="submit"
+                  fullWidth
                   variant="contained"
-                  disabled={!codeInput.trim()}
+                  size="large"
+                  onClick={handleCreate}
+                  disabled={creating}
+                  startIcon={creating ? <CircularProgress size={24} color="inherit" /> : mode === 'bot' ? <Bot size={24} /> : <Plus size={24} />}
                   sx={{
-                    minWidth: 56,
-                    borderRadius: '10px',
-                    bgcolor: 'text.primary',
-                    color: 'background.default',
-                    '&:hover': { bgcolor: 'text.secondary' },
+                    py: 2.5,
+                    fontSize: '1.1rem',
+                    fontWeight: 900,
                   }}
                 >
-                  <ArrowRight size={20} />
+                  {mode === 'bot' ? 'شروع بازی انفرادی' : 'ایجاد اتاق جدید'}
                 </Button>
-              </Box>
-              {joinError && (
-                <Alert severity="error" variant="filled" sx={{ py: 0, px: 1, borderRadius: '8px', fontSize: '0.75rem' }}>
-                  {joinError}
-                </Alert>
-              )}
-            </Paper>
-          </Box>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} md={5}>
+              <Paper
+                component="form"
+                onSubmit={handleJoinByCode}
+                elevation={0}
+                sx={{
+                  p: 8,
+                  borderRadius: 4,
+                  bgcolor: alpha(honeyBronze.bgPaper, 0.4),
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                  height: '100%',
+                }}
+              >
+                <Typography
+                  variant="overline"
+                  sx={{ color: 'primary.main', fontWeight: 900, fontSize: '0.8rem' }}
+                >
+                  ۲. ورود با کد دعوت
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mt: -4 }}>
+                  اگر دوستتان قبلاً اتاق ساخته است، کد ۵ رقمی آن را در اینجا وارد کنید.
+                </Typography>
+                
+                <Box sx={{ display: 'flex', gap: 3, mt: 'auto' }}>
+                  <TextField
+                    fullWidth
+                    value={codeInput}
+                    placeholder="ABCDE"
+                    onChange={(e) => {
+                      setCodeInput(e.target.value.toUpperCase());
+                      setJoinError(null);
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        fontFamily: 'monospace',
+                        fontWeight: 900,
+                        fontSize: '1.5rem',
+                        letterSpacing: '0.3em',
+                        textAlign: 'center'
+                      }
+                    }}
+                  />
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    disabled={!codeInput.trim()}
+                    sx={{
+                      minWidth: 80,
+                      borderRadius: 3,
+                      bgcolor: 'text.primary',
+                      color: 'background.default',
+                      '&:hover': { bgcolor: 'text.secondary' },
+                    }}
+                  >
+                    <ArrowRight size={32} />
+                  </Button>
+                </Box>
+                {joinError && (
+                  <Alert severity="error" variant="filled" sx={{ borderRadius: 2, fontWeight: 700 }}>
+                    {joinError}
+                  </Alert>
+                )}
+              </Paper>
+            </Grid>
+          </Grid>
 
           {(createError || loadError) && (
-            <Alert severity="error" variant="outlined" sx={{ borderRadius: 3, borderColor: alpha('#f43f5e', 0.5) }}>
+            <Alert severity="error" variant="outlined" sx={{ borderRadius: 4, borderColor: alpha('#f43f5e', 0.5), p: 4, fontWeight: 700 }}>
               {createError || loadError}
             </Alert>
           )}
 
           {/* Room list */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Gamepad2 size={20} style={{ color: '#F5A306' }} />
-                <Typography variant="h6" sx={{ fontWeight: 700, color: alpha('#BEBBAC', 0.9) }}>
-                  Active Rooms
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <Gamepad2 size={28} style={{ color: honeyBronze.primary }} />
+                <Typography variant="h4" sx={{ fontWeight: 900, color: 'text.primary' }}>
+                  اتاق‌های فعال (Active Rooms)
                 </Typography>
               </Box>
               <Button
-                size="small"
+                size="large"
                 onClick={loadRooms}
-                startIcon={<RefreshCw size={16} />}
-                sx={{ color: 'text.secondary', textTransform: 'none', '&:hover': { color: 'white' } }}
+                startIcon={<RefreshCw size={20} />}
+                sx={{ color: 'text.secondary', fontWeight: 800, '&:hover': { color: 'primary.main' } }}
               >
-                Refresh
+                به‌روزرسانی لیست
               </Button>
             </Box>
 
             {loading ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 6 }}>
-                <CircularProgress size={32} sx={{ color: 'text.disabled' }} />
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 12 }}>
+                <CircularProgress size={40} sx={{ color: 'primary.main' }} />
               </Box>
             ) : activeRooms.length === 0 ? (
               <Box
@@ -476,16 +465,17 @@ export default function LobbyPage() {
                   borderRadius: 4,
                   border: '2px dashed',
                   borderColor: 'divider',
-                  p: 6,
+                  p: 12,
                   textAlign: 'center',
+                  bgcolor: alpha(honeyBronze.secondary, 0.4),
                 }}
               >
-                <Typography sx={{ color: 'text.disabled' }}>
-                  No active rooms yet — create the first one!
+                <Typography variant="body1" sx={{ color: 'text.disabled', fontWeight: 600 }}>
+                  هنوز اتاقی وجود ندارد — اولین اتاق را بسازید!
                 </Typography>
               </Box>
             ) : (
-              <Box component="ul" sx={{ p: 0, m: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Box component="ul" sx={{ p: 0, m: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {activeRooms.map((room) => (
                   <Paper
                     key={room.id}
@@ -494,86 +484,79 @@ export default function LobbyPage() {
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 2,
-                      p: 2,
+                      gap: 4,
+                      p: 4,
                       borderRadius: 4,
-                      bgcolor: alpha('#0B1622', 0.6),
+                      bgcolor: alpha(honeyBronze.bgDeep, 0.6),
                       border: '1px solid',
                       borderColor: 'divider',
-                      transition: 'border-color 0.2s',
+                      transition: 'all 0.2s ease',
                       '&:hover': {
-                        borderColor: alpha('#F5A306', 0.5),
+                        borderColor: alpha(honeyBronze.primary, 0.5),
+                        bgcolor: alpha(honeyBronze.bgDeep, 0.8),
+                        transform: 'translateX(-4px)',
                       },
                     }}
                   >
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                         <Typography
                           sx={{
                             fontFamily: 'monospace',
-                            fontSize: '1.125rem',
-                            fontWeight: 700,
-                            letterSpacing: '0.2em',
+                            fontSize: '1.25rem',
+                            fontWeight: 800,
+                            letterSpacing: '0.1em',
+                            color: 'primary.main'
                           }}
                         >
                           {room.code}
                         </Typography>
-                         <Tooltip title={copiedCode === room.code ? "Copied!" : "Copy code"}>
+                         <Tooltip title={copiedCode === room.code ? "کپی شد!" : "کپی کد"}>
                            <IconButton
                              size="small"
                              onClick={() => handleCopy(room.code)}
-                             aria-label={copiedCode === room.code ? "کپی شد" : "کپی کد اتاق"}
-                             sx={{ color: 'text.disabled', '&:hover': { color: 'white' } }}
+                             sx={{ color: 'text.secondary' }}
                            >
                              {copiedCode === room.code ? (
-                               <Typography variant="caption" sx={{ color: '#34d399', fontWeight: 600 }}>
-                                 Copied!
-                               </Typography>
+                               <Check size={18} style={{ color: honeyBronze.success }} />
                              ) : (
-                               <Copy size={16} />
+                               <Copy size={18} />
                              )}
                            </IconButton>
                          </Tooltip>
                       </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 0.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1.5 }}>
                         <Chip
-                          icon={<GameIcon game={room.gameType} sx={{ fontSize: '0.875rem', color: 'inherit' }} />}
+                          icon={<GameIcon game={room.gameType} sx={{ fontSize: '1rem', color: 'inherit' }} />}
                           label={GAME_META[room.gameType]?.label ?? room.gameType}
                           size="small"
                           sx={{
-                            height: 24,
-                            bgcolor: alpha('#B25D16', 0.1),
-                            color: '#F5A306',
-                            fontWeight: 600,
+                            bgcolor: alpha(honeyBronze.primary, 0.1),
+                            color: 'primary.main',
                             border: '1px solid',
-                            borderColor: alpha('#F5A306', 0.2),
-                            '& .MuiChip-icon': {
-                              ml: 0.5,
-                              mr: -0.5,
-                            },
+                            borderColor: alpha(honeyBronze.primary, 0.2),
                           }}
                         />
                         <Chip
                           label={STATUS_LABEL[room.status]}
                           size="small"
+                          variant="outlined"
                           sx={{
-                            height: 24,
-                            bgcolor: room.status === 'waiting' ? alpha('#10b981', 0.1) : alpha('#f59e0b', 0.1),
-                            color: room.status === 'waiting' ? '#4ade80' : '#fbbf24',
-                            fontWeight: 600,
+                            borderColor: room.status === 'waiting' ? 'success.main' : 'warning.main',
+                            color: room.status === 'waiting' ? 'success.main' : 'warning.main',
                             '&::before': {
                               content: '""',
-                              width: 6,
-                              height: 6,
+                              width: 8,
+                              height: 8,
                               borderRadius: '50%',
                               bgcolor: 'currentColor',
                               mr: 1,
                             },
                           }}
                         />
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
-                          <Users size={14} />
-                          <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+                          <Users size={16} />
+                          <Typography variant="caption" sx={{ fontWeight: 700 }}>
                             {room.players.length}/{room.gameType === 'vegas' ? 5 : 2}
                           </Typography>
                         </Box>
@@ -581,25 +564,15 @@ export default function LobbyPage() {
                     </Box>
                     <Button
                       variant="contained"
-                      size="small"
                       onClick={() => router.push(`/play/${room.code}`)}
                       disabled={room.status !== 'waiting'}
                       sx={{
                         borderRadius: 2.5,
-                        px: 3,
-                        bgcolor: alpha('#B25D16', 0.8),
-                        fontWeight: 600,
-                        textTransform: 'none',
-                        '&:hover': {
-                          bgcolor: '#B25D16',
-                        },
-                        '&:disabled': {
-                          bgcolor: alpha('#2C3A45', 0.8),
-                          color: 'text.disabled',
-                        },
+                        px: 4,
+                        minWidth: 100,
                       }}
                     >
-                      {room.status === 'waiting' ? 'Join' : 'Playing'}
+                      {room.status === 'waiting' ? 'ورود' : 'در حال بازی'}
                     </Button>
                   </Paper>
                 ))}

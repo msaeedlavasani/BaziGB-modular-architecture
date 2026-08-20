@@ -1,5 +1,5 @@
 'use client';
-import { createTheme } from '@mui/material/styles';
+import { createTheme, alpha } from '@mui/material/styles';
 
 /**
  * استاندارد طراحی Elite — تم Honey Bronze
@@ -23,6 +23,7 @@ export const honeyBronze = {
 
 export const theme = createTheme({
   direction: 'rtl',
+  spacing: 4, // 4px base unit for more granular control
   palette: {
     mode: 'dark',
     primary: {
@@ -51,24 +52,63 @@ export const theme = createTheme({
   },
   typography: {
     fontFamily: 'Vazirmatn, "Segoe UI", Tahoma, sans-serif',
-    h1: { fontWeight: 800 },
-    h2: { fontWeight: 800 },
-    h3: { fontWeight: 700 },
-    h4: { fontWeight: 700 },
-    h5: { fontWeight: 700 },
-    h6: { fontWeight: 700 },
-    button: { fontWeight: 700 },
+    h1: { fontWeight: 900, fontSize: '2.5rem', letterSpacing: '-0.02em' },
+    h2: { fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.01em' },
+    h3: { fontWeight: 800, fontSize: '1.75rem' },
+    h4: { fontWeight: 700, fontSize: '1.5rem' },
+    h5: { fontWeight: 700, fontSize: '1.25rem' },
+    h6: { fontWeight: 700, fontSize: '1.1rem' },
+    subtitle1: { fontWeight: 600, fontSize: '1rem' },
+    subtitle2: { fontWeight: 600, fontSize: '0.875rem' },
+    body1: { fontSize: '1rem', lineHeight: 1.6 },
+    body2: { fontSize: '0.875rem', lineHeight: 1.6 },
+    button: { fontWeight: 700, textTransform: 'none' },
+    caption: { fontSize: '0.75rem', fontWeight: 500 },
+    overline: { fontWeight: 800, fontSize: '0.7rem', letterSpacing: '0.1em' },
   },
   shape: { borderRadius: 12 },
   components: {
     MuiButton: {
+      defaultProps: {
+        disableElevation: true,
+      },
       styleOverrides: {
         root: {
-          textTransform: 'none',
-          fontWeight: 700,
           borderRadius: 10,
-          boxShadow: 'none',
-          '&:hover': { boxShadow: '0 4px 16px rgba(238, 172, 47, 0.35)' },
+          padding: '8px 20px',
+          transition: 'all .2s ease',
+          '&:hover': {
+            transform: 'translateY(-1px)',
+            boxShadow: '0 4px 16px rgba(238, 172, 47, 0.25)',
+          },
+          '&:active': {
+            transform: 'translateY(0)',
+          },
+        },
+        sizeLarge: {
+          padding: '12px 28px',
+          fontSize: '1rem',
+        },
+        sizeSmall: {
+          padding: '4px 12px',
+          fontSize: '0.75rem',
+        },
+        containedPrimary: {
+          color: honeyBronze.secondary,
+          '&:hover': {
+            backgroundColor: honeyBronze.goldLight,
+          },
+        },
+      },
+    },
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          transition: 'all .2s ease',
+          '&:hover': {
+            backgroundColor: 'rgba(238, 172, 47, 0.08)',
+            color: honeyBronze.primary,
+          },
         },
       },
     },
@@ -77,6 +117,7 @@ export const theme = createTheme({
         root: {
           backgroundImage: 'none',
           border: `1px solid ${honeyBronze.border}`,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
         },
       },
     },
@@ -93,5 +134,70 @@ export const theme = createTheme({
         },
       },
     },
+    MuiTextField: {
+      defaultProps: {
+        size: 'small',
+      },
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 10,
+            backgroundColor: 'rgba(0, 0, 0, 0.2)',
+            transition: 'all .2s ease',
+            '& fieldset': { borderColor: honeyBronze.border },
+            '&:hover fieldset': { borderColor: alpha(honeyBronze.primary, 0.4) },
+            '&.Mui-focused fieldset': { borderColor: honeyBronze.primary },
+          },
+        },
+      },
+    },
+    MuiSelect: {
+      defaultProps: {
+        size: 'small',
+      },
+      styleOverrides: {
+        root: {
+          borderRadius: 10,
+          backgroundColor: 'rgba(0, 0, 0, 0.2)',
+          '& .MuiOutlinedInput-notchedOutline': { borderColor: honeyBronze.border },
+          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: alpha(honeyBronze.primary, 0.4) },
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: honeyBronze.primary },
+        },
+      },
+    },
+    MuiTableHead: {
+      styleOverrides: {
+        root: {
+          '& .MuiTableCell-root': {
+            color: honeyBronze.textMuted,
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            fontSize: '0.75rem',
+            letterSpacing: '0.05em',
+            borderBottom: `2px solid ${honeyBronze.border}`,
+          },
+        },
+      },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        root: {
+          borderColor: alpha(honeyBronze.border, 0.5),
+          padding: '16px',
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          fontWeight: 700,
+          borderRadius: 8,
+        },
+        sizeSmall: {
+          fontSize: '0.7rem',
+        },
+      },
+    },
   },
 });
+
