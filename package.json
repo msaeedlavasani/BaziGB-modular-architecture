@@ -20,9 +20,11 @@
     "dev": "npm run build:packages && concurrently -k -n server,web \"npm:dev:server\" \"npm:dev:web\"",
     "dev:web": "npm run dev -w @bazigb/web",
     "dev:server": "npm run dev -w @bazigb/server",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "typecheck": "npm run check:boundaries && npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "test:games": "npm run test -w @bazigb/engine -w @bazigb/game-tic-tac-toe -w @bazigb/game-backgammon -w @bazigb/game-chess -w @bazigb/game-vegas"
+    "test:games": "npm run test -w @bazigb/engine -w @bazigb/game-tic-tac-toe -w @bazigb/game-backgammon -w @bazigb/game-chess -w @bazigb/game-vegas",
+    "test:impact": "node scripts/check-impact.mjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

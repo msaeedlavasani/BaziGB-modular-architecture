@@ -205,7 +205,12 @@ export default function GameShell({
                   {roomCode}
                 </Typography>
                 <Tooltip title={copied ? 'کپی شد!' : 'کپی کد اتاق'}>
-                  <IconButton size="small" onClick={onCopyRoom} sx={{ color: copied ? 'success.main' : 'text.disabled', p: 0.25 }}>
+                  <IconButton
+                    size="small"
+                    onClick={onCopyRoom}
+                    aria-label={copied ? 'کپی شد' : 'کپی کد اتاق'}
+                    sx={{ color: copied ? 'success.main' : 'text.disabled', p: 0.25 }}
+                  >
                     {copied ? <Check size={14} /> : <Copy size={14} />}
                   </IconButton>
                 </Tooltip>

@@ -26,11 +26,11 @@ npm run dev          # وب:3000 + سرور:3001
 ## نکات عملیاتی
 
 1. **محافظ `.env`:** همیشه قبل از هر کاری بررسی کنید `/opt/bazigb/.env` سرور موجود است (بازیابی: `docs/ISSUES.md#env-recovery`).
-2. **Health:** بعد از دیپلوی: `docker ps` → انتظار `bazigb-db-1`, `bazigb-server-1`, `bazigb-web-1`, `bazigb-caddy-1` با وضعیت `Up/Healthy`.
+2. **Health:** بعد از دیپلوی: `systemctl status bazigb-server bazigb-web` → هر دو `active (running)`؛ و `curl -s http://localhost:3001/api/rooms` پاسخ دهد.
 3. **Hard Refresh (Ctrl+F5)** پس از هر دیپلوی به کاربر یادآوری شود.
 4. **شاخهها:** تکبرنچ `main` — همه کارها روی `main`؛ دیپلوی فقط با تأیید صریح.
 
 ## گزارش خطاهای رایج
 
-- **Timeout در بیلد سرور:** ۵ دقیقه صبر کنید و `docker ps` را چک کنید — دستور بیلد را تکرار نکنید.
-- **برد خاکستری (Gray Board):** بیلد تمیز: `docker compose build --no-cache server web`.
+- **Timeout در npm ci سرور:** منتظر بمانید و `systemctl status bazigb-server` را چک کنید — دستور را با اتصال جدید تکرار نکنید (در صورت قطع ssh از لولهٔ `tar czf - | ssh 'tar xzf -'` برای انتقال استفاده کنید).
+- **برد خاکستری (Gray Board):** Hard Refresh (Ctrl+F5)؛ در صورت تداوم: `systemctl restart bazigb-web` و بررسی لاگ با `journalctl -u bazigb-web -n 50`.

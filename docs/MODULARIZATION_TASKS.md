@@ -19,13 +19,13 @@ MOD-001 (Branch) → MOD-002..005 (API بازیها) → MOD-006 (تستهای �
 | MOD-005 | API عمومی Vegas: `Vegas` + تایپها | LOW | ✅ انجام شد |
 | MOD-006 | تستهای مرزی (vitest) در هر پکیج بازی | MEDIUM | ✅ انجام شد (تست + بیلد) |
 | MOD-007 | تفکیک Game Gateway → `GameEngineService` | MEDIUM | ✅ انجام شد |
-| MOD-008 | تفکیک دامنههای سرور (استفاده فقط از API عمومی) | MEDIUM | 🔄 پایه انجام شد — اعتبارسنجی واردات باقی است |
+| MOD-008 | تفکیک دامنههای سرور (استفاده فقط از API عمومی) | MEDIUM | ✅ انجام شد (تأیید ممیزی 2026-08-20: سرور فقط از public API پکیجها import میکند) |
 | MOD-009 | Feature Folders وب: `components/{game,layout,shared}` | LOW | ✅ انجام شد |
 | MOD-010 | مستندسازی قراردادهای UI | LOW | ✅ انجام شد (DESIGN_SYSTEM.md) |
-| MOD-011 | Dependency Guardrails (eslint-plugin-import) | LOW | ⏳ TODO — فاز بعد |
+| MOD-011 | Dependency Guardrails (اجرای مرز پکیج) | LOW | ✅ انجام شد (2026-08-20): `scripts/check-boundaries.mjs` — بدون وابستگی جدید، زنجیرهشده به `typecheck` |
 | MOD-012 | ایزولهسازی تستها (`npm test -w <pkg>`) | LOW | ✅ انجام شد |
-| MOD-013 | Change-Impact Testing | MEDIUM | ⏳ TODO — فاز بعد |
-| MOD-014 | گزارش نهایی ARCHITECTURE_REFACTOR_REPORT.md | — | 🔄 در جریان |
+| MOD-013 | Change-Impact Testing | MEDIUM | ✅ انجام شد (2026-08-20): `scripts/check-impact.mjs` — تشخیص affected packages از git diff و اجرای typecheck/test |
+| MOD-014 | گزارش نهایی ARCHITECTURE_REFACTOR_REPORT.md | — | ✅ انجام شد (سند تاریخی) |
 
 ## قوانین اجرا (غیرقابل تغییر)
 

@@ -66,5 +66,6 @@ apps/server (NestJS)  apps/web (Next.js)
 ## محدودیتهای دیپلوی
 
 - سرور تولید: `193.151.153.204` — روش: Zero Build (rsync + آرتیفکت محلی)
-- دیتابیس PostgreSQL در داکر؛ دامنه `bazigb.ir` + Caddy (SSL خودکار)
+- **دیتابیس (CURRENT):** SQLite از طریق Prisma (`apps/server/prisma/schema.prisma`). **هدف (TARGET):** PostgreSQL — `docker-compose.yml` آماده است؛ تصمیم D-01 (مهاجرت) هنوز موکول است.
+- دامنه `bazigb.ir` + Caddy (SSL خودکار)
 - **قانون:** تکبرنچ `main` — توسعه و تولید روی یک شاخه (شاخه ماژولارسازی حذف شد)

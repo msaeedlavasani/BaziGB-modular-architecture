@@ -12,10 +12,17 @@ import { SmsModule } from '../sms/sms.module';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get('JWT_SECRET') ?? 'bazigb-dev-secret',
-        signOptions: { expiresIn: '7d' },
-      }),
+      useFactory: (config: ConfigService) => {
+        const secret = config.get<string>('JWT_SECRET');
+        const isProd = config.get<string>('NODE_ENV') === 'production';
+        if (isProd && !secret) {
+          throw new Error('JWT_SECRET must be set when NODE_ENV=production (fail-closed)');
+        }
+        return {
+          secret: secret ?? 'bazigb-dev-secret',
+          signOptions: { expiresIn: '7d' },
+        };
+      },
     }),
   ],
   controllers: [AuthController],

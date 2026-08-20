@@ -15,6 +15,7 @@ import { OtpRequestDto } from './dto/otp-request.dto';
 import { OtpVerifyDto } from './dto/otp-verify.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { RateLimitGuard } from '../common/rate-limit.guard';
 
 @Controller('auth')
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
@@ -23,11 +24,13 @@ export class AuthController {
 
   // ورود فقط با OTP است — مسیرهای register/login با پسورد حذف شدند.
 
+  @UseGuards(RateLimitGuard)
   @Post('otp/request')
   requestOtp(@Body() dto: OtpRequestDto) {
     return this.auth.requestOtp(dto);
   }
 
+  @UseGuards(RateLimitGuard)
   @Post('otp/verify')
   verifyOtp(@Body() dto: OtpVerifyDto) {
     return this.auth.verifyOtp(dto);

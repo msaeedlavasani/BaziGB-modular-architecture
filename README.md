@@ -70,4 +70,4 @@ npm run dev
 
 ## نقشه راه ماژولارسازی
 
-فهرست کامل تسکها (MOD-001 تا MOD-014) در [docs/MODULARIZATION_TASKS.md](docs/MODULARIZATION_TASKS.md) و وضعیت اجرا در [docs/ARCHITECTURE_REFACTOR_REPORT.md](docs/ARCHITECTURE_REFACTOR_REPORT.md).
+سوابق تاریخی تسکها (MOD-001 تا MOD-014) در [docs/MODULARIZATION_TASKS.md](docs/MODULARIZATION_TASKS.md) و گزارش اجرا در [docs/ARCHITECTURE_REFACTOR_REPORT.md](docs/ARCHITECTURE_REFACTOR_REPORT.md) ثبت شده است. تسکهای باقیمانده (MOD-011 اجرای مرز پکیج و MOD-013 تست تأثیر تغییرات) بهصورت اسکریپتهای خودکار پیاده شدهاند: `scripts/check-boundaries.mjs` (زنجیرهشده به `npm run typecheck`) و `scripts/check-impact.mjs` (`npm run test:impact`).

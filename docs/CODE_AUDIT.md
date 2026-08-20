@@ -2,6 +2,12 @@
 
 > تاریخ: 2026-08-20 — برنچ فعال: `main` — متد: بازرسی مستقیم ریپو (بدون تغییر کد)
 > مرجع: FINAL ACCIO REPOSITORY AUDIT & IMPLEMENTATION PROTOCOL
+>
+> ⚠️ **اسنپشات تاریخی (Snapshot):** این سند وضعیت زمان ممیزی را ثبت میکند. پس از آن (2026-08-20):
+> - `AGENTS.md` (v5.0.0) مستقیماً روی GitHub اضافه شد → یافته «مفقود» منقضی است.
+> - برنچ `refactor/modular-architecture` حذف شد (تکبرنچ `main`).
+> - بکلاگ F-02..F-11 اجرا شد: Rate Limiting، JWT fail-closed، aria-label، حذف کد مرده، تست گیتوی، حذف `@mui/icons-material`، اسکریپتهای MOD-011/013.
+> - جزئیات وضعیت فعلی را در کد و اسناد جاری ببینید؛ این سند منبع حقیقت نیست.
 
 ---
 
@@ -17,7 +23,7 @@
 | بازی‌ها | backgammon / chess / tic-tac-toe / vegas — فقط وابسته به `@bazigb/engine` | packages/games/*/package.json |
 | اسکریپت‌ها | `deploy.sh` (rsync+systemd)، `server-setup.sh` | scripts/ |
 | docker-compose.yml | موجود اما با دیپلوی واقعی (systemd) هم‌خوانی ندارد | root docker-compose.yml |
-| **AGENTS.md** | **❌ وجود ندارد** (فایل حاکمیتی شماره ۱ پروتکل مفقود است) | read → File not found |
+| **AGENTS.md** | ✅ موجود — v5.0.0 (پس از ممیزی مستقیماً روی GitHub اضافه شد) | git show origin/main:AGENTS.md |
 | DESIGN_SYSTEM.md | ✅ موجود (۵۷ خط، Honey Bronze) | ریشه ریپو |
 
 **UNKNOWN — قابل راستی‌آزمایی در ریپو نیست:** اینکه آیا docker-compose.yml هنوز روی سرور دیگری استفاده می‌شود یا منسوخ است.

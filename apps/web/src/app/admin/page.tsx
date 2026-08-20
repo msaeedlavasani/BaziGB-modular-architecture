@@ -548,16 +548,17 @@ export default function AdminPage() {
                             >
                               {u.role === 'ADMIN' ? 'مدیر' : 'کاربر'}
                             </Box>
-                            {u.id !== user?.id && (
-                              <IconButton
-                                size="small"
-                                title={u.role === 'ADMIN' ? 'تبدیل به کاربر' : 'تبدیل به مدیر'}
-                                onClick={() => setRoleTarget(u)}
-                                sx={{ color: 'text.secondary', '&:hover': { color: 'primary.light' } }}
-                              >
-                                {u.role === 'ADMIN' ? <Shield size={16} /> : <ShieldCheck size={16} />}
-                              </IconButton>
-                            )}
+                             {u.id !== user?.id && (
+                               <IconButton
+                                 size="small"
+                                 title={u.role === 'ADMIN' ? 'تبدیل به کاربر' : 'تبدیل به مدیر'}
+                                 aria-label={u.role === 'ADMIN' ? 'تبدیل به کاربر' : 'تبدیل به مدیر'}
+                                 onClick={() => setRoleTarget(u)}
+                                 sx={{ color: 'text.secondary', '&:hover': { color: 'primary.light' } }}
+                               >
+                                 {u.role === 'ADMIN' ? <Shield size={16} /> : <ShieldCheck size={16} />}
+                               </IconButton>
+                             )}
                           </Box>
                         </TableCell>
                         <TableCell sx={{ color: 'white', textAlign: 'right' }}>
@@ -570,45 +571,49 @@ export default function AdminPage() {
                           {new Date(u.createdAt).toLocaleDateString('fa-IR')}
                         </TableCell>
                         <TableCell sx={{ textAlign: 'center' }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
-                            <IconButton
-                              size="small"
-                              title="ویرایش"
-                              onClick={() => setEditTarget(u)}
-                              sx={{ color: 'text.secondary', '&:hover': { color: '#F5A306' } }}
-                            >
-                              <Pencil size={16} />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              title="ریست آمار"
-                              onClick={() => setResetTarget(u)}
-                              sx={{ color: 'text.secondary', '&:hover': { color: '#fbbf24' } }}
-                            >
-                              <RotateCcw size={16} />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              title={u.deactivated ? 'فعالسازی' : 'غیرفعالسازی'}
-                              onClick={() => setDeactivateTarget(u)}
-                              sx={{
-                                color: 'text.secondary',
-                                '&:hover': { color: u.deactivated ? '#34d399' : '#f43f5e' },
-                              }}
-                            >
-                              {u.deactivated ? <ShieldCheck size={16} /> : <Ban size={16} />}
-                            </IconButton>
-                            {u.id !== user?.id && (
-                              <IconButton
-                                size="small"
-                                title="حذف"
-                                onClick={() => setDeleteTarget(u)}
-                                sx={{ color: 'text.secondary', '&:hover': { color: '#f43f5e' } }}
-                              >
-                                <Trash2 size={16} />
-                              </IconButton>
-                            )}
-                          </Box>
+                           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+                             <IconButton
+                               size="small"
+                               title="ویرایش"
+                               aria-label="ویرایش"
+                               onClick={() => setEditTarget(u)}
+                               sx={{ color: 'text.secondary', '&:hover': { color: '#F5A306' } }}
+                             >
+                               <Pencil size={16} />
+                             </IconButton>
+                             <IconButton
+                               size="small"
+                               title="ریست آمار"
+                               aria-label="ریست آمار"
+                               onClick={() => setResetTarget(u)}
+                               sx={{ color: 'text.secondary', '&:hover': { color: '#fbbf24' } }}
+                             >
+                               <RotateCcw size={16} />
+                             </IconButton>
+                             <IconButton
+                               size="small"
+                               title={u.deactivated ? 'فعالسازی' : 'غیرفعالسازی'}
+                               aria-label={u.deactivated ? 'فعالسازی' : 'غیرفعالسازی'}
+                               onClick={() => setDeactivateTarget(u)}
+                               sx={{
+                                 color: 'text.secondary',
+                                 '&:hover': { color: u.deactivated ? '#34d399' : '#f43f5e' },
+                               }}
+                             >
+                               {u.deactivated ? <ShieldCheck size={16} /> : <Ban size={16} />}
+                             </IconButton>
+                             {u.id !== user?.id && (
+                               <IconButton
+                                 size="small"
+                                 title="حذف"
+                                 aria-label="حذف"
+                                 onClick={() => setDeleteTarget(u)}
+                                 sx={{ color: 'text.secondary', '&:hover': { color: '#f43f5e' } }}
+                               >
+                                 <Trash2 size={16} />
+                               </IconButton>
+                             )}
+                           </Box>
                         </TableCell>
                       </TableRow>
                     ))

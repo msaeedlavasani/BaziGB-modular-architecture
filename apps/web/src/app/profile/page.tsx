@@ -521,12 +521,18 @@ export default function ProfilePage() {
               ) : (
                 <>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.025em' }}>
-                      {user.username}
-                    </Typography>
-                    <IconButton size="small" onClick={handleStartEdit} title="Edit username" sx={{ color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
-                      <Edit2 size={16} />
-                    </IconButton>
+                     <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.025em' }}>
+                       {user.username}
+                     </Typography>
+                     <IconButton
+                       size="small"
+                       onClick={handleStartEdit}
+                       title="Edit username"
+                       aria-label="ویرایش نام کاربری"
+                       sx={{ color: 'text.secondary', '&:hover': { color: 'text.primary' } }}
+                     >
+                       <Edit2 size={16} />
+                     </IconButton>
                     {saveSuccess && (
                       <Chip
                         size="small"

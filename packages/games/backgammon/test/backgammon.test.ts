@@ -29,7 +29,7 @@ describe('Backgammon Game Logic', () => {
     let state = createState(players);
     state = rollDiceFor(state);
     expect(state.rolled).toBe(true);
-    expect(state.dice.length).toBeGreaterThanOrEqual(2);
+    expect(state.dice!.length).toBeGreaterThanOrEqual(2);
   });
 
   it('should identify legal moves with a single die', () => {
@@ -76,7 +76,7 @@ describe('Backgammon Game Logic', () => {
     ] as any;
 
     state = applyChain(state, chain);
-    expect(state.dice.length).toBe(0);
+    expect(state.dice!.length).toBe(0);
     expect(state.turn).toBe('p2');
     expect(state.bar[1]).toBe(0);
     expect(state.board[23]).toBe(1);
@@ -144,7 +144,7 @@ describe('Backgammon Game Logic', () => {
 
     state = applyChain(state, chain);
     expect(state.turn).toBe('p2');
-    expect(state.dice.length).toBe(0);
+    expect(state.dice!.length).toBe(0);
     expect(state.rolled).toBe(false);
   });
 
@@ -160,11 +160,11 @@ describe('Backgammon Game Logic', () => {
     // بعد از ۲ حرکت هنوز نوبت p1 است
     state = applyChain(state, [move, move] as any);
     expect(state.turn).toBe('p1');
-    expect(state.dice.length).toBe(2);
+    expect(state.dice!.length).toBe(2);
 
     // بعد از ۴ حرکت نوبت عوض می‌شود
     state = applyChain(state, [move, move] as any);
-    expect(state.dice.length).toBe(0);
+    expect(state.dice!.length).toBe(0);
     expect(state.turn).toBe('p2');
     expect(state.board[17]).toBe(4);
   });

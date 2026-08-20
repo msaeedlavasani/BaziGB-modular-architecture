@@ -10,7 +10,7 @@ import {
 import { randomBytes } from 'crypto';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { GameState, MatchConfig, Player, type GameId } from '@bazigb/engine';
 import { RoomService, RoomWithParsedData } from '../rooms/room.service';
@@ -24,6 +24,7 @@ import {
   nextRoundSchema,
   undoSchema,
 } from '../socket-validation';
+import { WsRateLimitGuard } from '../common/ws-rate-limit.guard';
 
 /**
  * GameGateway — لایه انتقال چندنفره (PvP) با معماری مدولار جدید.
@@ -507,6 +508,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @UseGuards(WsRateLimitGuard)
   @SubscribeMessage('makeMove')
   async handleMakeMove(@ConnectedSocket() client: Socket, @MessageBody() body: { roomCode: string; move: unknown }) {
     try {
@@ -520,6 +522,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @UseGuards(WsRateLimitGuard)
   @SubscribeMessage('rollDice')
   async handleRollDice(@ConnectedSocket() client: Socket, @MessageBody() body: { roomCode: string }) {
     try {
@@ -533,6 +536,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @UseGuards(WsRateLimitGuard)
   @SubscribeMessage('gameAction')
   async handleGameAction(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
     const parsed = gameActionSchema.safeParse(payload);
@@ -613,6 +617,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     stack.pop();
     await this.roomService.saveState(roomCode, last.state);
     this.server.to(roomCode).emit('gameState', last.state);
+    this.emitSystemMessage(roomCode, 'حرکت بازگردانی شد', this.socketUsers.get(client.id), 'success', this.socketUsernames.get(client.id));
     this.scheduleTurnTimer(roomCode, last.state);
   }
 

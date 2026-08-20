@@ -518,21 +518,22 @@ export default function LobbyPage() {
                         >
                           {room.code}
                         </Typography>
-                        <Tooltip title={copiedCode === room.code ? "Copied!" : "Copy code"}>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleCopy(room.code)}
-                            sx={{ color: 'text.disabled', '&:hover': { color: 'white' } }}
-                          >
-                            {copiedCode === room.code ? (
-                              <Typography variant="caption" sx={{ color: '#34d399', fontWeight: 600 }}>
-                                Copied!
-                              </Typography>
-                            ) : (
-                              <Copy size={16} />
-                            )}
-                          </IconButton>
-                        </Tooltip>
+                         <Tooltip title={copiedCode === room.code ? "Copied!" : "Copy code"}>
+                           <IconButton
+                             size="small"
+                             onClick={() => handleCopy(room.code)}
+                             aria-label={copiedCode === room.code ? "کپی شد" : "کپی کد اتاق"}
+                             sx={{ color: 'text.disabled', '&:hover': { color: 'white' } }}
+                           >
+                             {copiedCode === room.code ? (
+                               <Typography variant="caption" sx={{ color: '#34d399', fontWeight: 600 }}>
+                                 Copied!
+                               </Typography>
+                             ) : (
+                               <Copy size={16} />
+                             )}
+                           </IconButton>
+                         </Tooltip>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 0.5 }}>
                         <Chip
