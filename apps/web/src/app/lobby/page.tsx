@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -14,6 +14,8 @@ import {
   Bot,
   Banknote,
   Check,
+  History,
+  Play,
 } from 'lucide-react';
 import {
   Box,
@@ -34,9 +36,12 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Skeleton,
 } from '@mui/material';
 import { createRoom, fetchRooms, Room } from '../../lib/rooms';
 import { honeyBronze } from '@/theme';
+import { useAuth } from '@/hooks/useAuth';
+import { api } from '@/lib/api';
 
 const REFRESH_INTERVAL_MS = 5000;
 
@@ -56,6 +61,35 @@ const GAME_META: Record<string, { label: string; tagline: string; isNew?: boolea
   backgammon: { label: 'Backgammon', tagline: 'Dices & Strategy' },
   vegas: { label: 'Vegas', tagline: 'Casino Dice Luck', isNew: true },
 };
+
+/** ردیف تاریخچه‌ی یک بازی — مطابق شکل پاسخ GET /history/:userId */
+interface HistoryMatch {
+  id: string;
+  winnerId: string | null;
+  roomId: string;
+  gameName: string;
+  players: string;
+  data: string;
+  createdAt: string;
+}
+
+/** نگاشت نام بازی ذخیره‌شده در تاریخچه به کلید استاندارد GameType */
+function normalizeGameName(name: string): GameType | null {
+  const key = name.trim().toLowerCase();
+  if (key in GAME_META) return key as GameType;
+  const cleaned = key.replace(/[^a-z0-9]+/g, '-');
+  return cleaned in GAME_META ? (cleaned as GameType) : null;
+}
+
+function getRecentResult(
+  match: HistoryMatch,
+  userId: string,
+): { label: string; color: 'success' | 'error' | 'warning' } {
+  if (match.winnerId === null) return { label: 'تساوی', color: 'warning' };
+  return match.winnerId === userId
+    ? { label: 'برد', color: 'success' }
+    : { label: 'باخت', color: 'error' };
+}
 
 function GameIcon({ game, sx }: { game: string; sx?: any }) {
   if (game === 'chess') {
@@ -98,6 +132,7 @@ function GameIcon({ game, sx }: { game: string; sx?: any }) {
 export default function LobbyPage() {
   const router = useRouter();
   const theme = useTheme();
+  const { user } = useAuth();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -109,12 +144,50 @@ export default function LobbyPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [gameType, setGameType] = useState<GameType>('tic-tac-toe');
   const [maxRounds, setMaxRounds] = useState<1 | 3 | 5>(1);
+  const [recentMatches, setRecentMatches] = useState<HistoryMatch[]>([]);
+  const [recentLoading, setRecentLoading] = useState(false);
+  const [recentError, setRecentError] = useState<string | null>(null);
 
   const MATCH_POINTS_OPTIONS: { value: 1 | 3 | 5; label: string }[] = [
     { value: 1, label: 'Single game (1 point)' },
     { value: 3, label: 'Best of 3 — first to 2' },
     { value: 5, label: 'Best of 5 — first to 3' },
   ];
+
+  /** بارگذاری تاریخچه‌ی بازی‌های اخیر کاربر از GET /history/:userId */
+  const loadRecent = useCallback(async () => {
+    if (!user) return;
+    setRecentLoading(true);
+    setRecentError(null);
+    try {
+      const data = await api.get<{ userId: string; history: HistoryMatch[] }>(
+        `/history/${user.id}`,
+      );
+      setRecentMatches(data.history);
+    } catch (err: any) {
+      setRecentError(err?.message || 'دریافت بازی‌های اخیر ممکن نشد');
+    } finally {
+      setRecentLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) void loadRecent();
+  }, [user, loadRecent]);
+
+  /** بازی‌های اخیر: یک‌بار به‌ازای هر نوع بازی، جدیدترین اول، حداکثر ۴ مورد */
+  const recentGames = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { match: HistoryMatch; game: GameType }[] = [];
+    for (const match of recentMatches) {
+      const game = normalizeGameName(match.gameName);
+      if (!game || seen.has(game)) continue;
+      seen.add(game);
+      out.push({ match, game });
+      if (out.length >= 4) break;
+    }
+    return out;
+  }, [recentMatches]);
 
   const loadRooms = useCallback(async () => {
     try {
@@ -185,40 +258,162 @@ export default function LobbyPage() {
         flex: 1,
         flexDirection: 'column',
         alignItems: 'center',
-        p: { xs: 6, sm: 10 },
+        p: { xs: 2, sm: 10 },
         bgcolor: 'background.default',
         color: 'text.primary',
+        overflow: 'hidden'
       }}
     >
-        <Box sx={{ maxWidth: 'lg', width: '100%', display: 'flex', flexDirection: 'column', gap: 12, py: 6 }}>
-          <Box component="header" sx={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <Box sx={{ maxWidth: 'lg', width: '100%', display: 'flex', flexDirection: 'column', gap: { xs: 6, sm: 10 }, py: { xs: 2, sm: 6 } }}>
+          <Box component="header" sx={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 2, px: 2 }}>
             <Typography
-              variant="h2"
+              variant="h3"
               sx={{
                 fontWeight: 900,
                 color: 'primary.main',
                 textShadow: '0 4px 20px rgba(238, 172, 47, 0.25)',
+                fontSize: { xs: '1.75rem', sm: '3rem' }
               }}
             >
               BaziGB Lobby
             </Typography>
-            <Typography variant="h6" sx={{ color: 'text.secondary', fontWeight: 600, opacity: 0.9 }}>
+            <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 600, opacity: 0.9 }}>
               یک اتاق آنلاین بسازید یا با ربات هوشمند تمرین کنید
             </Typography>
           </Box>
 
+          {/* بازی‌های اخیر — فقط برای کاربر واردشده */}
+          {user && (
+            <Box component="section" aria-label="بازی‌های اخیر" sx={{ px: { xs: 2, sm: 0 }, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <History size={24} color={honeyBronze.primary} />
+                  <Typography variant="h4" sx={{ fontWeight: 900, color: 'text.primary' }}>
+                    بازی‌های اخیر
+                  </Typography>
+                </Box>
+                <IconButton
+                  onClick={() => void loadRecent()}
+                  disabled={recentLoading}
+                  size="small"
+                  aria-label="به‌روزرسانی بازی‌های اخیر"
+                  sx={{ color: 'text.secondary' }}
+                >
+                  {recentLoading ? <CircularProgress size={18} /> : <RefreshCw size={18} />}
+                </IconButton>
+              </Box>
+
+              {recentError ? (
+                <Alert severity="error" variant="outlined" sx={{ borderRadius: 3, fontWeight: 600 }}>
+                  {recentError}
+                </Alert>
+              ) : recentLoading ? (
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 3 }}>
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} variant="rectangular" height={140} sx={{ borderRadius: 4 }} />
+                  ))}
+                </Box>
+              ) : recentGames.length === 0 ? (
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 6, sm: 8 },
+                    borderRadius: 4,
+                    textAlign: 'center',
+                    bgcolor: alpha(honeyBronze.bgPaper, 0.25),
+                    border: '2px dashed',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                    هنوز بازی انجام نداده‌اید — از بخش «ایجاد اتاق» اولین بازی را شروع کنید!
+                  </Typography>
+                </Paper>
+              ) : (
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 3 }}>
+                  {recentGames.map(({ match, game }) => {
+                    const result = getRecentResult(match, user.id);
+                    const meta = GAME_META[game];
+                    return (
+                      <Paper
+                        key={match.id}
+                        elevation={0}
+                        sx={{
+                          p: 4,
+                          borderRadius: 4,
+                          bgcolor: alpha(honeyBronze.bgPaper, 0.4),
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 3,
+                          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                          '&:hover': {
+                            borderColor: alpha(honeyBronze.primary, 0.45),
+                            transform: 'translateY(-2px)',
+                          },
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+                          <Box
+                            sx={{
+                              width: 44,
+                              height: 44,
+                              flexShrink: 0,
+                              borderRadius: 3,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              bgcolor: alpha(honeyBronze.primary, 0.12),
+                              color: 'primary.main',
+                            }}
+                          >
+                            <GameIcon game={game} sx={{ fontSize: '1.5rem' }} />
+                          </Box>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 900, lineHeight: 1.3 }} noWrap>
+                              {meta.label}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              {new Date(match.createdAt).toLocaleDateString('fa-IR')}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        <Chip
+                          label={result.label}
+                          color={result.color}
+                          size="small"
+                          variant="outlined"
+                          sx={{ alignSelf: 'flex-start', fontWeight: 800 }}
+                        />
+                        <Button
+                          variant="contained"
+                          size="small"
+                          fullWidth
+                          startIcon={<Play size={16} />}
+                          onClick={() => router.push(`/game/${game}`)}
+                          sx={{ mt: 'auto' }}
+                        >
+                          بازی دوباره
+                        </Button>
+                      </Paper>
+                    );
+                  })}
+                </Box>
+              )}
+            </Box>
+          )}
+
           {/* Create / Join actions */}
-          <Grid container spacing={8}>
+          <Grid container spacing={{ xs: 3, sm: 8 }} sx={{ px: { xs: 2, sm: 0 } }}>
             <Grid item xs={12} md={7}>
               <Paper
                 elevation={0}
                 sx={{
-                  p: 8,
+                  p: { xs: 4, sm: 8 },
                   borderRadius: 4,
                   bgcolor: alpha(honeyBronze.bgPaper, 0.4),
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 6,
+                  gap: { xs: 4, sm: 6 },
                   height: '100%',
                 }}
               >
@@ -228,7 +423,7 @@ export default function LobbyPage() {
                 >
                   ۱. انتخاب بازی و تنظیمات
                 </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 4 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: { xs: 2, sm: 4 } }}>
                   {GAME_OPTIONS.map((type) => {
                     const meta = GAME_META[type];
                     const selected = gameType === type;
@@ -240,8 +435,8 @@ export default function LobbyPage() {
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
-                          gap: 3,
-                          p: 6,
+                          gap: 2,
+                          p: { xs: 3, sm: 6 },
                           borderRadius: 4,
                           border: '2px solid',
                           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -256,25 +451,12 @@ export default function LobbyPage() {
                         }}
                       >
                         <Box sx={{ color: 'inherit', display: 'flex', transform: selected ? 'scale(1.15)' : 'none', transition: 'transform 0.3s' }}>
-                          <GameIcon game={type} sx={{ fontSize: '2.5rem' }} />
+                          <GameIcon game={type} sx={{ fontSize: { xs: '2rem', sm: '2.5rem' } }} />
                         </Box>
                         <Box sx={{ textAlign: 'center' }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>
                             {meta.label}
                           </Typography>
-                          {meta.isNew && (
-                            <Chip 
-                              label="جدید" 
-                              size="small" 
-                              color="success"
-                              sx={{ 
-                                height: 18, 
-                                fontSize: '10px', 
-                                fontWeight: 900, 
-                                mt: 1
-                              }} 
-                            />
-                          )}
                         </Box>
                       </ButtonBase>
                     );
@@ -437,7 +619,7 @@ export default function LobbyPage() {
           )}
 
           {/* Room list */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, px: { xs: 2, sm: 0 } }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 <Gamepad2 size={28} style={{ color: honeyBronze.primary }} />
@@ -460,20 +642,21 @@ export default function LobbyPage() {
                 <CircularProgress size={40} sx={{ color: 'primary.main' }} />
               </Box>
             ) : activeRooms.length === 0 ? (
-              <Box
+              <Paper
+                elevation={0}
                 sx={{
                   borderRadius: 4,
                   border: '2px dashed',
                   borderColor: 'divider',
-                  p: 12,
+                  p: 8,
                   textAlign: 'center',
-                  bgcolor: alpha(honeyBronze.secondary, 0.4),
+                  bgcolor: alpha(honeyBronze.bgPaper, 0.25),
                 }}
               >
-                <Typography variant="body1" sx={{ color: 'text.disabled', fontWeight: 600 }}>
+                <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 600 }}>
                   هنوز اتاقی وجود ندارد — اولین اتاق را بسازید!
                 </Typography>
-              </Box>
+              </Paper>
             ) : (
               <Box component="ul" sx={{ p: 0, m: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {activeRooms.map((room) => (
