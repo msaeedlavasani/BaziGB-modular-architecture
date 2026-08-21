@@ -1,6 +1,6 @@
 # BaziGB — AI Engineering & Workflow Standard
 
-**Version:** 6.1.0
+**Version:** 6.2.0
 
 This document defines how AI agents must inspect, reason about, plan, modify, validate, and document work in the BaziGB repository.
 
@@ -12,13 +12,16 @@ It is an engineering governance document. It is NOT a duplicate of the project's
 
 At the beginning of every task:
 
-1. Read `AI_CONTEXT_MAP.md`.
-2. Read `AGENTS.md`.
-3. Route the task.
-4. Discover only the context required by that route.
-5. Classify the task and impact.
-6. Identify the closest existing implementation.
-7. Inspect only the context required to make a correct decision.
+1. Verify the active working context and branch.
+2. Read the latest `AI_CONTEXT_MAP.md` and `AGENTS.md` from that working context.
+3. Do not rely on governance remembered from an earlier task or session.
+4. Route the task.
+5. Discover only the context required by that route.
+6. Classify the task and impact.
+7. Identify the closest existing implementation.
+8. Inspect only the context required to make a correct decision.
+
+If the branch or working context changes during a task, re-read its governance before continuing. Repository governance in the active working context overrides cached instructions or agent memory.
 
 Do not treat all repository files as equally relevant.
 Do not read the entire repository by default.
@@ -153,6 +156,15 @@ reuse → compose → extend → create
 ```
 
 Do not create duplicate abstractions merely because an existing implementation is inconvenient. Do not refactor unrelated code during a feature or bug fix.
+
+### Minimum Sufficient Action
+
+Perform the smallest set of actions that can implement and validate the requested outcome with acceptable confidence.
+
+- Prefer targeted inspection, edits, and checks over repository-wide work.
+- Do not run extra builds, broad test suites, browser sessions, screenshots, reports, or documentation updates without a task-specific reason.
+- Expand scope only when risk, failure evidence, or unresolved uncertainty justifies it.
+- Minimum sufficient does not mean incomplete: always cover behavior and risks relevant to the change.
 
 ## 6. COMPONENT AND DESIGN SYSTEM DISCIPLINE
 
@@ -349,11 +361,19 @@ After implementation, run the narrowest relevant validation first:
 2. relevant tests
 3. affected build
 4. architecture/scope review
-5. rendered browser/UI validation for user-visible frontend changes when the environment supports it
+5. rendered browser/UI validation only when the validation risk classification requires it
 
 A build PASS is not a visual-validation PASS.
 
-For browser/UI PASS, the agent must actually render and inspect the interface and report evidence: environment, viewport(s), states inspected, and concrete observations. If unavailable, report BLOCKED rather than substituting source inspection or build output.
+Classify validation risk before running checks:
+
+- **LOW** — localized, established pattern, no meaningful interaction/layout uncertainty: targeted code/design review and the narrowest relevant automated check; browser/UI validation is not required by default.
+- **MEDIUM** — meaningful UI or behavior change with bounded uncertainty: add one targeted rendered check only when it materially reduces that uncertainty.
+- **HIGH** — new or substantially changed page/game shell, complex responsive or interactive behavior, release milestone, broad visual impact, or unresolved visual uncertainty: rendered browser/UI validation is required when available.
+
+Run browser/UI validation when risk is HIGH, the user explicitly requests it, or a genuine ambiguity cannot be resolved cheaply from the design system, existing patterns, code, or targeted automated checks. Do not run it merely because a frontend file changed.
+
+For browser/UI PASS, the agent must actually render and inspect the interface and report concise evidence. If a required rendered check is unavailable, report BLOCKED. When it is not required under the risk classification, report NOT RUN with the reason; do not mislabel it BLOCKED.
 
 Every relevant validation result must be classified as PASS / FAIL / NOT RUN / BLOCKED.
 
@@ -420,8 +440,8 @@ AI operational docs = HOW AI navigates, executes, inventories, and validates
 ## 25. HANDOFF PROTOCOL
 
 At the beginning of a new AI session:
-1. Read `AI_CONTEXT_MAP.md`.
-2. Read `AGENTS.md`.
+1. Verify the active working context and branch.
+2. Read the latest `AI_CONTEXT_MAP.md` and `AGENTS.md` from that context; never substitute remembered governance.
 3. Route the task.
 4. Read `DESIGN_SYSTEM.md` for frontend tasks.
 5. Inspect relevant manifests/source/closest analogue only as required.

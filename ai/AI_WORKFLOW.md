@@ -1,6 +1,6 @@
 # BaziGB — AI Development Workflow
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 
 ## 1. Objective
 
@@ -25,6 +25,8 @@ Every non-trivial task follows:
 `REQUEST → ROUTE → DISCOVER → CLASSIFY → IMPACT ANALYSIS → PLAN → IMPLEMENT → VALIDATE → REPORT`
 
 The AI may perform the plan internally when autonomous execution is authorized, but it must not skip routing, discovery, planning, or validation.
+
+Before entering this lifecycle, verify the active working context/branch and read its latest `AI_CONTEXT_MAP.md` and `AGENTS.md`. Never assume governance retained from a previous task is current. Re-verify after any branch or working-context change.
 
 ## 3. Phase A — Discovery
 
@@ -178,6 +180,16 @@ During implementation:
 
 If a major conflict appears, stop rather than silently redesigning the system.
 
+### Minimum Sufficient Action
+
+Choose the smallest action set that completes the requested outcome and provides confidence proportional to its risk:
+
+- inspect and edit only the relevant surface,
+- reuse established patterns and checks,
+- run targeted validation before broad validation,
+- avoid browser sessions, screenshots, broad suites, extra reports, and documentation churn unless they reduce a concrete risk,
+- expand only in response to impact, uncertainty, or failure evidence.
+
 ## 8. Self-Correction
 
 After implementation, validate first.
@@ -196,7 +208,9 @@ Classify failures as:
 
 Fix verified problems. Do not rewrite code based only on speculation.
 
-For visual/UI work, rendered browser inspection is evidence. Build success alone is not evidence of visual correctness.
+For visual/UI work, rendered browser inspection is evidence when it is actually required and performed. Build success alone is not evidence of visual correctness, but browser inspection is not a default gate for every frontend change.
+
+Classify validation risk as LOW, MEDIUM, or HIGH using `ai/VALIDATION_GATE.md`. Run browser/visual verification only for HIGH risk, explicit user requests, or genuine unresolved visual ambiguity. For MEDIUM risk, use a focused rendered check only when it materially increases confidence. LOW-risk work should normally use targeted code/design review and the narrowest relevant automated check.
 
 ## 9. Asset Handoff
 

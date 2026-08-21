@@ -1,6 +1,6 @@
 # BaziGB — AI Context Map
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 **Role:** Repository navigation and context-routing source of truth for AI agents.
 
 ## 1. Purpose
@@ -13,13 +13,16 @@ The repository is not a flat knowledge base. Files have different roles, authori
 
 For every new AI task:
 
-1. Read `AI_CONTEXT_MAP.md`.
-2. Read `AGENTS.md`.
-3. Route the task.
-4. Discover only the context required by that route.
-5. Classify the task and impact.
-6. Identify the closest existing implementation.
-7. Read only additional files justified by evidence.
+1. Verify the active working context and branch.
+2. Read the latest `AI_CONTEXT_MAP.md` and `AGENTS.md` from that context.
+3. Discard remembered or cached governance when it conflicts with the active files.
+4. Route the task.
+5. Discover only the context required by that route.
+6. Classify the task and impact.
+7. Identify the closest existing implementation.
+8. Read only additional files justified by evidence.
+
+Repeat governance verification whenever the working context or branch changes. A previous session's governance version is never sufficient evidence that the current rules are up to date.
 
 The canonical lifecycle is:
 
@@ -56,7 +59,7 @@ If a conflict is found, report it. Do not silently choose an assumption.
 | Backend/API | `AGENTS.md` | relevant package/module/API |
 | Real-time feature | `AGENTS.md`, `ai/AI_WORKFLOW.md` | closest real-time implementation |
 | Bug fix | `ai/AI_WORKFLOW.md` | failing implementation + tests |
-| Responsive/UI issue | `DESIGN_SYSTEM.md`, `ai/VALIDATION_GATE.md` | affected component/page + rendered UI |
+| Responsive/UI issue | `DESIGN_SYSTEM.md`, `ai/VALIDATION_GATE.md` | affected component/page + risk-based rendered UI when required |
 | Dependency change | `AGENTS.md` | relevant package manifest + relevant usages |
 | Architecture change | `AGENTS.md` | affected package boundaries + current architecture docs |
 | Validation-only task | `ai/VALIDATION_GATE.md` | affected package/tests/build config |
@@ -108,7 +111,7 @@ Find the most structurally similar working implementation and study it before cr
 
 ### Level 5 — Validation
 
-Use `ai/VALIDATION_GATE.md` and relevant tests/build/browser validation.
+Use `ai/VALIDATION_GATE.md` and the minimum sufficient risk-based combination of tests, build, review, and browser validation.
 
 ## 6. Closest-Analogue Rule
 
@@ -164,6 +167,8 @@ Do not recursively inspect unrelated files just because they have unfamiliar nam
 ## 10. Context Budget
 
 The objective is **minimum sufficient context**, not maximum repository context.
+
+Apply the same principle to action and validation: use the minimum sufficient action that resolves the request and its actual risks. Do not add broad checks or rendered inspection by habit.
 
 Use targeted search and expand only when evidence requires it.
 

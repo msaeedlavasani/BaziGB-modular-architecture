@@ -1,12 +1,12 @@
 # BaziGB — Validation Gate
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 
 ## 1. Definition of Done
 
 Writing code is not completion.
 
-A task is complete only when all relevant validation gates for its scope have been performed and reported truthfully.
+A task is complete only when the minimum sufficient validation gates for its scope and risk have been performed and reported truthfully.
 
 Implementation completion, release completion, and production verification are different states.
 
@@ -18,7 +18,7 @@ Run the narrowest relevant checks first:
 2. relevant unit/integration tests
 3. affected build
 4. architecture/scope review
-5. rendered UI/browser validation when frontend behavior or appearance changes
+5. rendered UI/browser validation when required by the risk classification below
 6. deployment/release validation only when explicitly authorized
 7. production verification only when explicitly authorized and applicable
 
@@ -56,13 +56,23 @@ Check:
 - server authority for multiplayer rules
 - unnecessary new dependencies
 
-## 7. Rendered UI / Browser Validation
+## 7. Risk Classification
 
-For frontend changes that affect appearance, layout, interaction, responsive behavior, or user-visible states, rendered UI validation is required when the environment supports it.
+Classify the change before selecting validation:
 
-Inspect the actual rendered interface, not only source code.
+- **LOW** — localized change following an established pattern, with no meaningful responsive, interaction, state, or visual uncertainty. Use targeted source/design review and the narrowest relevant automated checks. Browser/UI validation is NOT RUN by default.
+- **MEDIUM** — bounded UI/behavior change with a specific visual, responsive, or interaction uncertainty. Use targeted automated checks and, only when it materially resolves that uncertainty, one focused rendered check of the affected viewport/state.
+- **HIGH** — a new or substantially changed page, game, game shell, complex interaction, broad responsive/layout change, release milestone, or change with unresolved visual risk. Rendered browser/UI validation is required when available.
 
-At minimum, when relevant, verify:
+The user may explicitly require browser/UI validation at any risk level. A genuine ambiguity that cannot be resolved cheaply from the design system, closest analogue, code, or targeted checks also escalates the relevant rendered check.
+
+Do not open a browser, capture screenshots, or perform multi-viewport visual inspection merely because a frontend file changed.
+
+## 8. Rendered UI / Browser Validation
+
+When browser/UI validation is required, inspect the actual rendered interface, not only source code. Keep the inspection targeted to the identified risk.
+
+When relevant to that risk, verify:
 
 - mobile viewport around 360–430px
 - representative desktop viewport
@@ -87,13 +97,17 @@ The report must state:
 
 When available, retain or reference screenshots/artifacts as evidence.
 
-If rendered inspection is unavailable, report:
+If a required rendered inspection is unavailable, report:
 
 `Browser/UI Validation: BLOCKED`
 
 Do not substitute build success for browser validation.
 
-## 8. Design Review
+If rendered inspection is not required by the risk classification, report:
+
+`Browser/UI Validation: NOT RUN — not required for <LOW/MEDIUM> risk; <brief reason>`
+
+## 9. Design Review
 
 For frontend work check:
 
@@ -112,7 +126,7 @@ For frontend work check:
 - no duplicate visual patterns
 - integration with surrounding product UI
 
-## 9. Scope Review
+## 10. Scope Review
 
 Confirm:
 
@@ -122,7 +136,7 @@ Confirm:
 - no unrelated redesign occurred
 - no temporary placeholder was left in production code
 
-## 10. Change / Release Authority
+## 11. Change / Release Authority
 
 The following actions are separate operations and require explicit user authorization unless the user has already clearly authorized them in the current task:
 
@@ -143,7 +157,7 @@ Implementation authorization does not automatically authorize commit, push, merg
 
 Never silently promote changes to `main` or production.
 
-## 11. Release Validation
+## 12. Release Validation
 
 When deployment is explicitly authorized:
 
@@ -156,7 +170,7 @@ When deployment is explicitly authorized:
 
 Production verification must not be claimed solely because a deployment command succeeded.
 
-## 12. Validation Status
+## 13. Validation Status
 
 Every final report must classify each relevant check as:
 
@@ -167,12 +181,13 @@ Every final report must classify each relevant check as:
 
 Never use vague language such as "looks good" as a substitute for validation.
 
-## 13. Final Validation Report
+## 14. Final Validation Report
 
 Return the relevant subset:
 
 ```text
 Validation
+- Risk: LOW/MEDIUM/HIGH — reason
 - Typecheck: PASS/FAIL/NOT RUN/BLOCKED
 - Tests: PASS/FAIL/NOT RUN/BLOCKED
 - Build: PASS/FAIL/NOT RUN/BLOCKED
