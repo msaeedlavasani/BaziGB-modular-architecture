@@ -1,6 +1,6 @@
 # BaziGB — AI Development Workflow
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 
 ## 1. Objective
 
@@ -22,9 +22,9 @@ Primary goals:
 
 Every non-trivial task follows:
 
-`REQUEST → DISCOVERY → CLASSIFICATION → IMPACT ANALYSIS → PLAN → IMPLEMENT → VALIDATE → REPORT`
+`REQUEST → ROUTE → DISCOVER → CLASSIFY → IMPACT ANALYSIS → PLAN → IMPLEMENT → VALIDATE → REPORT`
 
-The AI may perform the plan internally when autonomous execution is authorized, but it must not skip the planning step.
+The AI may perform the plan internally when autonomous execution is authorized, but it must not skip routing, discovery, planning, or validation.
 
 ## 3. Phase A — Discovery
 
@@ -46,9 +46,9 @@ Do not read the entire repository by default.
 
 ### A3. Inspect
 
-Inspect:
+Inspect only what evidence justifies, including when relevant:
 
-- relevant manifests
+- manifests
 - existing pages/components
 - existing game infrastructure
 - relevant APIs/state
@@ -110,29 +110,59 @@ When the user explicitly asks to implement/proceed autonomously, and the task fi
 
 Do not ask for approval for decisions already established by repository rules.
 
-Stop and request human input only when:
+Autonomous mode does not grant release authority. Commit, push, merge, deployment, production migration, and destructive production operations remain separate actions requiring explicit authorization unless explicitly included in the task.
 
-- a genuine product decision is missing,
-- a major architectural decision is required,
-- a new package boundary must be introduced,
-- an unavailable external dependency is essential,
-- required visual assets cannot be supplied or generated appropriately,
-- implementation would violate an explicit constraint.
+## 5. Human vs AI Decision Boundary
 
-## 5. Reuse Before Creation
+The goal is to minimize micromanagement without allowing AI to silently make high-impact product decisions.
+
+### AI may decide autonomously
+
+When consistent with repository rules, AI should determine reversible/low-risk implementation and presentation details such as:
+
+- component choice
+- file placement within established architecture
+- spacing and typography values derived from the design system
+- responsive composition
+- loading/empty/error presentation
+- accessibility implementation
+- small reversible UI defaults
+- localized technical implementation details
+
+Do not ask the human to choose values already governed by the repository.
+
+### Human input is required
+
+Stop when a decision materially changes product policy, business behavior, architecture, data ownership, security, or irreversible user outcomes, including examples such as:
+
+- pricing/monetization rules
+- permissions/entitlements
+- destructive data behavior
+- core game rules
+- major multiplayer behavior
+- new package/system boundaries
+- irreversible migrations
+- unresolved product behavior with materially different user outcomes
+- accurate external visual assets that cannot be generated or inferred safely
+
+When uncertain, evaluate impact and reversibility. Do not escalate trivial implementation choices to the human.
+
+## 6. Reuse Before Creation
 
 Before creating a component, hook, utility, API, or pattern:
 
 1. Search the component registry.
-2. Search the closest analogue.
-3. Inspect existing implementations.
-4. Determine whether composition is sufficient.
-5. Determine whether extension is sufficient.
-6. Create only when responsibility is genuinely new.
+2. Verify the referenced implementation.
+3. Search current consumers.
+4. Search the closest analogue.
+5. Determine whether reuse is sufficient.
+6. Determine whether composition is sufficient.
+7. Determine whether extension is sufficient.
+8. Create only when responsibility is genuinely new.
 
 Do not create feature-local copies of shared systems.
 
-## 6. Implementation Discipline
+## 7. Implementation Discipline
 
 During implementation:
 
@@ -148,7 +178,7 @@ During implementation:
 
 If a major conflict appears, stop rather than silently redesigning the system.
 
-## 7. Self-Correction
+## 8. Self-Correction
 
 After implementation, validate first.
 
@@ -166,7 +196,9 @@ Classify failures as:
 
 Fix verified problems. Do not rewrite code based only on speculation.
 
-## 8. Asset Handoff
+For visual/UI work, rendered browser inspection is evidence. Build success alone is not evidence of visual correctness.
+
+## 9. Asset Handoff
 
 When human-provided assets are required, create one consolidated request.
 
@@ -188,27 +220,35 @@ Continue all implementation that does not depend on the missing assets.
 
 Never ask vague or repetitive asset questions.
 
-## 9. Documentation Updates
+## 10. Documentation Updates
 
 Update a registry or canonical document only when the change creates durable reusable knowledge.
 
 Do not create a new document for temporary task status.
 
-## 10. Completion
+## 11. Completion and Release States
 
-A feature is complete only when:
+A feature implementation is complete only when:
 
 - functionality is implemented
 - established architecture is preserved
 - design system is respected
 - relevant states are handled
 - responsive behavior is addressed
-- validation is performed
+- relevant validation is performed
 - missing assets are identified
 - no unnecessary dependency is introduced
 - no duplicate abstraction is introduced
 
-## 11. Final Report
+Release states are separate:
+
+`IMPLEMENTED → VALIDATED → COMMITTED → PUSHED → MERGED → DEPLOYED → PRODUCTION VERIFIED`
+
+Do not skip or conflate these states.
+
+Only advance beyond VALIDATED when the user has explicitly authorized the corresponding repository/release action.
+
+## 12. Final Report
 
 Return:
 
@@ -225,6 +265,9 @@ Return:
 ...
 
 ### Validation
+...
+
+### Release State
 ...
 
 ### Risks / Limitations
