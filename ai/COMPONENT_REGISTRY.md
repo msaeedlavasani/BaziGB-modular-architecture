@@ -1,19 +1,42 @@
 # BaziGB — Component Registry
 
-**Version:** 1.0.0
-**Role:** Canonical inventory of reusable UI and product components.
+**Version:** 1.1.0
+**Role:** Canonical inventory/index of reusable UI and product components.
 
 ## 1. Purpose
 
 This registry prevents AI from rediscovering or recreating existing abstractions during every feature.
 
-The registry is an index, not a replacement for source code.
+The registry is an index, not the ultimate source of truth. Actual repository code wins.
 
-When implementing UI, AI must:
+When implementing UI, AI must use:
 
-`SEARCH REGISTRY → INSPECT IMPLEMENTATION → REUSE / COMPOSE / EXTEND → CREATE ONLY IF NECESSARY`
+`SEARCH REGISTRY → VERIFY FILE → INSPECT IMPLEMENTATION → SEARCH CONSUMERS → REUSE / COMPOSE / EXTEND → CREATE ONLY IF NECESSARY`
 
-## 2. Registry Entry Contract
+## 2. Registry Verification — Mandatory
+
+Before using any registered component or pattern:
+
+1. verify that the referenced implementation exists,
+2. inspect the actual implementation,
+3. search for current consumers/usages,
+4. verify that the documented responsibility still matches reality,
+5. verify that the component is actually reusable in the current architecture.
+
+If registry metadata conflicts with actual code:
+
+**ACTUAL CODE WINS.**
+
+Then:
+
+- report the discrepancy,
+- use the current code as evidence,
+- update the registry only when the current task creates or confirms durable reusable knowledge.
+
+Do not silently trust stale registry metadata.
+Do not create a duplicate abstraction because registry metadata is incomplete.
+
+## 3. Registry Entry Contract
 
 Every durable reusable component should eventually have:
 
@@ -27,10 +50,11 @@ Every durable reusable component should eventually have:
 - Important states
 - Dependencies
 - Closest related components
+- Current consumers (when useful)
 
 Do not document every trivial component. Register reusable patterns that materially affect future development.
 
-## 3. Current Registry
+## 4. Current Registry
 
 ### Application Shell
 
@@ -62,34 +86,28 @@ Do not document every trivial component. Register reusable patterns that materia
 
 **Rule:** A new game must reuse established game infrastructure unless a capability is genuinely absent.
 
-## 4. Registry Maintenance
+## 5. Registry Maintenance
 
-When a new reusable component is created:
+When a new reusable component is created or an existing reusable component changes materially:
 
 1. confirm it is genuinely reusable,
-2. add a concise registry entry,
-3. link it to the actual implementation path,
+2. verify the actual path and consumers,
+3. add/update a concise registry entry,
 4. describe its responsibility and reuse boundaries.
 
 Do not register one-off components merely because they have a component file.
 
-## 5. No Duplicate Abstractions
+## 6. No Duplicate Abstractions
 
-The existence of a registry entry does not override code reality.
+Before creation:
 
-Before reuse, inspect the actual implementation.
+`reuse → compose → extend → create`
 
-If the registry points to a missing or obsolete implementation:
+Never create a feature-local duplicate of a shared abstraction because the existing implementation is inconvenient or imperfect.
 
-- report the stale entry,
-- determine the current source,
-- update the registry when appropriate.
+## 7. Game Extension Rule
 
-Never create a duplicate abstraction just because registry metadata is incomplete.
-
-## 6. Game Extension Rule
-
-For a new game, identify:
+For a new game, identify and verify:
 
 - shared game shell/infrastructure
 - shared player/turn patterns
@@ -100,7 +118,7 @@ For a new game, identify:
 
 Then isolate only game-specific UI and assets.
 
-## 7. Future Machine-Readable Registry
+## 8. Future Machine-Readable Registry
 
 This document is the human-readable registry contract for V1.
 
