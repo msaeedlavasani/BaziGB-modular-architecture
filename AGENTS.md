@@ -1,6 +1,6 @@
 # BaziGB — AI Engineering & Workflow Standard
 
-**Version:** 6.0.0
+**Version:** 6.1.0
 
 This document defines how AI agents must inspect, reason about, plan, modify, validate, and document work in the BaziGB repository.
 
@@ -14,18 +14,18 @@ At the beginning of every task:
 
 1. Read `AI_CONTEXT_MAP.md`.
 2. Read `AGENTS.md`.
-3. Classify the task.
-4. Follow the relevant route in `AI_CONTEXT_MAP.md`.
-5. Identify the closest existing implementation.
-6. Inspect only the context required to make a correct decision.
+3. Route the task.
+4. Discover only the context required by that route.
+5. Classify the task and impact.
+6. Identify the closest existing implementation.
+7. Inspect only the context required to make a correct decision.
 
 Do not treat all repository files as equally relevant.
-
 Do not read the entire repository by default.
 
-The required operating sequence is:
+Canonical lifecycle:
 
-`task → route → relevant rules → closest analogue → dependencies → plan → implementation → validation`
+`REQUEST → ROUTE → DISCOVER → CLASSIFY → IMPACT ANALYSIS → PLAN → IMPLEMENT → VALIDATE → REPORT`
 
 Never use:
 
@@ -85,21 +85,19 @@ Before implementation:
 7. Produce a concise implementation plan.
 8. Wait for approval when the task has not explicitly authorized autonomous execution.
 
-The plan should include User Intent, Repository Findings, Closest Analogue, Reuse/Creation Analysis, Files/Modules Affected, Assets, Implementation Steps, Risks, Human Input, and Validation.
-
 ### AUTONOMOUS FEATURE MODE
 
 If the user explicitly asks to implement/proceed autonomously, the AI may perform the planning phase internally and proceed directly to implementation when the task fits established architecture.
 
 The internal sequence remains:
 
-`DISCOVER → CLASSIFY → ANALYZE → PLAN INTERNALLY → IMPLEMENT → VALIDATE → REPORT`
+`ROUTE → DISCOVER → CLASSIFY → ANALYZE → PLAN INTERNALLY → IMPLEMENT → VALIDATE → REPORT`
 
 Do NOT ask for approval for decisions already established by repository rules, design rules, existing patterns, or current code.
 
 Autonomous execution must stop and request human input when:
 
-- a genuine product decision is missing,
+- a genuine high-impact product decision is missing,
 - a major architectural decision is required,
 - a new package boundary must be introduced,
 - an essential dependency cannot be resolved safely,
@@ -107,6 +105,8 @@ Autonomous execution must stop and request human input when:
 - implementation would violate an explicit constraint.
 
 Autonomous mode does NOT permit skipping discovery, planning, validation, or reporting.
+
+Autonomous implementation authority does NOT grant commit, push, merge, deployment, production-migration, or destructive-production authority.
 
 ### EXECUTE MODE
 
@@ -124,9 +124,7 @@ Even in EXECUTE MODE:
 
 Use `AI_CONTEXT_MAP.md` for task routing.
 
-Before reading source files, determine the task type.
-
-Then inspect in this order:
+Before reading source files, determine the task type and inspect in this order:
 
 1. governance/rules
 2. relevant domain/design documentation
@@ -138,7 +136,7 @@ Then inspect in this order:
 
 Do not recursively inspect unrelated directories.
 
-For an unfamiliar file, first determine its package/module, imports, consumers, and relevance. Read it only when evidence indicates it is required.
+Default-ignore deployment archives, generated artifacts, historical handoffs, unrelated screenshots, unrelated packages, and temporary files unless the current task makes them relevant.
 
 The objective is **minimum sufficient context**, not maximum available context.
 
@@ -160,21 +158,55 @@ Do not create duplicate abstractions merely because an existing implementation i
 
 For frontend work, follow `DESIGN_SYSTEM.md` and `ai/COMPONENT_REGISTRY.md`.
 
-Before creating a reusable component:
+The component registry is an index, not truth above code.
+
+Before using or creating a reusable component:
 
 1. search the component registry,
-2. inspect the actual implementation,
-3. find the closest analogue,
-4. determine whether reuse is sufficient,
-5. determine whether composition is sufficient,
-6. determine whether extension is sufficient,
-7. create only when responsibility is genuinely new.
+2. verify the referenced file exists,
+3. inspect the actual implementation,
+4. search current consumers/usages,
+5. find the closest analogue,
+6. determine whether reuse is sufficient,
+7. determine whether composition is sufficient,
+8. determine whether extension is sufficient,
+9. create only when responsibility is genuinely new.
 
-If a new durable reusable component is created, update the registry.
+If registry metadata conflicts with actual code, **actual code wins**. Report the discrepancy.
+
+If a new durable reusable component is created, update the registry when appropriate.
 
 Do not create feature-local copies of existing shared components.
 
-## 7. ARCHITECTURAL BOUNDARIES
+## 7. HUMAN VS AI DECISION BOUNDARY
+
+The AI should autonomously decide reversible, low-risk implementation details governed by existing product/design/architecture rules.
+
+Examples AI should normally decide without asking:
+
+- component choice
+- established file placement
+- spacing/typography derived from the design system
+- responsive layout behavior
+- loading/empty/error presentation
+- accessibility implementation
+- small reversible UI defaults
+
+Human input is required for materially different product outcomes or high-impact/irreversible decisions, including:
+
+- pricing/monetization
+- permissions/entitlements
+- destructive data behavior
+- core game rules
+- major multiplayer behavior
+- major architecture/system boundaries
+- irreversible migrations
+- unresolved product policy
+- required external visual assets that cannot be generated or safely inferred
+
+Do not escalate trivial implementation choices to the human. When uncertain, evaluate impact and reversibility.
+
+## 8. ARCHITECTURAL BOUNDARIES
 
 BaziGB is a modular monorepo. The intended dependency direction is:
 
@@ -195,7 +227,7 @@ Games should expose public APIs rather than requiring consumers to import privat
 
 If a task appears to require breaking a package boundary: explain why, identify alternatives, and request approval before proceeding.
 
-## 8. SERVER AUTHORITY
+## 9. SERVER AUTHORITY
 
 For multiplayer gameplay, the server is authoritative.
 
@@ -205,7 +237,7 @@ Client-side prediction or optimistic UI may exist only as presentation behavior 
 
 Never move game rules into React merely to simplify UI implementation.
 
-## 9. REAL-TIME AND CONCURRENCY
+## 10. REAL-TIME AND CONCURRENCY
 
 For real-time features:
 - validate incoming client actions on the server
@@ -221,7 +253,7 @@ For real-time features:
 
 Do not introduce Redis, queues, distributed locks, or similar infrastructure unless the current task requires it. A technology mentioned in a roadmap is NOT automatically a current dependency.
 
-## 10. TYPE SAFETY
+## 11. TYPE SAFETY
 
 Prefer strict TypeScript. Avoid `any`.
 
@@ -231,7 +263,7 @@ Do not assume a dependency exists. Always inspect the relevant `package.json` be
 
 Do not introduce a second validation framework if an established validation mechanism already exists and is appropriate.
 
-## 11. DEPENDENCY DISCIPLINE
+## 12. DEPENDENCY DISCIPLINE
 
 Before adding a dependency:
 1. Search for an existing solution.
@@ -245,7 +277,7 @@ Do not upgrade dependencies opportunistically. Do not remove dependencies withou
 
 Framework/library versions are constraints, not opportunities for opportunistic modernization.
 
-## 12. FRONTEND RULES
+## 13. FRONTEND RULES
 
 For frontend work:
 - follow `DESIGN_SYSTEM.md`
@@ -259,25 +291,17 @@ For frontend work:
 
 Do not introduce another generic UI framework. Do not create feature-local copies of existing shared components. Do not hard-code visual tokens when an existing theme token can be used.
 
-## 13. UI LIBRARY POLICY
+## 14. UI LIBRARY POLICY
 
 MUI is the primary BaziGB application UI system.
 
 Use MUI for layout, typography, buttons, dialogs, cards, forms, navigation, and common controls. MUI Icons are the preferred generic icon system.
 
-### Lucide
+`lucide-react` may be used when MUI Icons has no appropriate equivalent, or an existing BaziGB component already uses it. Do not mix MUI and Lucide icons arbitrarily within the same component family.
 
-`lucide-react` may be used when MUI Icons has no appropriate equivalent, or an existing BaziGB component already uses it. Do not mix MUI and Lucide icons arbitrarily within the same component family. When Lucide is repeatedly used, prefer a shared BaziGB wrapper/adapter for size, stroke width, color, and alignment.
+Specialized libraries may solve specialized problems, but BaziGB remains the visual system.
 
-### Specialized UI Libraries
-
-A specialized library may be used for a specialized problem. Example: `react-chessboard` may be used for Chess Board rendering. A specialized library does not become the general BaziGB visual system.
-
-The rule is:
-
-> Specialized libraries provide capability. BaziGB provides visual identity.
-
-## 14. GAME UI
+## 15. GAME UI
 
 Game interfaces are different from CRUD/admin interfaces. Prioritize:
 1. game state visibility
@@ -291,7 +315,7 @@ Do not turn a game screen into a collection of generic administrative cards. Do 
 
 For a new game, first inspect the closest existing game and shared game infrastructure. Isolate game-specific logic/UI/assets from reusable platform infrastructure.
 
-## 15. ASSET DISCIPLINE
+## 16. ASSET DISCIPLINE
 
 For visual features and especially new games, follow `ai/ASSET_SYSTEM.md`.
 
@@ -304,49 +328,63 @@ Before requesting an asset:
 
 When human assets are required, provide one consolidated specification instead of repeatedly asking for individual files.
 
-## 16. PERFORMANCE
+## 17. PERFORMANCE
 
-Optimize based on evidence. Prefer localized state, efficient event handling, stable component boundaries, appropriate memoization, and cleanup of subscriptions/timers.
+Optimize based on evidence. Prefer localized state, efficient event handling, stable component boundaries, appropriate memoization, and cleanup of timers/subscriptions.
 
-Do not mechanically add `React.memo`, `useMemo`, or `useCallback` to every component. Do not claim an FPS guarantee unless it has actually been measured.
+Do not mechanically add `React.memo`, `useMemo`, or `useCallback` without a reason. Do not claim an FPS guarantee unless measured.
 
-## 17. ERROR PREVENTION
+## 18. ERROR PREVENTION
 
 Before completing work, inspect for missing cleanup, unhandled promises, broken loading/error/empty states, RTL regressions, mobile overflow, accessibility regressions, stale imports, dead code, accidental dependency changes, and architecture-boundary violations.
 
 Do not leave placeholder implementations in production code. Do not use TODO comments as a substitute for required implementation.
 
-## 18. VALIDATION
+## 19. VALIDATION
 
 Follow `ai/VALIDATION_GATE.md`.
 
 After implementation, run the narrowest relevant validation first:
 1. typecheck affected package
-2. relevant unit tests
+2. relevant tests
 3. affected build
-4. broader tests/build when appropriate
-5. architecture/design/scope review
+4. architecture/scope review
+5. rendered browser/UI validation for user-visible frontend changes when the environment supports it
 
-Never claim validation succeeded unless it actually ran. If validation cannot be performed, state exactly what was not verified and why.
+A build PASS is not a visual-validation PASS.
 
-Every relevant validation result must be classified as:
+For browser/UI PASS, the agent must actually render and inspect the interface and report evidence: environment, viewport(s), states inspected, and concrete observations. If unavailable, report BLOCKED rather than substituting source inspection or build output.
 
-- PASS
-- FAIL
-- NOT RUN
-- BLOCKED
+Every relevant validation result must be classified as PASS / FAIL / NOT RUN / BLOCKED.
 
-## 19. ARCHITECTURE CHANGES
+## 20. CHANGE / RELEASE AUTHORITY
+
+Implementation authorization does not automatically authorize repository publication or production release.
+
+The following actions require explicit user authorization unless clearly included in the current request:
+
+- commit
+- push
+- merge
+- deploy/release
+- production schema/data migration
+- destructive production operation
+
+Never silently push to `main` or deploy to production.
+
+Treat these as distinct states:
+
+`IMPLEMENTED → VALIDATED → COMMITTED → PUSHED → MERGED → DEPLOYED → PRODUCTION VERIFIED`
+
+Do not claim production verification solely because a deployment command succeeded.
+
+## 21. ARCHITECTURE CHANGES
 
 Changes to package boundaries, public package APIs, database strategy, authentication, authorization, real-time transport, deployment model, or major dependencies require explicit architectural consideration.
 
-Before implementation, identify current architecture, why it is insufficient, affected modules, migration risk, compatibility concerns, testing requirements, and rollback considerations.
-
 Do not perform architectural changes as incidental cleanup.
 
-## 20. DOCUMENTATION DISCIPLINE
-
-Documentation must explain durable knowledge and decisions. It must not duplicate the codebase unnecessarily.
+## 22. DOCUMENTATION DISCIPLINE
 
 Use:
 
@@ -362,64 +400,46 @@ GitHub Issues / task backlog → active implementation work
 
 Historical documents must not override current implementation.
 
-If documentation conflicts with code:
-1. detect the conflict
-2. identify the current source
-3. update/deprecate the outdated document
-4. record an ADR if the conflict represents an important architectural decision
+## 23. DOCUMENTATION BLOAT CONTROL
 
-## 21. DOCUMENTATION BLOAT CONTROL
+Do not create documentation simply because a topic exists. Prefer one canonical source over multiple overlapping documents.
 
-Before creating a new documentation file ask:
-1. Does this information already have a canonical home?
-2. Can an existing document be updated?
-3. Is this information durable?
-4. Is it useful to future maintainers?
-5. Is it historical and better preserved as history?
-6. Is it actually an implementation task?
+The AI operational documents in `ai/` are intentional. Do not create overlapping documents for those responsibilities.
 
-Do not create documentation simply because a topic exists. Prefer one canonical source over multiple partially overlapping documents.
+## 24. ARCHITECTURAL DECISIONS
 
-The AI operational documents in `ai/` are intentional: they define executable workflow contracts, reusable registries, asset handoff rules, and validation gates. Do not create overlapping documents for those responsibilities.
-
-## 22. ARCHITECTURAL DECISIONS
-
-Create ADRs only when a decision meaningfully affects future development. Do not create ADRs for bug fixes, typo fixes, normal UI changes, routine refactors, or routine dependency updates.
+Create ADRs only when a decision meaningfully affects future development. Do not create ADRs for normal UI changes, bug fixes, routine refactors, or routine dependency updates.
 
 Use `docs/decisions/NNN-short-title.md`.
-
-An ADR explains Context, Decision, Alternatives, Consequences, Validation, and Related work.
 
 ADR = WHY
 Architecture documentation = WHAT
 AGENTS = HOW AI behaves
 AI operational docs = HOW AI navigates, executes, inventories, and validates
 
-Do not mix these responsibilities.
-
-## 23. HANDOFF PROTOCOL
+## 25. HANDOFF PROTOCOL
 
 At the beginning of a new AI session:
 1. Read `AI_CONTEXT_MAP.md`.
 2. Read `AGENTS.md`.
-3. Read `DESIGN_SYSTEM.md` for frontend tasks.
-4. Inspect root/package manifests only as relevant to the task.
-5. Inspect relevant source files and the closest analogue.
-6. Read only documentation routed by `AI_CONTEXT_MAP.md`.
-7. Determine CURRENT / TARGET / DEBT / UNKNOWN.
+3. Route the task.
+4. Read `DESIGN_SYSTEM.md` for frontend tasks.
+5. Inspect relevant manifests/source/closest analogue only as required.
+6. Determine CURRENT / TARGET / DEBT / UNKNOWN.
 
 At the end of a task report:
-- **Implemented / Changed** — files and changes
-- **Reused** — existing systems/components reused
-- **Created** — genuinely new abstractions
-- **Assets Required** — consolidated human inputs
-- **Validation** — checks actually performed
-- **Risks / Limitations** — anything not verified
-- **Human Input Required** — only genuine decisions/blockers
+- Implemented / Changed
+- Reused
+- Created
+- Assets Required
+- Validation
+- Release State
+- Risks / Limitations
+- Human Input Required
 
 Do not generate generic handoff documents after every task.
 
-## 24. ABSOLUTE RULE
+## 26. ABSOLUTE RULE
 
 > Route context before reading broadly.
 >
@@ -430,6 +450,8 @@ Do not generate generic handoff documents after every task.
 > Plan before changing.
 >
 > Validate before claiming.
+>
+> Separate implementation from publication and release.
 >
 > Ask humans only when human judgment or missing input is genuinely required.
 >
