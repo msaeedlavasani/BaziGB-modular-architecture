@@ -1,11 +1,11 @@
 # BaziGB — AI Context Map
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Role:** Repository navigation and context-routing source of truth for AI agents.
 
 ## 1. Purpose
 
-This file tells an AI agent **where to start, what to read next, and what not to read** for a task.
+This file tells an AI agent where to start, what to read next, and what not to read for a task.
 
 The repository is not a flat knowledge base. Files have different roles, authority, and relevance. The AI must use task-directed discovery rather than reading the repository indiscriminately.
 
@@ -15,12 +15,17 @@ For every new AI task:
 
 1. Read `AI_CONTEXT_MAP.md`.
 2. Read `AGENTS.md`.
-3. Classify the task.
-4. Follow the relevant route below.
-5. Inspect the closest existing implementation before designing a new one.
-6. Read only additional files justified by evidence.
+3. Route the task.
+4. Discover only the context required by that route.
+5. Classify the task and impact.
+6. Identify the closest existing implementation.
+7. Read only additional files justified by evidence.
 
-Do not start implementation before discovery is complete.
+The canonical lifecycle is:
+
+`REQUEST → ROUTE → DISCOVER → CLASSIFY → IMPACT ANALYSIS → PLAN → IMPLEMENT → VALIDATE → REPORT`
+
+Do not start implementation before discovery is sufficient.
 
 ## 3. Source-of-Truth Priority
 
@@ -44,15 +49,15 @@ If a conflict is found, report it. Do not silently choose an assumption.
 |---|---|---|
 | General feature | `ai/AI_WORKFLOW.md` | closest existing feature |
 | Frontend/UI | `DESIGN_SYSTEM.md`, `ai/COMPONENT_REGISTRY.md` | affected page/component |
-| New component | `DESIGN_SYSTEM.md`, `ai/COMPONENT_REGISTRY.md` | closest component |
+| New component | `DESIGN_SYSTEM.md`, `ai/COMPONENT_REGISTRY.md` | closest component + consumers |
 | New page | `DESIGN_SYSTEM.md`, `ai/COMPONENT_REGISTRY.md` | closest existing page |
 | New game | `DESIGN_SYSTEM.md`, `ai/COMPONENT_REGISTRY.md`, `ai/ASSET_SYSTEM.md` | closest existing game + shared game infrastructure |
 | Game asset work | `ai/ASSET_SYSTEM.md` | asset registry + closest asset usage |
 | Backend/API | `AGENTS.md` | relevant package/module/API |
 | Real-time feature | `AGENTS.md`, `ai/AI_WORKFLOW.md` | closest real-time implementation |
 | Bug fix | `ai/AI_WORKFLOW.md` | failing implementation + tests |
-| Responsive/UI issue | `DESIGN_SYSTEM.md` | affected component/page |
-| Dependency change | `AGENTS.md` | relevant package manifest + all relevant usages |
+| Responsive/UI issue | `DESIGN_SYSTEM.md`, `ai/VALIDATION_GATE.md` | affected component/page + rendered UI |
+| Dependency change | `AGENTS.md` | relevant package manifest + relevant usages |
 | Architecture change | `AGENTS.md` | affected package boundaries + current architecture docs |
 | Validation-only task | `ai/VALIDATION_GATE.md` | affected package/tests/build config |
 
@@ -82,7 +87,7 @@ Inspect only the relevant:
 - package boundaries
 - module structure
 - API/state architecture
-- existing architecture documentation
+- current architecture documentation
 
 ### Level 3 — Reusable Systems
 
@@ -95,13 +100,15 @@ Search for:
 - game infrastructure
 - existing assets
 
+Verify registry entries against actual code and current consumers.
+
 ### Level 4 — Closest Analogue
 
 Find the most structurally similar working implementation and study it before creating a new one.
 
 ### Level 5 — Validation
 
-Use `ai/VALIDATION_GATE.md` and the relevant tests/build configuration.
+Use `ai/VALIDATION_GATE.md` and relevant tests/build/browser validation.
 
 ## 6. Closest-Analogue Rule
 
@@ -125,10 +132,25 @@ Read a file when:
 
 - the task route requires it,
 - a relevant file references it,
-- imports/dependencies indicate relevance, or
+- imports/dependencies/consumers indicate relevance, or
 - validation requires it.
 
-## 8. Unknown Files
+## 8. Ignore Zones by Default
+
+Do not inspect these merely because they are present:
+
+- deployment archives/bundles
+- screenshots or ad-hoc visual captures unrelated to the task
+- generated artifacts
+- historical handoffs/audits
+- unrelated game packages
+- unrelated backend modules
+- unrelated test suites
+- temporary local files
+
+These are not globally forbidden. Read them only when the current task or validation evidence makes them relevant.
+
+## 9. Unknown Files
 
 For an unfamiliar file, first determine:
 
@@ -139,7 +161,7 @@ For an unfamiliar file, first determine:
 
 Do not recursively inspect unrelated files just because they have unfamiliar names.
 
-## 9. Context Budget
+## 10. Context Budget
 
 The objective is **minimum sufficient context**, not maximum repository context.
 
@@ -151,9 +173,9 @@ Never use:
 
 Prefer:
 
-`task → route → analogue → dependencies → implementation`
+`task → route → relevant rules → analogue → dependencies/consumers → implementation`
 
-## 10. Before Implementation
+## 11. Before Implementation
 
 The agent must be able to answer:
 
@@ -169,7 +191,7 @@ The agent must be able to answer:
 
 If these cannot be answered, discovery is incomplete.
 
-## 11. Updating This Map
+## 12. Updating This Map
 
 If a new canonical source of truth is introduced, update this map.
 
