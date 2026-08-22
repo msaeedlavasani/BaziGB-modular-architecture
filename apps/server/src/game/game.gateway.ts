@@ -15,7 +15,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { GameState, MatchConfig, Player, type GameId } from '@bazigb/engine';
 import { RoomService, RoomWithParsedData } from '../rooms/room.service';
 import { HistoryService } from '../history/history.service';
-import { COLORS, REGISTRY } from './game-engine.service';
+import { COLORS, REGISTRY, getMaxPlayers, publicGameState } from '../game-registry';
 import {
   chatSchema,
   gameActionSchema,
@@ -115,6 +115,44 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
+  // ------------------------------------------- public/private state delivery
+  // کاتان دادهٔ خصوصی (منابع/کارتهای توسعه/امتیاز پنهان) دارد؛ بقیهٔ بازیها
+  // وضعیت کامل را عمومی میگیرند (رفتار قبلی — بدون تغییر).
+  // شناسهٔ بازیکن در state برابر شناسهٔ سوکت است؛ پس سوکت هر بازیکن با همان
+  // شناسه پیدا میشود.
+
+  private publicState(room: RoomWithParsedData, state: GameState): unknown {
+    return publicGameState(room.gameType, state);
+  }
+
+  /** برای کاتان، currentState در roomUpdate فقط نسخهٔ عمومی باشد */
+  private roomUpdatePayload(room: RoomWithParsedData | null): unknown {
+    if (!room || room.gameType !== 'catan') return room;
+    const { currentState, ...rest } = room;
+    return { ...rest, currentState: currentState ? this.publicState(room, currentState) : null };
+  }
+
+  private privateStateFor(room: RoomWithParsedData, state: GameState, playerId: string): unknown {
+    if (room.gameType !== 'catan') return null;
+    const raw = state as unknown as {
+      playerStates?: Record<string, { resources?: unknown; devCards?: unknown; victoryPoints?: number }>;
+    };
+    const ps = raw.playerStates?.[playerId];
+    if (!ps) return null;
+    return { resources: ps.resources, devCards: ps.devCards, victoryPoints: ps.victoryPoints ?? 0 };
+  }
+
+  /** پخش وضعیت عمومی به کل اتاق + وضعیت خصوصی هر بازیکن (فقط کاتان) */
+  private broadcastGameState(room: RoomWithParsedData, state: GameState) {
+    this.server.to(room.code).emit('gameState', this.publicState(room, state));
+    if (room.gameType !== 'catan') return;
+    for (const pid of room.players) {
+      const sock = this.server.sockets.sockets.get(pid);
+      const priv = this.privateStateFor(room, state, pid);
+      if (sock && priv) sock.emit('myPrivateState', { playerId: pid, ...(priv as object) });
+    }
+  }
+
   private scheduleTurnTimer(roomCode: string, state: GameState | null) {
     this.clearTurnTimers(roomCode);
     if (!state || !state.turn) return;
@@ -149,7 +187,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       try {
         const next = adapter.applyChain(room.currentState as GameState, []) as GameState;
         await this.roomService.saveState(roomCode, next);
-        this.server.to(roomCode).emit('gameState', next);
+        this.broadcastGameState(room, next);
         this.scheduleTurnTimer(roomCode, next);
       } catch {
         /* اگر بازی تمام شده، نادیده بگیر */
@@ -183,7 +221,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.vacatedUsers.set(`${roomCode}:${client.id}`, entry);
         if (userId) this.vacatedUsers.set(`${roomCode}:user:${userId}`, entry);
         if (seatKey) this.vacatedUsers.set(`${roomCode}:key:${seatKey}`, entry);
-        this.server.to(roomCode).emit('roomUpdate', room);
+        this.server.to(roomCode).emit('roomUpdate', this.roomUpdatePayload(room));
         this.emitSystemMessage(roomCode, 'یک بازیکن از اتاق خارج شد', userId, 'info', this.socketUsernames.get(client.id));
       }
     }
@@ -241,6 +279,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       playerCards?: Record<string, number>;
       playerDice?: Record<string, unknown>;
       playerDiceRemaining?: Record<string, number>;
+      playerStates?: Record<string, unknown>;
+      setupOrder?: string[];
+      discardPlayers?: string[];
+      robberActor?: string | null;
+      stealCandidates?: string[] | null;
+      longestRoad?: { ownerId?: string };
+      tradeOffers?: { from?: string }[];
       board?: unknown;
     };
     if (Array.isArray(next.players)) {
@@ -259,6 +304,22 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         map[newId] = map[oldId];
         delete map[oldId];
       }
+    }
+    // کاتان: وضعیت بازیکنان، ترتیب setup، دورریز/راهزن/دزدی، طولانی‌ترین جاده و پیشنهادهای معامله
+    if (next.playerStates && oldId in next.playerStates) {
+      const moved = next.playerStates[oldId] as { id?: string };
+      if (moved && typeof moved === 'object') moved.id = newId;
+      next.playerStates[newId] = moved;
+      delete next.playerStates[oldId];
+    }
+    for (const arrName of ['setupOrder', 'discardPlayers', 'stealCandidates'] as const) {
+      const arr = next[arrName];
+      if (Array.isArray(arr)) for (let i = 0; i < arr.length; i++) if (arr[i] === oldId) arr[i] = newId;
+    }
+    if (next.robberActor === oldId) next.robberActor = newId;
+    if (next.longestRoad?.ownerId === oldId) next.longestRoad.ownerId = newId;
+    if (Array.isArray(next.tradeOffers)) {
+      for (const o of next.tradeOffers) if (o.from === oldId) o.from = newId;
     }
     if (Array.isArray(next.board)) {
       for (const casino of next.board as { dice?: Record<string, number>; stack?: { winnerIndex?: string | null; runnerUpIndex?: string | null } }[]) {
@@ -309,12 +370,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         room = await this.roomService.joinRoom(roomCode, client.id, gameType, maxRounds);
         this.issueSeatKey(client, roomCode);
         await client.join(roomCode);
-        this.server.to(roomCode).emit('roomUpdate', room);
+        this.server.to(roomCode).emit('roomUpdate', this.roomUpdatePayload(room));
         this.emitSystemMessage(roomCode, 'اتاق ساخته شد', this.socketUsers.get(client.id), 'info', this.socketUsernames.get(client.id));
         return;
       }
 
       // ۲) بازپسگیری صندلی خالی شده (بعد از قطع اتصال/رفرش)
+      let reclaiming = false;
       if (!room.players.includes(client.id)) {
         const boundUserId = this.socketUsers.get(client.id);
         let oldSocketId: string | undefined;
@@ -341,33 +403,46 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           oldSocketId = hit ? hit[0].split(':').pop() : undefined;
         }
 
+        if (oldSocketId) reclaiming = true;
         if (oldSocketId && room.players.includes(oldSocketId)) {
           // همان نشست/کاربر دوباره متصل شد → جابه‌جایی به صندلی قبلی
           await this.roomService.swapPlayer(roomCode, oldSocketId, client.id);
           if (room.currentState) {
             const swapped = this.swapPlayerIds(room.currentState, oldSocketId, client.id);
             await this.roomService.saveState(roomCode, swapped);
-            this.server.to(roomCode).emit('gameState', swapped);
+            const freshRoom = await this.roomService.getRoom(roomCode);
+            if (freshRoom) this.broadcastGameState(freshRoom, swapped);
             this.scheduleTurnTimer(roomCode, swapped);
           }
           this.clearVacatedBySocket(oldSocketId);
           this.issueSeatKey(client, roomCode);
           await client.join(roomCode);
           const freshRoom = await this.roomService.getRoom(roomCode);
-          this.server.to(roomCode).emit('roomUpdate', freshRoom);
+          this.server.to(roomCode).emit('roomUpdate', this.roomUpdatePayload(freshRoom));
           this.emitSystemMessage(roomCode, 'بازیکن دوباره متصل شد', this.socketUsers.get(client.id), 'success', this.socketUsernames.get(client.id));
           return;
+        }
+        // قطع اتصال قبلاً ثبت شده بود: بازیکن از room.players حذف شده ولی state
+        // همچنان شناسهٔ سوکت قدیمی را دارد → شناسه‌های state را جابه‌جا کن تا بازی
+        // با سوکت جدید ادامه یابد (رفرش/بازاتصال در حالت عادی)
+        if (oldSocketId && !room.players.includes(oldSocketId) && room.currentState) {
+          const swapped = this.swapPlayerIds(room.currentState, oldSocketId, client.id);
+          await this.roomService.saveState(roomCode, swapped);
+          room = { ...room, currentState: swapped };
         }
       }
 
       // ۳) نشستن در صندلی خالی
       if (!room.players.includes(client.id)) {
-        const maxPlayers = room.gameType === 'vegas' ? 5 : 2;
-        if (room.players.length >= maxPlayers) {
-          // اتاق پر است → تماشاچی: فقط به اتاق میپیوندد، بازی را زنده میبیند
+        const maxPlayers = getMaxPlayers(room.gameType);
+        // کاتان: وسط بازی فقط بازیکنِ قطعشده (بازپسگیری صندلی) میتواند بنشیند؛
+        // بازیکن جدید تماشاچی میشود (state شامل او نیست)
+        const midGameBlock = room.gameType === 'catan' && room.status === 'playing' && !reclaiming;
+        if (room.players.length >= maxPlayers || midGameBlock) {
+          // اتاق پر است یا ورود وسط بازی مجاز نیست → تماشاچی: فقط به اتاق میپیوندد
           await client.join(roomCode);
-          if (room.currentState) client.emit('gameState', room.currentState);
-          client.emit('roomUpdate', room);
+          if (room.currentState) client.emit('gameState', this.publicState(room, room.currentState));
+          client.emit('roomUpdate', this.roomUpdatePayload(room));
           client.emit('spectate', { room: roomCode });
           this.emitSystemMessage(roomCode, 'یک تماشاچی به بازی پیوست', this.socketUsers.get(client.id), 'info', this.socketUsernames.get(client.id));
           return;
@@ -375,7 +450,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         room = await this.roomService.joinRoom(roomCode, client.id);
         this.issueSeatKey(client, roomCode);
         await client.join(roomCode);
-        this.server.to(roomCode).emit('roomUpdate', room);
+        this.server.to(roomCode).emit('roomUpdate', this.roomUpdatePayload(room));
+        if (room.currentState) {
+          const priv = this.privateStateFor(room, room.currentState, client.id);
+          if (priv) client.emit('myPrivateState', { playerId: client.id, ...(priv as object) });
+        }
         this.emitSystemMessage(roomCode, 'یک بازیکن وارد اتاق شد', this.socketUsers.get(client.id), 'info', this.socketUsernames.get(client.id));
         return;
       }
@@ -383,10 +462,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // ۴) عضو موجود — فقط به اتاق ملحق شو
       await client.join(roomCode);
       if (room.currentState) {
-        client.emit('gameState', room.currentState);
+        client.emit('gameState', this.publicState(room, room.currentState));
+        const priv = this.privateStateFor(room, room.currentState, client.id);
+        if (priv) client.emit('myPrivateState', { playerId: client.id, ...(priv as object) });
         this.scheduleTurnTimer(roomCode, room.currentState);
       }
-      this.server.to(roomCode).emit('roomUpdate', room);
+      this.server.to(roomCode).emit('roomUpdate', this.roomUpdatePayload(room));
     } catch (error) {
       client.emit('error', { message: error instanceof Error ? error.message : 'خطا در پیوستن به اتاق' });
     }
@@ -401,8 +482,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!room.players.includes(client.id)) throw new BadRequestException('فقط بازیکنان میتوانند بازی را شروع کنند');
       const state = this.initialState(room);
       const updated = await this.roomService.startGame(payload.roomCode, state, { resetScores: true });
-      this.server.to(payload.roomCode).emit('gameState', state);
-      this.server.to(payload.roomCode).emit('roomUpdate', updated);
+      this.broadcastGameState(room, state);
+      this.server.to(payload.roomCode).emit('roomUpdate', this.roomUpdatePayload(updated));
       this.emitSystemMessage(payload.roomCode, 'بازی شروع شد');
       this.scheduleTurnTimer(payload.roomCode, state);
     } catch (error) {
@@ -423,9 +504,47 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         scores: {},
         state: finalState,
       });
-      this.server.to(room.code).emit('roomUpdate', finalRoom);
+      this.server.to(room.code).emit('roomUpdate', this.roomUpdatePayload(finalRoom));
       this.emitSystemMessage(room.code, 'بازی وگاس تمام شد', finalState.winner ?? undefined, 'success');
       this.clearTurnTimers(room.code);
+      return;
+    }
+
+    // کاتان: یک بازی کامل (تا ۱۰ امتیاز) است — پایان state یعنی پایان کل بازی؛
+    // مسیر عمومی (امتیازهای راند) برای کاتان اشتباه است (scores صفر میماند).
+    if (room.gameType === 'catan') {
+      await this.roomService.finishRoom(room.code, finalState.winner ?? '', finalState);
+      this.undoStacks.delete(room.code);
+      const finalRoom = await this.roomService.getRoom(room.code);
+      this.server.to(room.code).emit('gameOver', {
+        room: room.code,
+        winner: finalState.winner,
+        scores: {},
+        state: this.publicState(room, finalState),
+      });
+      this.server.to(room.code).emit('roomUpdate', this.roomUpdatePayload(finalRoom));
+      this.emitSystemMessage(
+        room.code,
+        'بازی کاتان تمام شد',
+        finalState.winner ?? undefined,
+        'success',
+        this.socketUsernames.get(finalState.winner ?? ''),
+      );
+      this.clearTurnTimers(room.code);
+
+      // ثبت تاریخچه (فقط کاربران احراز هویت شده)
+      const userIds = room.players.map((p) => this.socketUsers.get(p) ?? p);
+      const authedPlayers = userIds.filter((id) => this.socketUsers.has(room.players[room.players.indexOf(id)]));
+      const realWinner = this.socketUsers.get(finalState.winner ?? '') ?? null;
+      if (authedPlayers.length >= 2 || (authedPlayers.length === 1 && realWinner)) {
+        await this.historyService.recordGameResult({
+          roomCode: room.code,
+          gameName: room.gameType,
+          winnerId: realWinner,
+          players: userIds,
+          finalState,
+        });
+      }
       return;
     }
 
@@ -456,9 +575,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         room: room.code,
         winner: matchWinner,
         scores,
-        state: finalState,
+        state: this.publicState(room, finalState),
       });
-      this.server.to(room.code).emit('roomUpdate', finalRoom);
+      this.server.to(room.code).emit('roomUpdate', this.roomUpdatePayload(finalRoom));
       this.emitSystemMessage(room.code, 'بازی تمام شد', matchWinner, 'success', this.socketUsernames.get(matchWinner));
       this.clearTurnTimers(room.code);
 
@@ -478,8 +597,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // راند تمام شد، مسابقه ادامه دارد → راند بعدی
       await this.roomService.startGame(room.code, this.initialState(room));
       const updated = await this.roomService.getRoom(room.code);
-      this.server.to(room.code).emit('gameState', updated?.currentState);
-      this.server.to(room.code).emit('roomUpdate', updated);
+      if (updated?.currentState) this.broadcastGameState(updated, updated.currentState);
+      this.server.to(room.code).emit('roomUpdate', this.roomUpdatePayload(updated));
       this.emitSystemMessage(room.code, `راند بعدی — امتیاز: ${JSON.stringify(scores)}`);
       if (updated?.currentState) this.scheduleTurnTimer(room.code, updated.currentState);
     }
@@ -508,8 +627,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     await this.roomService.saveState(room.code, next);
     const updated = await this.roomService.getRoom(room.code);
-    this.server.to(room.code).emit('gameState', next);
-    this.server.to(room.code).emit('roomUpdate', updated);
+    this.broadcastGameState(updated!, next);
+    this.server.to(room.code).emit('roomUpdate', this.roomUpdatePayload(updated));
 
     if (next.phase === 'finished') {
       await this.handleRoundOver(updated!, next);
@@ -524,8 +643,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const room = await this.roomService.getRoom(body.roomCode);
       if (!room) throw new BadRequestException('اتاق یافت نشد');
-      const state = room.currentState as GameState;
-      if (!state || state.turn !== client.id) throw new BadRequestException('نوبت شما نیست');
+      // اعتبارسنجی نوبت بر عهدهٔ تطبیقگر بازی است (حرکات خاصی مثل دورریز/پذیرش
+      // معامله متعلق به بازیکنِ غیرنوبت است؛ شناسهٔ بازیکن از خود move خوانده میشود)
       await this.applyValidatedMove(room, body.move);
     } catch (error) {
       client.emit('error', { message: error instanceof Error ? error.message : 'حرکت نامعتبر' });
@@ -538,8 +657,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const room = await this.roomService.getRoom(body.roomCode);
       if (!room) throw new BadRequestException('اتاق یافت نشد');
-      const state = room.currentState as GameState;
-      if (!state || state.turn !== client.id) throw new BadRequestException('نوبت شما نیست');
       await this.applyValidatedMove(room, { player: client.id, kind: 'roll' });
     } catch (error) {
       client.emit('error', { message: error instanceof Error ? error.message : 'خطا در ریختن تاس' });
@@ -585,8 +702,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!room || room.status !== 'playing') return;
       await this.roomService.startGame(room.code, this.initialState(room));
       const updated = await this.roomService.getRoom(room.code);
-      this.server.to(room.code).emit('gameState', updated?.currentState);
-      this.server.to(room.code).emit('roomUpdate', updated);
+      if (updated?.currentState) this.broadcastGameState(updated, updated.currentState);
+      this.server.to(room.code).emit('roomUpdate', this.roomUpdatePayload(updated));
       if (updated?.currentState) this.scheduleTurnTimer(room.code, updated.currentState);
     } catch (error) {
       client.emit('error', { message: error instanceof Error ? error.message : 'خطا' });
@@ -600,8 +717,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!room) throw new BadRequestException('اتاق یافت نشد');
       const state = this.initialState(room);
       const updated = await this.roomService.startGame(payload.roomCode, state, { resetScores: true });
-      this.server.to(payload.roomCode).emit('gameState', state);
-      this.server.to(payload.roomCode).emit('roomUpdate', updated);
+      this.broadcastGameState(room, state);
+      this.server.to(payload.roomCode).emit('roomUpdate', this.roomUpdatePayload(updated));
       this.emitSystemMessage(payload.roomCode, 'بازی جدید شروع شد');
       this.scheduleTurnTimer(payload.roomCode, state);
     } catch (error) {
@@ -626,7 +743,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
     stack.pop();
     await this.roomService.saveState(roomCode, last.state);
-    this.server.to(roomCode).emit('gameState', last.state);
+    const undoRoom = await this.roomService.getRoom(roomCode);
+    if (undoRoom) this.broadcastGameState(undoRoom, last.state);
     this.emitSystemMessage(roomCode, 'حرکت بازگردانی شد', this.socketUsers.get(client.id), 'success', this.socketUsernames.get(client.id));
     this.scheduleTurnTimer(roomCode, last.state);
   }
@@ -662,7 +780,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const next = offerDouble(state, client.id);
 
       await this.roomService.saveState(room.code, next);
-      this.server.to(room.code).emit('gameState', next);
+      this.broadcastGameState(room, next);
       this.emitSystemMessage(room.code, 'پیشنهاد دابل (دوبرابر کردن امتیاز) داده شد', client.id, 'info', this.socketUsernames.get(client.id));
     } catch (error) {
       client.emit('error', { message: error instanceof Error ? error.message : 'خطا در پیشنهاد دابل' });
@@ -684,8 +802,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       await this.roomService.saveState(room.code, next);
       const updated = await this.roomService.getRoom(room.code);
-      this.server.to(room.code).emit('gameState', next);
-      this.server.to(room.code).emit('roomUpdate', updated);
+      this.broadcastGameState(updated!, next);
+      this.server.to(room.code).emit('roomUpdate', this.roomUpdatePayload(updated));
 
       if (next.phase === 'finished') {
         this.emitSystemMessage(room.code, 'پیشنهاد دابل رد شد و راند به پایان رسید');

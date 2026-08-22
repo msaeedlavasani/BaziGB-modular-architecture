@@ -1,5 +1,12 @@
 import { Body, Controller, Get, NotFoundException, Param, Post, Query } from '@nestjs/common';
-import { RoomService, RoomStatus } from './room.service';
+import { RoomService, RoomStatus, RoomWithParsedData } from './room.service';
+import { publicGameState } from '../game-registry';
+
+/** برای کاتان، currentState در پاسخ HTTP فقط نسخهٔ عمومی باشد (دادهٔ خصوصی نشت نکند) */
+function sanitizeRoom(room: RoomWithParsedData): RoomWithParsedData {
+  if (room.gameType !== 'catan' || !room.currentState) return room;
+  return { ...room, currentState: publicGameState(room.gameType, room.currentState) as RoomWithParsedData['currentState'] };
+}
 
 /**
  * HTTP endpoints powering the web lobby.
@@ -17,13 +24,14 @@ export class RoomsController {
   constructor(private readonly roomService: RoomService) {}
 
   @Get()
-  listRooms(@Query('status') status?: string) {
+  async listRooms(@Query('status') status?: string) {
     const valid: RoomStatus[] = ['waiting', 'playing', 'finished'];
     const parsed =
       typeof status === 'string' && valid.includes(status as RoomStatus)
         ? (status as RoomStatus)
         : undefined;
-    return this.roomService.listRooms(parsed);
+    const rooms = await this.roomService.listRooms(parsed);
+    return rooms.map(sanitizeRoom);
   }
 
   @Get(':code')
@@ -32,7 +40,7 @@ export class RoomsController {
     if (!room) {
       throw new NotFoundException(`Room "${code}" not found`);
     }
-    return room;
+    return sanitizeRoom(room);
   }
 
   @Post()

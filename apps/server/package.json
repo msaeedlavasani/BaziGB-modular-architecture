@@ -20,6 +20,7 @@
   "dependencies": {
     "@bazigb/engine": "^1.0.0",
     "@bazigb/game-backgammon": "^1.0.0",
+    "@bazigb/game-catan": "^1.0.0",
     "@bazigb/game-chess": "^1.0.0",
     "@bazigb/game-tic-tac-toe": "^1.0.0",
     "@bazigb/game-vegas": "^1.0.0",

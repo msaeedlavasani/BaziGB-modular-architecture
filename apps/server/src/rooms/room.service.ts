@@ -2,13 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { GameState } from '@bazigb/engine';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
-
-export const MAX_PLAYERS = 2;
-export const VEGAS_MAX_PLAYERS = 5;
-
-export function getMaxPlayers(gameType: string): number {
-  return gameType === 'vegas' ? VEGAS_MAX_PLAYERS : MAX_PLAYERS;
-}
+import { getMaxPlayers } from '../game-registry';
 
 /**
  * Minimum number of players required for a game to start. All games start as

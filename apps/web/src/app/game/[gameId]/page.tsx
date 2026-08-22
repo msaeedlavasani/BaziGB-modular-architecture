@@ -28,6 +28,7 @@ import * as BG from '@bazigb/game-backgammon';
 import { Backgammon, getBestMoveSequence, type BackgammonMove } from '@bazigb/game-backgammon';
 import { ChessGame, getBestMove as chessAI } from '@bazigb/game-chess';
 import { Vegas, getBestMove as vegasAI } from '@bazigb/game-vegas';
+import { Catan } from '@bazigb/game-catan';
 
 import GameShell from '@/components/game/GameShell';
 import TicTacToeBoard from '@/components/game/TicTacToeBoard';
@@ -43,6 +44,7 @@ const ADAPTERS: Record<GameId, GameAdapter> = {
   backgammon: Backgammon,
   chess: ChessGame,
   vegas: Vegas,
+  catan: Catan,
 };
 
 const COLORS: Record<GameId, [Player['color'], Player['color']]> = {
@@ -50,6 +52,7 @@ const COLORS: Record<GameId, [Player['color'], Player['color']]> = {
   backgammon: [1, -1],
   chess: ['white', 'black'],
   vegas: ['gold', 'gold'],
+  catan: ['#ff4444', '#4444ff'], // Basic colors for setup
 };
 
 const AI_FNS: Record<GameId, (state: unknown, d: AIDifficulty) => unknown> = {
@@ -57,6 +60,7 @@ const AI_FNS: Record<GameId, (state: unknown, d: AIDifficulty) => unknown> = {
   backgammon: getBestMoveSequence as (state: unknown, d: AIDifficulty) => unknown,
   chess: chessAI as (state: unknown, d: AIDifficulty) => unknown,
   vegas: vegasAI as (state: unknown, d: AIDifficulty) => unknown,
+  catan: (() => null) as (state: unknown, d: AIDifficulty) => unknown,
 };
 
 const GAME_TITLES: Record<GameId, string> = {
@@ -64,6 +68,7 @@ const GAME_TITLES: Record<GameId, string> = {
   backgammon: 'نرد',
   chess: 'شطرنج',
   vegas: 'وگاس',
+  catan: 'کاتان',
 };
 
 const GAME_CHIPS: Record<GameId, string> = {
@@ -71,6 +76,7 @@ const GAME_CHIPS: Record<GameId, string> = {
   backgammon: '🎲 نرد',
   chess: '♞ شطرنج',
   vegas: '💵 وگاس',
+  catan: '⬢ کاتان',
 };
 
 function GameInner() {
@@ -78,6 +84,8 @@ function GameInner() {
   const router = useRouter();
   const gameId = (params.gameId ?? 'tic-tac-toe') as GameId;
   const adapter = ADAPTERS[gameId];
+  // کاتان فقط چندنفره است (۳ تا ۴ بازیکن) — حالت محلی/ربات پشتیبانی نمیشود
+  const catanMultiplayerOnly = gameId === 'catan';
 
   const [difficulty, setDifficulty] = useState<AIDifficulty>('medium');
   const [match, setMatch] = useState(() => {
@@ -110,8 +118,8 @@ function GameInner() {
   }, [adapter, gameId, match, players]);
 
   useEffect(() => {
-    newGame();
-  }, [newGame]);
+    if (!catanMultiplayerOnly) newGame();
+  }, [newGame, catanMultiplayerOnly]);
 
   const myId = 'p1';
   const humanTurn = !!state && state.phase === 'playing' && state.turn === myId;
@@ -391,6 +399,24 @@ function GameInner() {
       </Button>
     </Box>
   );
+
+  if (catanMultiplayerOnly) {
+    return (
+      <GameShell title="کاتان" gameChip="⬢ کاتان" onBack={() => router.push('/lobby')} turnText={null}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 8, textAlign: 'center', px: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, color: 'primary.main' }}>
+            کاتان فقط در حالت آنلاین قابل بازی است
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 420 }}>
+            برای بازی ۳ تا ۴ نفره، از لابی یک اتاق آنلاین بسازید و کد آن را با دوستانتان به اشتراک بگذارید.
+          </Typography>
+          <Button variant="contained" color="primary" onClick={() => router.push('/lobby')} sx={{ borderRadius: 3, fontWeight: 800, px: 4 }}>
+            رفتن به لابی
+          </Button>
+        </Box>
+      </GameShell>
+    );
+  }
 
   return (
     <GameShell

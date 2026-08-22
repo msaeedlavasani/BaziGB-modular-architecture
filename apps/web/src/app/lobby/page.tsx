@@ -16,6 +16,7 @@ import {
   Check,
   History,
   Play,
+  Hexagon,
 } from 'lucide-react';
 import {
   Box,
@@ -51,15 +52,16 @@ const STATUS_LABEL: Record<Room['status'], string> = {
   finished: 'Finished',
 };
 
-type GameType = 'tic-tac-toe' | 'chess' | 'backgammon' | 'vegas';
+type GameType = 'tic-tac-toe' | 'chess' | 'backgammon' | 'vegas' | 'catan';
 
-const GAME_OPTIONS: GameType[] = ['tic-tac-toe', 'chess', 'backgammon', 'vegas'];
+const GAME_OPTIONS: GameType[] = ['tic-tac-toe', 'chess', 'backgammon', 'vegas', 'catan'];
 
-const GAME_META: Record<string, { label: string; tagline: string; isNew?: boolean }> = {
-  'tic-tac-toe': { label: 'Tic-Tac-Toe', tagline: 'Classic 3×3 duel' },
-  chess: { label: 'Chess', tagline: 'Full board battle' },
-  backgammon: { label: 'Backgammon', tagline: 'Dices & Strategy' },
-  vegas: { label: 'Vegas', tagline: 'Casino Dice Luck', isNew: true },
+const GAME_META: Record<string, { label: string; tagline: string; maxPlayers: number; isNew?: boolean }> = {
+  'tic-tac-toe': { label: 'Tic-Tac-Toe', tagline: 'Classic 3×3 duel', maxPlayers: 2 },
+  chess: { label: 'Chess', tagline: 'Full board battle', maxPlayers: 2 },
+  backgammon: { label: 'Backgammon', tagline: 'Dices & Strategy', maxPlayers: 2 },
+  vegas: { label: 'Vegas', tagline: 'Casino Dice Luck', maxPlayers: 5 },
+  catan: { label: 'Catan', tagline: 'Build & Trade', maxPlayers: 4, isNew: true },
 };
 
 /** ردیف تاریخچه‌ی یک بازی — مطابق شکل پاسخ GET /history/:userId */
@@ -108,6 +110,9 @@ function GameIcon({ game, sx }: { game: string; sx?: any }) {
   }
   if (game === 'vegas') {
     return <Banknote size={sx?.fontSize === 'text-2xl' ? 24 : 20} />;
+  }
+  if (game === 'catan') {
+    return <Hexagon size={sx?.fontSize === 'text-2xl' ? 24 : 20} />;
   }
   return (
     <Box
@@ -210,6 +215,10 @@ export default function LobbyPage() {
   const handleCreate = async () => {
     // حالت ربات: مستقیم به بازی محلی میرود (بدون اتاق)
     if (mode === 'bot') {
+      if (gameType === 'catan') {
+        setCreateError('بازی کاتان در حال حاضر فقط در حالت آنلاین (۳ تا ۴ نفره) قابل بازی است.');
+        return;
+      }
       router.push(`/game/${gameType}`);
       return;
     }
@@ -507,7 +516,10 @@ export default function LobbyPage() {
                     </Box>
                   </ButtonBase>
                   <ButtonBase
-                    onClick={() => setMode('bot')}
+                    onClick={() => {
+                      setMode('bot');
+                      if (gameType === 'catan') setGameType('tic-tac-toe');
+                    }}
                     sx={{
                       p: 5,
                       borderRadius: 3,
@@ -526,12 +538,18 @@ export default function LobbyPage() {
                   </ButtonBase>
                 </Box>
 
+                {mode === 'bot' && gameType === 'catan' && (
+                  <Typography variant="caption" sx={{ color: 'error.main', textAlign: 'center', mt: 1, fontWeight: 700 }}>
+                    کاتان فقط در حالت آنلاین قابل بازی است.
+                  </Typography>
+                )}
+
                 <Button
                   fullWidth
                   variant="contained"
                   size="large"
                   onClick={handleCreate}
-                  disabled={creating}
+                  disabled={creating || (mode === 'bot' && gameType === 'catan')}
                   startIcon={creating ? <CircularProgress size={24} color="inherit" /> : mode === 'bot' ? <Bot size={24} /> : <Plus size={24} />}
                   sx={{
                     py: 2.5,
@@ -740,7 +758,7 @@ export default function LobbyPage() {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
                           <Users size={16} />
                           <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                            {room.players.length}/{room.gameType === 'vegas' ? 5 : 2}
+                            {room.players.length}/{GAME_META[room.gameType]?.maxPlayers ?? 2}
                           </Typography>
                         </Box>
                       </Box>

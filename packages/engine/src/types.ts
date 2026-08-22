@@ -5,7 +5,7 @@
  */
 
 /** شناسه‌های بازی‌های پلتفرم */
-export type GameId = 'tic-tac-toe' | 'backgammon' | 'chess' | 'vegas';
+export type GameId = 'tic-tac-toe' | 'backgammon' | 'chess' | 'vegas' | 'catan';
 
 /** نام نمایشی فارسی هر بازی */
 export const GAME_NAMES: Record<GameId, string> = {
@@ -13,13 +13,14 @@ export const GAME_NAMES: Record<GameId, string> = {
   backgammon: 'نرد',
   chess: 'شطرنج',
   vegas: 'وگاس',
+  catan: 'کاتان',
 };
 
 /** شناسه بازیکن (اتاق معمولاً دو بازیکن دارد: p1 و p2) */
 export type PlayerId = string;
 
 /** رنگ/نقش بازیکن در بازی */
-export type PlayerColor = 'x' | 'o' | 'white' | 'black' | 1 | -1 | 'gold';
+export type PlayerColor = 'x' | 'o' | 'white' | 'black' | 1 | -1 | 'gold' | string;
 
 export interface Player {
   id: PlayerId;
@@ -30,7 +31,7 @@ export interface Player {
   score?: number;
 }
 
-export type GamePhase = 'waiting' | 'playing' | 'finished' | 'bet' | 'roll' | 'move' | 'roundEnd';
+export type GamePhase = 'waiting' | 'playing' | 'finished' | 'bet' | 'roll' | 'move' | 'roundEnd' | 'setup' | 'discard' | 'robber' | 'steal';
 
 /**
  * پیکربندی مسابقه.

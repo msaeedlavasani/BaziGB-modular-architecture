@@ -20,6 +20,7 @@ import BackgammonBoard from '@/components/game/BackgammonBoard';
 import ChessBoard from '@/components/game/ChessBoard';
 import ChessInfo from '@/components/game/ChessInfo';
 import VegasBoard from '@/components/game/VegasBoard';
+import CatanBoard from '@/components/game/CatanBoard';
 import type { BackgammonMove } from '@bazigb/game-backgammon';
 import type { GameId } from '@bazigb/engine';
 
@@ -28,6 +29,7 @@ const GAME_TITLES: Record<string, string> = {
   backgammon: 'نرد',
   chess: 'شطرنج',
   vegas: 'وگاس',
+  catan: 'کاتان',
 };
 
 const GAME_CHIPS: Record<string, string> = {
@@ -35,6 +37,23 @@ const GAME_CHIPS: Record<string, string> = {
   backgammon: '🎲 نرد',
   chess: '♞ شطرنج',
   vegas: '💵 وگاس',
+  catan: '⬢ کاتان',
+};
+
+const GAME_MAX_PLAYERS: Record<string, number> = {
+  'tic-tac-toe': 2,
+  backgammon: 2,
+  chess: 2,
+  vegas: 5,
+  catan: 4,
+};
+
+const GAME_MIN_PLAYERS: Record<string, number> = {
+  'tic-tac-toe': 2,
+  backgammon: 2,
+  chess: 2,
+  vegas: 2,
+  catan: 3,
 };
 
 type ChatMessage = { type: string; message: string; username?: string; ts: number };
@@ -57,6 +76,8 @@ export default function PlayPage() {
   } | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [state, setState] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [privateState, setPrivateState] = useState<any>(null);
   const [scores, setScores] = useState<Record<string, number>>({});
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chat, setChat] = useState('');
@@ -83,12 +104,17 @@ export default function PlayPage() {
     connectSocket();
 
     const handlers: Record<string, (payload: any) => void> = {
-      gameState: (st) => setState(st),
+      gameState: (st) => {
+        setState(st);
+        // کاتان: بازی جدید/راند جدید — وضعیت خصوصی قبلی را نگه ندار
+        if (st?.gameId === 'catan' && st?.phase === 'setup' && !st.dice) setPrivateState(null);
+      },
+      myPrivateState: (p) => setPrivateState(p),
       roomUpdate: (r) => {
         setRoom({
           status: r.status,
           players: r.players,
-          gameType: (['tic-tac-toe', 'backgammon', 'chess', 'vegas'].includes(r.gameType)
+          gameType: (['tic-tac-toe', 'backgammon', 'chess', 'vegas', 'catan'].includes(r.gameType)
             ? r.gameType
             : 'tic-tac-toe') as GameId,
           maxRounds: r.maxRounds,
@@ -145,7 +171,7 @@ export default function PlayPage() {
         setRoom({
           status: r.status,
           players: r.players,
-          gameType: (['tic-tac-toe', 'backgammon', 'chess', 'vegas'].includes(r.gameType)
+          gameType: (['tic-tac-toe', 'backgammon', 'chess', 'vegas', 'catan'].includes(r.gameType)
             ? r.gameType
             : 'tic-tac-toe') as GameId,
           maxRounds: r.maxRounds,
@@ -186,11 +212,21 @@ export default function PlayPage() {
   };
 
   const gameId = room?.gameType ?? 'tic-tac-toe';
+  const isCatan = gameId === 'catan';
   const isOwner = room?.players[0] === myId;
   // تماشاچی: اتاق پر است و من جزو بازیکنها نیستم (یا سرور spectate فرستاده)
   const isSpectator =
     spectating || (!!room && room.players.length > 0 && !!myId && !room.players.includes(myId));
-  const humanTurn = !!state && state.phase === 'playing' && state.turn === myId && !isSpectator;
+  // کاتان: setup/discard/robber/steal هم پنجرهٔ اقدام بازیکن هستند
+  const humanTurn =
+    !!state &&
+    !isSpectator &&
+    (isCatan
+      ? state.turn === myId ||
+        (state.phase === 'discard' && (state.discardPlayers ?? []).includes(myId)) ||
+        (state.phase === 'robber' && (state.robberActor ?? state.turn) === myId) ||
+        (state.phase === 'steal' && state.turn === myId)
+      : state.phase === 'playing' && state.turn === myId);
   const isFinished = !!state && state.phase === 'finished';
 
   const turnRemainingSec =
@@ -236,6 +272,16 @@ export default function PlayPage() {
             youId={myId}
           />
         );
+      case 'catan':
+        return (
+          <CatanBoard
+            state={state}
+            onMove={(m) => socket.emit('makeMove', { roomCode, move: m })}
+            disabled={disabled}
+            myId={myId}
+            privateState={privateState}
+          />
+        );
       default:
         return null;
     }
@@ -252,7 +298,9 @@ export default function PlayPage() {
         label: state.winner
           ? state.winner === myId
             ? '🎉 شما برنده شدید!'
-            : 'حریف برنده شد'
+            : isCatan
+              ? `${state.players?.find((p: { id: string }) => p.id === state.winner)?.name ?? 'حریف'} برنده شد`
+              : 'حریف برنده شد'
           : 'مساوی!',
         sub: maxRounds > 1 ? `مسابقه ${scoreA} - ${scoreB}` : undefined,
         onRematch: () => socket.emit('newGame', { roomCode }),
@@ -280,7 +328,7 @@ export default function PlayPage() {
       turnText={
         isSpectator
           ? 'تماشای زنده'
-          : state && state.phase === 'playing'
+          : state && (state.phase === 'playing' || (isCatan && state.phase !== 'finished'))
             ? humanTurn
               ? 'نوبت شما'
               : 'نوبت حریف'
@@ -356,7 +404,7 @@ export default function PlayPage() {
             {room && (
               <Chip
                 icon={<Users size={15} />}
-                label={`${room.players.length}/${room.gameType === 'vegas' ? 5 : 2} بازیکن`}
+                label={`${room.players.length}/${GAME_MAX_PLAYERS[room.gameType] ?? 2} بازیکن`}
                 variant="outlined"
                 sx={{ borderRadius: 10, borderColor: 'divider', bgcolor: 'background.paper' }}
               />
@@ -377,7 +425,7 @@ export default function PlayPage() {
               >
                 {copied ? 'کپی شد!' : 'کپی کد'}
               </Button>
-              {room && room.players.length >= 2 && isOwner && (
+              {room && room.players.length >= (GAME_MIN_PLAYERS[room.gameType] ?? 2) && isOwner && (
                 <Button
                   variant="contained"
                   onClick={startGame}
@@ -388,9 +436,14 @@ export default function PlayPage() {
                 </Button>
               )}
             </Box>
-            {room && room.players.length >= 2 && !isOwner && (
+            {room && room.players.length >= (GAME_MIN_PLAYERS[room.gameType] ?? 2) && !isOwner && (
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                 صاحب اتاق بازی را شروع میکند…
+              </Typography>
+            )}
+            {room && room.players.length < (GAME_MIN_PLAYERS[room.gameType] ?? 2) && (
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                برای شروع، حداقل {GAME_MIN_PLAYERS[room.gameType] ?? 2} بازیکن لازم است
               </Typography>
             )}
           </Paper>

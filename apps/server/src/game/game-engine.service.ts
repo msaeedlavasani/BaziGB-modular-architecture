@@ -1,37 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { DEFAULT_MATCH, type AIDifficulty, type GameAdapter, type GameId, type Player } from '@bazigb/engine';
-import { TicTacToe, getBestMove as tttAI } from '@bazigb/game-tic-tac-toe';
-import { Backgammon, getBestMoveSequence as bgAI } from '@bazigb/game-backgammon';
-import { ChessGame, getBestMove as chessAI } from '@bazigb/game-chess';
-import { Vegas, getBestMove as vegasAI } from '@bazigb/game-vegas';
+import { REGISTRY, AI, COLORS } from '../game-registry';
 
 /**
  * GameEngineService — منطق خالص بازی‌ها (MOD-007)
  * گیتوی فقط لایه انتقال است؛ این سرویس: resolve game, apply move, next round
  */
-export const REGISTRY: Record<GameId, GameAdapter> = {
-  'tic-tac-toe': TicTacToe,
-  backgammon: Backgammon,
-  chess: ChessGame,
-  vegas: Vegas,
-};
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const AI: Record<GameId, (state: any, d: AIDifficulty) => unknown> = {
-  'tic-tac-toe': tttAI as never,
-  backgammon: bgAI as never,
-  chess: chessAI as never,
-  vegas: vegasAI as never,
-};
-
-export const COLORS: Record<GameId, [Player['color'], Player['color']]> = {
-  'tic-tac-toe': ['x', 'o'],
-  backgammon: [1, -1],
-  chess: ['white', 'black'],
-  vegas: ['gold', 'gold'],
-};
-
 export interface BaziGBRoom {
   id: string;
   gameId: GameId;
