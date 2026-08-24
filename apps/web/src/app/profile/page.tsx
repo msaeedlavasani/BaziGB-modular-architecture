@@ -9,6 +9,7 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Grid,
   IconButton,
   Paper,
   Skeleton,
@@ -22,25 +23,26 @@ import {
   Typography,
   alpha,
   useTheme,
-  Grid,
 } from '@mui/material';
 import {
+  ArrowLeft,
+  ArrowRight,
+  Edit2,
   Gamepad2,
-  Trophy,
+  Lock,
+  LogOut,
+  RefreshCw,
   Swords,
   TrendingUp,
-  RefreshCw,
-  LogOut,
-  ChevronLeft,
-  Edit2,
-  Lock,
+  Trophy,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppLocale } from '@/hooks/useAppLocale';
 import { getProfileMessages } from '@/i18n/profile';
-import { APP_ROUTES } from '@/i18n/routing';
+import { APP_ROUTES, localizedAppRoute } from '@/i18n/routing';
 import { getGameTitle, isWebGameId } from '@/lib/game-catalog';
 import { api } from '@/lib/api';
+import EmptyState from '@/components/shared/EmptyState';
 
 interface HistoryStats {
   gamesPlayed: number;
@@ -99,23 +101,26 @@ function StatCard({
   icon: React.ReactNode;
   color: string;
 }) {
+  const theme = useTheme();
+
   return (
     <Paper
       elevation={0}
       sx={{
+        minWidth: 0,
         display: 'flex',
         alignItems: 'center',
-        gap: 4,
+        gap: { xs: 2.5, sm: 3 },
         borderRadius: 4,
-        bgcolor: alpha('#0B1622', 0.6),
-        p: 5,
+        bgcolor: alpha(theme.palette.background.paper, 0.5),
+        p: { xs: 3, sm: 4 },
       }}
     >
       <Box
         sx={{
           display: 'flex',
-          width: 48,
-          height: 48,
+          width: { xs: 42, sm: 48 },
+          height: { xs: 42, sm: 48 },
           flexShrink: 0,
           alignItems: 'center',
           justifyContent: 'center',
@@ -128,10 +133,10 @@ function StatCard({
         {icon}
       </Box>
       <Box sx={{ minWidth: 0 }}>
-        <Typography variant="h4" sx={{ fontWeight: 900, lineHeight: 1.2 }}>
+        <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1.2 }}>
           {value}
         </Typography>
-        <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', mt: 0.5 }}>
+        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mt: 0.5, fontWeight: 700 }}>
           {label}
         </Typography>
       </Box>
@@ -142,11 +147,11 @@ function StatCard({
 function SkeletonRows() {
   return (
     <>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <TableRow key={i}>
-          {Array.from({ length: 4 }).map((__, j) => (
-            <TableCell key={j}>
-              <Skeleton variant="text" width="60%" sx={{ bgcolor: alpha('#0B1622', 0.9) }} />
+      {Array.from({ length: 5 }).map((_, row) => (
+        <TableRow key={row}>
+          {Array.from({ length: 4 }).map((__, cell) => (
+            <TableCell key={cell}>
+              <Skeleton variant="text" width="65%" />
             </TableCell>
           ))}
         </TableRow>
@@ -161,6 +166,7 @@ export default function ProfilePage() {
   const locale = useAppLocale();
   const messages = getProfileMessages(locale);
   const dateLocale = locale === 'fa' ? 'fa-IR' : 'en-US';
+  const BackIcon = locale === 'fa' ? ArrowRight : ArrowLeft;
   const { user, isLoading, updateUser, logout } = useAuth();
 
   const [stats, setStats] = useState<HistoryStats | null>(null);
@@ -235,15 +241,10 @@ export default function ProfilePage() {
     setSaveSuccess(false);
   };
 
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setSaveError(null);
-  };
-
   const handleSaveUsername = async () => {
     if (!newUsername) return;
-    const USERNAME_REGEX = /^[A-Za-z0-9_]{3,20}$/;
-    if (!USERNAME_REGEX.test(newUsername)) {
+    const usernameRegex = /^[A-Za-z0-9_]{3,20}$/;
+    if (!usernameRegex.test(newUsername)) {
       setSaveError(messages.usernameRule);
       return;
     }
@@ -298,24 +299,14 @@ export default function ProfilePage() {
   };
 
   useEffect(() => {
-    if (!isLoading && !user) router.replace('/login');
-  }, [isLoading, user, router]);
+    if (!isLoading && !user) router.replace(localizedAppRoute(locale, 'login'));
+  }, [isLoading, locale, router, user]);
 
   if (isLoading) {
     return (
-      <Box
-        sx={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          p: 12,
-          bgcolor: 'background.default',
-        }}
-      >
-        <CircularProgress size={48} sx={{ color: 'primary.main' }} />
-        <Typography sx={{ mt: 4, color: 'text.secondary', fontWeight: 600 }}>{messages.loading}</Typography>
+      <Box sx={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, bgcolor: 'background.default' }}>
+        <CircularProgress size={42} />
+        <Typography color="text.secondary" sx={{ fontWeight: 700 }}>{messages.loading}</Typography>
       </Box>
     );
   }
@@ -326,73 +317,90 @@ export default function ProfilePage() {
 
   return (
     <Box sx={{ flex: 1, bgcolor: 'background.default', color: 'text.primary' }}>
-      <Box sx={{ mx: 'auto', width: '100%', maxWidth: 1024, px: { xs: 4, sm: 8 }, py: 12 }}>
-        <Box component="header" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 10 }}>
-          <Box sx={{ display: 'flex', gap: 3 }}>
-            <Button component={Link} href={APP_ROUTES.lobby} startIcon={<ChevronLeft size={18} />} sx={{ color: 'text.secondary' }}>
+      <Box sx={{ mx: 'auto', width: '100%', maxWidth: 1024, px: { xs: 2, sm: 5, md: 8 }, py: { xs: 5, sm: 8 } }}>
+        <Box
+          component="header"
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'stretch', sm: 'center' },
+            justifyContent: 'space-between',
+            gap: 2,
+            mb: { xs: 5, sm: 8 },
+          }}
+        >
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+            <Button
+              component={Link}
+              href={localizedAppRoute(locale, 'lobby')}
+              startIcon={<BackIcon size={18} />}
+              sx={{ color: 'text.secondary' }}
+            >
               {messages.backToLobby}
             </Button>
             {user.role === 'ADMIN' && (
-              <Button component={Link} href={APP_ROUTES.admin} variant="contained">
+              <Button component={Link} href={APP_ROUTES.admin} variant="outlined">
                 {messages.adminPanel}
               </Button>
             )}
           </Box>
-          <Button variant="outlined" onClick={logout} startIcon={<LogOut size={18} />} color="error">
+          <Button variant="outlined" onClick={logout} startIcon={<LogOut size={18} />} color="error" sx={{ alignSelf: { xs: 'flex-start', sm: 'auto' } }}>
             {messages.logout}
           </Button>
         </Box>
 
-        <Paper elevation={0} sx={{ p: 8, borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.4), mb: 8 }}>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+        <Paper elevation={0} sx={{ p: { xs: 4, sm: 6 }, borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.5), mb: 5 }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: 4 }}>
             <Box
               sx={{
-                width: 80,
-                height: 80,
+                width: { xs: 64, sm: 76 },
+                height: { xs: 64, sm: 76 },
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: 4,
                 bgcolor: 'primary.main',
                 color: 'secondary.main',
-                fontSize: '2.5rem',
+                fontSize: { xs: '2rem', sm: '2.35rem' },
                 fontWeight: 900,
+                flexShrink: 0,
               }}
             >
               {user.username.charAt(0).toUpperCase()}
             </Box>
-            <Box sx={{ flex: 1 }}>
+
+            <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
               {isEditing ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 320 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 360 }}>
                   <TextField
                     value={newUsername}
-                    onChange={(e) => setNewUsername(e.target.value)}
+                    onChange={(event) => setNewUsername(event.target.value)}
                     disabled={isSaving}
-                    error={!!saveError}
+                    error={Boolean(saveError)}
                     helperText={saveError}
                     autoFocus
                   />
-                  <Box sx={{ display: 'flex', gap: 2 }}>
-                    <Button variant="contained" size="small" onClick={handleSaveUsername} disabled={isSaving}>
+                  <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                    <Button variant="contained" size="small" onClick={() => void handleSaveUsername()} disabled={isSaving}>
                       {messages.save}
                     </Button>
-                    <Button variant="outlined" size="small" onClick={handleCancelEdit}>
+                    <Button variant="outlined" size="small" onClick={() => { setIsEditing(false); setSaveError(null); }}>
                       {messages.cancel}
                     </Button>
                   </Box>
                 </Box>
               ) : (
-                <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Typography variant="h3" sx={{ fontWeight: 900 }}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', minWidth: 0 }}>
+                    <Typography variant="h3" sx={{ fontWeight: 900, fontSize: { xs: '1.6rem', sm: '1.9rem' }, wordBreak: 'break-word' }}>
                       {user.username}
                     </Typography>
-                    <IconButton size="small" onClick={handleStartEdit}>
-                      <Edit2 size={18} />
+                    <IconButton size="small" onClick={handleStartEdit} aria-label={messages.save}>
+                      <Edit2 size={17} />
                     </IconButton>
                     {saveSuccess && <Chip size="small" label={messages.changed} color="success" />}
                   </Box>
-                  <Typography variant="body1" sx={{ color: 'text.secondary', mt: 1 }}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1, overflowWrap: 'anywhere' }}>
                     {user.email || messages.noEmail}
                   </Typography>
                 </Box>
@@ -401,100 +409,88 @@ export default function ProfilePage() {
           </Box>
         </Paper>
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 4, mb: 12 }}>
-          <StatCard label={messages.games} value={stats?.gamesPlayed ?? 0} icon={<Gamepad2 size={24} />} color={theme.palette.primary.main} />
-          <StatCard label={messages.wins} value={stats?.wins ?? 0} icon={<Trophy size={24} />} color={theme.palette.success.main} />
-          <StatCard label={messages.losses} value={stats?.losses ?? 0} icon={<Swords size={24} />} color={theme.palette.error.main} />
-          <StatCard label={messages.winRate} value={winRate} icon={<TrendingUp size={24} />} color={theme.palette.warning.main} />
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' }, gap: 2.5, mb: { xs: 6, sm: 8 } }}>
+          <StatCard label={messages.games} value={stats?.gamesPlayed ?? 0} icon={<Gamepad2 size={22} />} color={theme.palette.primary.main} />
+          <StatCard label={messages.wins} value={stats?.wins ?? 0} icon={<Trophy size={22} />} color={theme.palette.success.main} />
+          <StatCard label={messages.losses} value={stats?.losses ?? 0} icon={<Swords size={22} />} color={theme.palette.error.main} />
+          <StatCard label={messages.winRate} value={winRate} icon={<TrendingUp size={22} />} color={theme.palette.warning.main} />
         </Box>
 
-        <Grid container spacing={8}>
+        <Grid container spacing={{ xs: 4, md: 6 }}>
           <Grid item xs={12} md={5}>
-            <Paper elevation={0} sx={{ p: 6, borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.4) }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+            <Paper elevation={0} sx={{ p: { xs: 4, sm: 5 }, borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.45) }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
                 <Lock size={20} color={theme.palette.primary.main} />
-                <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                  {messages.changePassword}
-                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 900 }}>{messages.changePassword}</Typography>
               </Box>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {user.hasPassword && (
-                  <TextField
-                    type="password"
-                    label={messages.currentPassword}
-                    value={pwCurrent}
-                    onChange={(e) => setPwCurrent(e.target.value)}
-                  />
+                  <TextField type="password" label={messages.currentPassword} value={pwCurrent} onChange={(event) => setPwCurrent(event.target.value)} />
                 )}
-                <TextField type="password" label={messages.newPassword} value={pwNew} onChange={(e) => setPwNew(e.target.value)} />
-                <TextField
-                  type="password"
-                  label={messages.confirmPassword}
-                  value={pwConfirm}
-                  onChange={(e) => setPwConfirm(e.target.value)}
-                />
-                <Button variant="contained" onClick={handleChangePassword} disabled={savingPw} fullWidth>
-                  {messages.changePassword}
+                <TextField type="password" label={messages.newPassword} value={pwNew} onChange={(event) => setPwNew(event.target.value)} />
+                <TextField type="password" label={messages.confirmPassword} value={pwConfirm} onChange={(event) => setPwConfirm(event.target.value)} />
+                <Button variant="contained" onClick={() => void handleChangePassword()} disabled={savingPw} fullWidth>
+                  {savingPw ? <CircularProgress size={18} color="inherit" /> : messages.changePassword}
                 </Button>
                 {pwSuccess && <Alert severity="success">{messages.passwordChanged}</Alert>}
                 {pwError && <Alert severity="error">{pwError}</Alert>}
               </Box>
             </Paper>
           </Grid>
+
           <Grid item xs={12} md={7}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
-              <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                {messages.history}
-              </Typography>
-              <IconButton onClick={() => void loadHistory()} disabled={loadingHistory} size="small">
-                <RefreshCw size={18} className={loadingHistory ? 'animate-spin' : ''} />
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 3 }}>
+              <Typography variant="h6" sx={{ fontWeight: 900 }}>{messages.history}</Typography>
+              <IconButton onClick={() => void loadHistory()} disabled={loadingHistory} size="small" aria-label={messages.history}>
+                {loadingHistory ? <CircularProgress size={17} /> : <RefreshCw size={17} />}
               </IconButton>
             </Box>
+
             {error && (
-              <Alert severity="error" variant="outlined" sx={{ mb: 3 }}>
+              <Alert severity="error" variant="outlined" sx={{ mb: 3 }} action={<Button color="inherit" size="small" onClick={() => void loadHistory()}>{messages.loading}</Button>}>
                 {error}
               </Alert>
             )}
-            <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.2) }}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>{messages.gameType}</TableCell>
-                    <TableCell>{messages.opponent}</TableCell>
-                    <TableCell>{messages.time}</TableCell>
-                    <TableCell align="center">{messages.result}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {loadingHistory ? (
-                    <SkeletonRows />
-                  ) : matches.length === 0 ? (
+
+            {!loadingHistory && matches.length === 0 && !error ? (
+              <EmptyState compact icon={<Gamepad2 size={24} />} title={messages.noGames} />
+            ) : (
+              <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.25), overflowX: 'auto' }}>
+                <Table sx={{ minWidth: 620 }}>
+                  <TableHead>
                     <TableRow>
-                      <TableCell colSpan={4} align="center" sx={{ py: 10, color: 'text.disabled' }}>
-                        {messages.noGames}
-                      </TableCell>
+                      <TableCell>{messages.gameType}</TableCell>
+                      <TableCell>{messages.opponent}</TableCell>
+                      <TableCell>{messages.time}</TableCell>
+                      <TableCell align="center">{messages.result}</TableCell>
                     </TableRow>
-                  ) : (
-                    matches.map((match) => {
-                      const result = getResult(match, user.id);
-                      const badge = resultBadge(result);
-                      const players = parsePlayers(match.players);
-                      const opponent = players.find((p) => p !== user.id) || messages.unknownOpponent;
-                      return (
-                        <TableRow key={match.id}>
-                          <TableCell sx={{ fontWeight: 700 }}>{formatGameName(match.gameName)}</TableCell>
-                          <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>{truncateId(opponent)}</TableCell>
-                          <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>{formatDate(match.createdAt)}</TableCell>
-                          <TableCell align="center">
-                            <Chip label={badge.label} color={badge.color} size="small" sx={{ minWidth: 60 }} />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {loadingHistory ? (
+                      <SkeletonRows />
+                    ) : (
+                      matches.map((match) => {
+                        const result = getResult(match, user.id);
+                        const badge = resultBadge(result);
+                        const players = parsePlayers(match.players);
+                        const opponent = players.find((player) => player !== user.id) || messages.unknownOpponent;
+
+                        return (
+                          <TableRow key={match.id}>
+                            <TableCell sx={{ fontWeight: 700 }}>{formatGameName(match.gameName)}</TableCell>
+                            <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>{truncateId(opponent)}</TableCell>
+                            <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>{formatDate(match.createdAt)}</TableCell>
+                            <TableCell align="center">
+                              <Chip label={badge.label} color={badge.color} size="small" sx={{ minWidth: 60 }} />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </Grid>
         </Grid>
       </Box>
