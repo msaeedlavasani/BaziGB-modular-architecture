@@ -1,8 +1,8 @@
 # BaziGB — Design System & UI Architecture
 
-**Version:** 2.0.0
+**Version:** 2.1.0
 
-This document defines the visual and interaction language of BaziGB. It is the visual source of truth for frontend work. It does not define backend architecture, game rules, deployment, database strategy, or business strategy.
+This document defines the visual and interaction language of BaziGB. It does not define backend architecture, game rules, deployment, database strategy, or business strategy.
 
 ## 1. DESIGN PRINCIPLE
 
@@ -50,16 +50,22 @@ Current BaziGB implementation uses the Honey Bronze palette.
 
 Rules:
 - Do not introduce arbitrary brand colors.
-- Do not use default MUI Indigo/Blue/Purple styles merely because they are defaults.
+- Do not use default MUI Indigo/Blue/Purple/Orange styles merely because they are defaults.
 - Prefer theme tokens over hard-coded values.
 - Use alpha/transparency derived from theme tokens where needed.
 - Do not introduce a new color for a single component.
+- Warning states should remain within the approved Honey Bronze token family until a dedicated warning token is deliberately introduced.
 
 ## 4. TYPOGRAPHY
 
-Primary font: `Vazirmatn`
+Typography is locale-aware while visual hierarchy remains shared.
 
-Fallback: `Segoe UI, Tahoma, sans-serif`
+Persian (`fa`):
+- primary: `Vazirmatn`
+- fallback: `Segoe UI, Tahoma, sans-serif`
+
+English (`en`):
+- Latin system/Segoe-style stack until a dedicated Latin family is explicitly approved.
 
 Guidelines:
 - headings: bold/heavy
@@ -67,20 +73,25 @@ Guidelines:
 - body: regular
 - maintain readable line height
 - maintain clear hierarchy
+- do not force the Persian font stack onto English when the active locale provides a Latin stack
 
 Avoid decorative fonts that reduce readability.
 
-## 5. RTL
+## 5. DIRECTIONALITY — RTL / LTR
 
-BaziGB is RTL-first.
+BaziGB supports both directions through one shared component tree:
+
+- Persian (`fa`) is RTL.
+- English (`en`) is LTR.
 
 Requirements:
-- application direction is RTL
+- direction is derived from active locale, not hard-coded at page level
 - use logical spacing/layout properties where possible
-- preserve intuitive RTL navigation
-- preserve correct alignment
-- do not duplicate component trees to support RTL
+- preserve intuitive navigation direction in both locales
+- do not duplicate component trees for RTL/LTR
 - avoid manual left/right hacks when logical CSS can solve the problem
+- direction-independent values such as invite codes, phone numbers, verification codes and identifiers may explicitly remain LTR
+- specialized visual geometry may use a fixed direction only when the geometry itself requires it; document the reason (for example deterministic tournament bracket connector math)
 
 For text-containing flex children, use `minWidth: 0` where necessary to prevent overflow.
 
@@ -126,6 +137,8 @@ Use a page section when content belongs naturally to the page hierarchy and does
 
 Do not turn every section into a Card.
 
+Shared primitives must earn canonical status through real consumers. Do not keep parallel inline implementations after a shared pattern becomes canonical.
+
 ## 8. GAME UI
 
 Game interfaces are not administrative interfaces.
@@ -168,6 +181,8 @@ Do not rely on color alone.
 
 Prefer structural skeletons when the layout is known. Avoid generic full-page spinners when only one component/section is loading. Loading states should preserve the expected layout where practical.
 
+A shared structural skeleton may be reused for repeated content grids/lists. Page-specific skeletons remain preferable when the final geometry is materially different.
+
 ## 12. EMPTY STATES
 
 An empty state should contain:
@@ -177,9 +192,13 @@ An empty state should contain:
 
 Avoid empty states that only say "No data".
 
+Use a shared product-level empty-state pattern when the hierarchy genuinely repeats. Do not create separate visual treatments for the same product state in every page.
+
 ## 13. ERROR STATES
 
 Errors should be understandable, localized, and actionable where possible.
+
+Retryable data-loading failures should expose a retry action when the retry is safe and meaningful.
 
 For real-time gameplay, connection failures should be visible rather than allowing the UI to appear frozen.
 
@@ -193,6 +212,8 @@ Requirements:
 - prevent text from breaking layout
 - adapt hierarchy rather than merely shrinking desktop layouts
 - respect safe areas where relevant
+- shared Header controls must remain usable at 360px without relying on hidden overflow
+- dense desktop rows should become stacked or otherwise reorganized on mobile when needed
 
 ## 15. ACCESSIBILITY
 
@@ -201,6 +222,8 @@ Interactive UI should support:
 - visible focus states
 - semantic labels
 - `aria-label` for icon-only controls
+- `aria-current` for active navigation where appropriate
+- `aria-pressed` or equivalent state semantics for selectable toggle/tile interactions
 - sufficient contrast
 - reduced motion preferences
 
@@ -214,11 +237,11 @@ Use MUI Icons when an appropriate icon exists.
 
 `lucide-react` may be used when:
 - MUI Icons does not provide an appropriate equivalent, or
-- an existing BaziGB component already uses Lucide.
+- an existing BaziGB component family already uses Lucide.
 
 Do not mix MUI and Lucide icons randomly within the same component family.
 
-If Lucide is repeatedly used, prefer a shared BaziGB icon wrapper so size, stroke width, color, and alignment remain consistent.
+If Lucide is repeatedly used, prefer a shared BaziGB icon wrapper only when it would actually normalize recurring size, stroke width, color, or alignment behavior. Do not introduce a wrapper speculatively.
 
 The goal is not "all icons must come from one package". The goal is: all icons must look like they belong to BaziGB.
 
@@ -244,6 +267,8 @@ Prefer MUI components, MUI theme tokens, `sx`, shared styled components, and reu
 
 Do not introduce another general-purpose UI framework for isolated components. Do not create a parallel design system.
 
+Do not let unconfigured default MUI palette colors leak into the product when the design system has an existing semantic token family.
+
 ## 19. MOTION
 
 Default interaction motion should be subtle and fast.
@@ -258,6 +283,8 @@ cubic-bezier(0.4, 0, 0.2, 1)
 Motion should communicate interaction, hierarchy, state changes, and spatial relationships.
 
 Avoid decorative animation that distracts from gameplay. Respect `prefers-reduced-motion`.
+
+Global component styles should not add glow to every hover. Glow is reserved for meaningful state/interaction emphasis.
 
 ## 20. PERFORMANCE
 
@@ -281,7 +308,8 @@ Avoid speculative design-system abstractions.
 ## 22. FRONTEND COMPLETION CHECKLIST
 
 - [ ] Existing BaziGB theme tokens used
-- [ ] RTL preserved
+- [ ] Active locale direction (`RTL`/`LTR`) preserved
+- [ ] Locale-specific typography applied correctly
 - [ ] 360px+ responsive behavior checked
 - [ ] No accidental horizontal overflow
 - [ ] Existing components reused where appropriate
