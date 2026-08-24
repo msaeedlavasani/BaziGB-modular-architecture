@@ -43,6 +43,8 @@ localized routes
 
 Locales: `fa` (RTL) and `en` (LTR).
 
+`DESIGN_SYSTEM.md` is now v2.1.0 and reflects this bilingual model instead of a global RTL assumption.
+
 ## Public locale routing
 
 Active on this branch through one shared page tree:
@@ -63,34 +65,9 @@ Active on this branch through one shared page tree:
 - Header exposes FA/EN switching while preserving the current logical path.
 - Admin remains locale-neutral.
 
-## Completed/substantially migrated consumers
-
-- `/game/[gameId]`
-- `/play/[roomId]`
-- Lobby copy/metadata + canonical visual primitives
-- Tournaments list
-- Tournament detail/bracket
-- Profile
-- OTP/Login
-- Leaderboard
-- Header/Footer
-- GameShell
-
-Data/server-owned strings remain verbatim unless their protocol/content model is explicitly localized.
-
 ## eNamad policy — RESOLVED
 
 Show eNamad in **both Persian and English** shells for now.
-
-## Admin Footer
-
-Canonical bilingual editor: `/admin/footer`.
-
-- independent `footer.fa` / `footer.en` managed content,
-- shared `FooterContent` schema,
-- eNamad visibility is not editable because current product policy keeps it in both languages.
-
-`DEBT-016`: `/admin` still contains dead legacy Footer editor state/load/save logic without rendered Footer-editor UI. Remove only when safe executable validation is available or a validated isolated rewrite is performed.
 
 ## Shared UI / Component Graveyard
 
@@ -104,27 +81,24 @@ Canonical by real use:
 - game-specific boards
 
 Remaining candidate:
-- `Modal` — now locale-neutral/design-token aligned but still has no verified consumer. Do not force adoption merely to keep it alive; do not delete before executable verification.
-
-Do not create additional wrappers unless a recurring product pattern justifies them.
+- `Modal` — locale-neutral/design-token aligned but still no verified consumer. Do not force adoption merely to keep it alive; do not delete before executable verification.
 
 ## Lobby UI cleanup
 
-Lobby no longer maintains a parallel implementation for the shared patterns:
-- game selection uses `GameCard`,
-- Recent Games loading uses `LoadingSkeleton`,
-- room-list loading uses structural `LoadingSkeleton`,
-- recent/room empty states use `EmptyState`,
-- retryable errors provide retry actions,
-- game/room navigation uses explicit localized route builders,
-- room code input remains LTR in both locales,
-- join arrow follows locale,
-- mode choices expose semantic pressed/focus states,
-- mobile selection/mode/room hierarchy adapts for narrow screens,
-- introduced hover motion respects reduced-motion.
+Lobby now uses shared product primitives rather than parallel inline implementations:
+- `GameCard` for game selection,
+- `LoadingSkeleton` for Recent Games and room-list loading,
+- `EmptyState` for recent/room empty states,
+- retry actions for retryable load failures,
+- explicit localized game/room routes,
+- LTR room-code input,
+- locale-aware join arrow,
+- semantic pressed/focus states for game mode,
+- mobile-adaptive selection/mode/room layout,
+- reduced-motion-safe introduced hover motion.
 
 `DEBT-003`: RESOLVED IN CODE.
-`DEBT-009`: SUBSTANTIALLY MITIGATED for Lobby.
+`DEBT-009`: SUBSTANTIALLY MITIGATED in Lobby.
 
 ## GameShell current hierarchy
 
@@ -139,22 +113,48 @@ The canonical shell now has:
 - locale-aware back arrow,
 - restrained semantic winner panel.
 
-This is intended to keep the game/board visually dominant instead of surrounding it with generic dashboard surfaces.
+## Theme / interaction cleanup
 
-## Current debt focus
+`DEBT-019` was found and resolved in code:
+- MUI `warning` previously inherited unrelated default orange; it now uses the Honey Bronze token family.
+- global MUI Button hover previously added bronze glow everywhere; global glow was removed while subtle tactile movement/focus remains.
+
+This aligns implementation with the Design System rule that glow should signal meaningful interaction, not every hover.
+
+## Header 360px hardening
+
+Header received a targeted minimum-mobile pass:
+- smaller xs toolbar gaps/padding and logo,
+- compact icon-first primary navigation,
+- compact language/sound/profile controls,
+- Tooltip labels preserve discoverability,
+- `aria-current` marks active routes,
+- touched spacing uses logical properties.
+
+This is static/code hardening only; browser validation at 360px is still NOT RUN.
+
+## Admin Footer
+
+Canonical bilingual editor: `/admin/footer`.
+
+`DEBT-016`: `/admin` still contains dead legacy Footer editor state/load/save logic without rendered Footer-editor UI. Keep the focused editor canonical; remove dead logic only with safe executable validation or a validated isolated rewrite.
+
+## Current debt / bug focus
 
 - `DEBT-007` remaining locale-neutral internal links — targeted normalization pending.
 - `DEBT-009` repeated feedback/state patterns outside Lobby — targeted review pending.
 - `DEBT-012` Admin monolith — non-blocking.
 - `DEBT-015` server/data-owned localization boundary — tracked.
 - `DEBT-016` dead Admin Footer logic — cleanup pending validation.
+- `DEBT-019` theme default-warning/global-glow divergence — RESOLVED IN CODE.
+- `UI-001` Profile stats remain two columns at `xs`; static inspection indicates excessive density risk at the 360px minimum. Fix before local visual-review checkpoint.
 - runtime/compile validation remains outstanding.
 
 ## Current next action
 
 Continue automatically:
-1. audit Profile/Tournaments/game-entry screens for 360px responsive hierarchy and physical RTL/LTR assumptions,
-2. normalize remaining high-traffic neutral internal links,
+1. fix Profile 360px stats/header density and convert its public neutral links/redirect to explicit localized routes,
+2. audit Tournaments/game-entry screens for narrow-screen hierarchy and physical RTL/LTR assumptions,
 3. review repeated loading/empty/error patterns outside Lobby and only promote patterns that genuinely recur,
 4. prepare safe Admin dead-logic cleanup without expanding the monolith,
 5. known-bug/UI pass,
