@@ -4,11 +4,17 @@ import { AdminGuard } from '../common/admin.guard';
 import { Roles } from '../common/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 
-/** Fallback values shown before the admin edits the footer (or on error). */
 const FOOTER_DEFAULTS = {
-  tagline: 'همه‌ی بازی‌ها، توی جیبت',
-  links: [] as { label: string; href: string }[],
-  copyright: '© 2026 BaziGB',
+  fa: {
+    tagline: 'همه‌ی بازی‌ها، توی جیبت',
+    links: [] as { label: string; href: string }[],
+    copyright: '© 2026 BaziGB',
+  },
+  en: {
+    tagline: 'All your games, in your pocket',
+    links: [] as { label: string; href: string }[],
+    copyright: '© 2026 BaziGB',
+  },
 };
 
 @Controller()
@@ -30,19 +36,38 @@ export class SiteSettingsController {
   }
 
   /**
-   * Public — current site settings (footer content etc.). The web app polls
-   * this on load so admin edits appear without a redeploy.
+   * Public site settings. `footer` remains as a backward-compatible Persian
+   * payload while `footers` exposes locale-aware content for the bilingual
+   * web shell. Existing stored `footer` data is treated as Persian only.
    */
   @Get('site-settings')
   async getPublic() {
-    const footer = {
-      ...FOOTER_DEFAULTS,
-      ...(await this.getSetting('footer')),
+    const [legacyFooter, faFooter, enFooter] = await Promise.all([
+      this.getSetting('footer'),
+      this.getSetting('footer.fa'),
+      this.getSetting('footer.en'),
+    ]);
+
+    const footerFa = {
+      ...FOOTER_DEFAULTS.fa,
+      ...legacyFooter,
+      ...faFooter,
     };
-    return { footer };
+    const footerEn = {
+      ...FOOTER_DEFAULTS.en,
+      ...enFooter,
+    };
+
+    return {
+      footer: footerFa,
+      footers: {
+        fa: footerFa,
+        en: footerEn,
+      },
+    };
   }
 
-  /** Admin-only — upsert one site setting (e.g. key: "footer"). */
+  /** Admin-only — upsert one site setting (e.g. key: "footer.en"). */
   @Patch('admin/site-settings')
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Roles('ADMIN')
