@@ -4,25 +4,33 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Box, Container, Divider, Typography, alpha } from '@mui/material';
 import { honeyBronze } from '@/theme';
-import { fetchSiteSettings, FooterContent, FOOTER_DEFAULTS } from '@/lib/site-settings';
+import {
+  fetchSiteSettings,
+  FooterContent,
+  FOOTER_DEFAULTS_BY_LOCALE,
+} from '@/lib/site-settings';
+import type { Locale } from '@/i18n/config';
+import { getMessages } from '@/i18n/messages';
 
-/**
- * فوتر BaziGB — بازسازی فوتر قدیمی (شعار «همه‌ی بازی‌ها، توی جیبت» +
- * لینک‌های قابل تنظیم از پنل ادمین + نماد اعتماد + کپی‌رایت).
- * چیدمان RTL: [BaziGB + شعار] ... [لینک‌ها] ... [نماد اعتماد]
- */
-export default function Footer() {
-  const [footer, setFooter] = useState<FooterContent>(FOOTER_DEFAULTS);
+interface FooterProps {
+  locale?: Locale;
+}
+
+/** Global BaziGB footer. Managed copy and shell labels are locale-aware. */
+export default function Footer({ locale = 'fa' }: FooterProps) {
+  const [footer, setFooter] = useState<FooterContent>(FOOTER_DEFAULTS_BY_LOCALE[locale]);
+  const messages = getMessages(locale);
 
   useEffect(() => {
     let cancelled = false;
-    fetchSiteSettings().then(({ footer: f }) => {
+    setFooter(FOOTER_DEFAULTS_BY_LOCALE[locale]);
+    fetchSiteSettings(locale).then(({ footer: f }) => {
       if (!cancelled && f) setFooter(f);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [locale]);
 
   return (
     <Box
@@ -45,7 +53,6 @@ export default function Footer() {
             gap: 6,
           }}
         >
-          {/* برند + شعار */}
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: { xs: 'center', sm: 'flex-start' }, gap: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Typography
@@ -58,11 +65,10 @@ export default function Footer() {
               <Image src="/brand/logo-icon.png" alt="Logo" width={32} height={32} style={{ borderRadius: 8 }} />
             </Box>
             <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-              {footer.tagline || 'همه‌ی بازی‌ها، توی جیبت'}
+              {footer.tagline}
             </Typography>
           </Box>
 
-          {/* لینک‌ها */}
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
             {(footer.links?.length > 0 ? footer.links : []).map((link) => (
               <Typography
@@ -76,14 +82,13 @@ export default function Footer() {
               </Typography>
             ))}
             <Typography component={Link} href="/rules" variant="subtitle2" sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}>
-              قوانین بازی
+              {messages.footer.rules}
             </Typography>
             <Typography component={Link} href="/contact" variant="subtitle2" sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}>
-              تماس با ما
+              {messages.footer.contact}
             </Typography>
           </Box>
 
-          {/* نماد اعتماد */}
           <Box
             sx={{
               bgcolor: 'rgba(0, 0, 0, 0.2)',
@@ -118,7 +123,7 @@ export default function Footer() {
 
         <Box sx={{ textAlign: 'center' }}>
           <Typography variant="overline" sx={{ color: 'text.secondary', opacity: 0.6 }}>
-            {footer.copyright || '© 2026 BaziGB — تمام حقوق محفوظ است'}
+            {footer.copyright}
           </Typography>
         </Box>
       </Container>
