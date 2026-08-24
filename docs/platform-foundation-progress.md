@@ -205,25 +205,44 @@ This is the stage-by-stage execution log. Architecture/debt lives in `docs/platf
 ---
 
 ## 2026-08-24 — Shape / corner-radius consistency pass
+- MUI shape base changed from 12px to 4px so numeric `sx` radii become predictable rather than 36/48px on common surfaces.
+- Added `shapeScale` and aligned Button/TextField/Select/Chip explicit radii.
+- Numeric hierarchy now maps `2=8px`, `2.5=10px`, `3=12px`, `4=16px`.
+- Specialized game geometry/circles remain exceptions.
+- `DESIGN_SYSTEM.md` upgraded to v2.2.0 with formal radius hierarchy.
+- `DEBT-021`: RESOLVED IN CODE / visual validation pending.
+- Validation: NOT RUN.
 
-A systemic visual inconsistency was identified in the MUI shape baseline:
-- `theme.shape.borderRadius` was `12px`,
-- many pages/shared components use numeric `sx` values such as `borderRadius: 3` or `4`,
-- MUI multiplies those numeric values by the base radius, producing effective radii such as **36px / 48px** on ordinary icon containers, cards and panels.
+---
 
-This made the product visually over-rounded and caused different component families to feel unrelated even when they used the same numeric values.
+## 2026-08-24 — Game-board static UI audit: Tic-Tac-Toe / Chess / Backgammon
 
-Implemented:
-- changed the MUI shape base from `12px` to `4px`,
-- added exported `shapeScale` documentation in the theme,
-- the existing numeric hierarchy now maps predictably: `2=8px`, `2.5=10px`, `3=12px`, `4=16px`,
-- Button/TextField/Select/Chip explicit radii use the same canonical scale,
-- specialized circles/board geometry remain functional exceptions,
-- `DESIGN_SYSTEM.md` upgraded to **v2.2.0** with a formal shape/radius hierarchy and completion checklist rule.
+### Tic-Tac-Toe
+Found that the game-specific board still bypassed the bilingual/theme work even though GameShell was localized.
 
-This is a deliberately high-leverage visual change: existing shared/page `borderRadius: 3/4` values now become consistent without page-by-page arbitrary edits.
+Fixed:
+- removed board-level hard-coded Persian turn/winner copy,
+- board uses active locale game-shell labels,
+- replaced unrelated hard-coded blue player styling with semantic theme colors; X/O symbols still provide non-color distinction,
+- cells are actual keyboard-focusable buttons rather than clickable generic boxes,
+- board surfaces derive from theme colors,
+- focus-visible/reduced-motion treatment added,
+- radius follows canonical shape scale.
 
-Tracked as `DEBT-021` — **RESOLVED IN CODE, VISUAL VALIDATION PENDING**.
+### Chess
+Static review confirmed:
+- `direction: ltr` is intentional game geometry,
+- responsive board wrapper already uses `width: 100%` + `maxWidth: 560`,
+- wood/square colors are specialized board-art styling and are not treated as generic app palette leakage.
+
+### Backgammon
+Static review confirmed:
+- board layout intentionally uses LTR and physical point geometry inside the game surface,
+- wrapper already uses `width: 100%` + `maxWidth: 960`,
+- game-art wood/leather/checker colors remain specialized visual assets/styles.
+
+New finding:
+- `BUG-003`: SVG `<defs>` declares `id="bgPtLight"` twice. This duplicate ID is non-blocking from static evidence but should be cleaned during the next safe Backgammon edit/validation pass.
 
 Validation: NOT RUN.
 
@@ -238,10 +257,9 @@ The app derives locale direction and touched layouts use logical CSS, but actual
 User preference remains: **do not request local run yet**. Continue static high-impact UI cleanup first.
 
 ### Next
-1. finish Tournament detail/game-entry 360px + logical-direction audit,
-2. inspect game-specific surrounding controls for overflow without redesigning game art,
+1. finish Tournament detail + local game-entry narrow-screen/logical-route audit,
+2. continue Vegas/Backgammon surrounding-control overflow scan without redesigning game art,
 3. normalize only proven recurring feedback patterns,
 4. prepare safe Admin dead Footer cleanup,
-5. static known-bug/compile-risk pass,
-6. sync HANDOFF/Foundation docs,
-7. then declare the local visual-review checkpoint.
+5. static known-bug/compile-risk pass including `BUG-003`,
+6. then declare the local visual-review checkpoint.
