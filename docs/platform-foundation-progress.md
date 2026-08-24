@@ -108,20 +108,7 @@ Targeted consumer search confirmed the latter had no consumers. It was deleted i
 
 ### Validation attempt
 
-A GitHub Actions lookup was performed for the branch commit available at that checkpoint. No workflow runs were associated with it. Therefore:
-- CI: NOT RUN / unavailable for this branch checkpoint
-- Build: NOT RUN
-- Typecheck: NOT RUN
-- Tests: NOT RUN
-- Browser QA: NOT RUN
-- Deploy: NOT RUN
-
-No static inspection is promoted to PASS.
-
-### Remaining risks/boundaries
-
-- Some page-local neutral links still rely on middleware compatibility redirects and should be normalized to explicit localized helpers.
-- Tournament detail/bracket remained a high-traffic page with English client-owned copy at this checkpoint.
+A GitHub Actions lookup was performed for the branch commit available at that checkpoint. No workflow runs were associated with it. Therefore CI/build/typecheck/tests/browser/deploy remain NOT RUN.
 
 ---
 
@@ -130,44 +117,59 @@ No static inspection is promoted to PASS.
 ### Implemented
 
 - Added `apps/web/src/i18n/tournament-detail.ts` for detail/bracket-specific presentation copy.
-- Tournament detail now resolves locale through the canonical `useAppLocale()` hook.
-- Back/login links are explicitly locale-scoped rather than depending on compatibility redirects.
+- Tournament detail resolves locale through `useAppLocale()`.
+- Back/login links are explicitly locale-scoped.
 - Status, errors, not-found state, join actions, player count, champion labels, bracket legend, empty states and round labels are localized.
 - Tournament game title uses the canonical game catalog when the API game id is recognized.
 - Date formatting is locale-aware (`fa-IR` / `en-US`).
 - API/data-owned `name`, `description`, `prize`, champion/player names and server join-result text remain verbatim by design.
 - Physical `marginLeft` placement in bracket player rows was replaced by logical `marginInlineStart`.
-- Bracket geometry itself is explicitly kept LTR so connector math and tournament progression remain deterministic across locales; labels surrounding the bracket remain localized.
+- Bracket geometry is explicitly kept LTR so connector math and tournament progression remain deterministic across locales; surrounding copy remains localized.
 
 ### Product decision resolved
 
-- eNamad must remain visible in **both Persian and English** shells for the current product stage. This is now the explicit policy; no locale-based hiding should be introduced unless the product policy changes later.
+- eNamad remains visible in **both Persian and English** shells for the current product stage. No locale-based hiding should be introduced unless product policy changes later.
 
 ### Debt movement
 
 - `DEBT-010` Tournament mixed-language presentation: **SUBSTANTIALLY RESOLVED** for list + detail client-owned copy.
-- `DEBT-007` locale-neutral internal links: reduced further in Tournament detail; remaining high-traffic neutral links still need targeted normalization.
-- `DEBT-015` server/data-owned localization boundary remains TRACKED and intentionally separate from client i18n.
+- `DEBT-007` locale-neutral internal links: reduced further.
+- `DEBT-015` server/data-owned localization boundary remains TRACKED.
 
 ### Visual-change checkpoint
 
-This branch now contains **material visible changes suitable for local review**:
-- real `/fa/...` and `/en/...` public URLs,
-- LTR English shell vs RTL Persian shell,
-- localized Header/Footer/Lobby/Profile/Login/Leaderboard/Tournaments/game shells,
-- locale-specific typography/metadata,
-- Tournament detail/bracket localization.
+This branch now contains material visible changes suitable for local review: real `/fa/...` and `/en/...` URLs, LTR English vs RTL Persian shell, localized primary pages and game shells, locale-specific typography/metadata, and localized Tournament detail/bracket.
 
-A local run would now produce a meaningful visual comparison. Executable validation still has not run in the current connector environment.
+Validation remains NOT RUN.
+
+---
+
+## 2026-08-24 — Admin bilingual Footer editor
+
+### Implemented
+
+- Added a focused admin content route at `/admin/footer` instead of expanding the existing Admin monolith further.
+- The editor loads Persian and English Footer content independently from the shared Site Settings contract.
+- Persian and English have separate editable tagline, copyright and links JSON while sharing the same `FooterContent` schema.
+- Saves use `footer.fa` / `footer.en` through `saveLocalizedFooterSettings()`.
+- Dirty state is tracked per locale and the editor provides locale-specific success/error feedback.
+- The editor preserves the existing admin authorization boundary.
+- eNamad is not editable/hideable here because current product policy requires it in both languages.
+
+### New debt finding — DEBT-016
+
+The existing `/admin` page contains Footer editor **state, loading and save logic but no rendered Footer editor UI in the current page body**. This is dead page-local logic and a concrete component/graveyard-style debt signal.
+
+Action:
+- do not duplicate that editor UI inside the monolith,
+- use `/admin/footer` as the focused canonical editor,
+- remove the old dead Footer state/functions from `/admin` during Component Graveyard/Admin cleanup after executable validation is available,
+- add discoverability/navigation to the focused editor as part of Admin cleanup rather than expanding unrelated code now.
 
 ### Validation
 
-- Build: NOT RUN
-- Typecheck: NOT RUN
-- Tests: NOT RUN
-- Browser QA: NOT RUN
-- Deploy: NOT RUN
+Build/typecheck/tests/browser/deploy: NOT RUN.
 
 ### Next
 
-Continue automatically with remaining high-traffic locale-neutral link normalization, then Admin bilingual Footer editor, Component Graveyard Cleanup, shared feedback/UI foundation and known-bug pass. Pause only for a genuine human decision.
+Continue with targeted component-graveyard cleanup preparation and remaining high-traffic neutral-link inventory. Because executable validation is unavailable, destructive deletion remains deferred until a safe validation environment is available.
