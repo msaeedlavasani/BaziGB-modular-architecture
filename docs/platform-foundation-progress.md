@@ -94,8 +94,61 @@ The current GitHub connector environment cannot execute these checks; none are r
 - no merge.
 - no deployment.
 
+---
+
+## 2026-08-24 — `/play/[roomId]` consumer migration
+
+### Scope
+
+Migrate the multiplayer entry page to canonical presentation/i18n foundations without changing socket protocol, game rules, room lifecycle, or engine behavior.
+
+### Implemented
+
+- Removed page-local `GAME_TITLES` and `GAME_CHIPS` maps.
+- Multiplayer title/chip now consume `getGameTitle()` / `getGameChip()` from `game-catalog.ts`.
+- Room `gameType` normalization now uses the shared `isWebGameId()` guard rather than a second page-local allowlist.
+- Page locale now comes from `useAppLocale()`.
+- Back navigation uses `APP_ROUTES.lobby`.
+- Added only the multiplayer message keys required by this real consumer:
+  - opponent turn/winner
+  - spectating states
+  - waiting-room copy
+  - room sharing/copy/start labels
+  - player-count formatting
+  - turn-expired/undo copy
+  - chat labels/placeholders/system/guest labels
+  - match score formatting
+- Replaced hard-coded `vegas ? 5 : 2` **display** capacity in the waiting-room chip with the canonical web catalog presentation fallback. Runtime capacity remains a server/GameAdapter concern and was not changed.
+- Chat alignment changed from hard-coded `right` to logical `start`, so the same markup follows RTL/LTR direction naturally.
+- Socket events, start conditions, gameplay actions, spectator behavior and board dispatch were preserved.
+
+### Debt movement
+
+- `DEBT-006` duplicate game presentation metadata: **PARTIALLY RESOLVED** — both `/game` and `/play` now consume the catalog; Lobby remains.
+- `DEBT-008` hard-coded game-page copy: **SUBSTANTIALLY RESOLVED** for the two game entry pages. Remaining copy debt is now mainly game-specific board components and any server-originated messages that require separate treatment.
+- `DEBT-013` catalog without consumers: **RESOLVED AS A GRAVEYARD RISK** — the catalog now has two high-traffic consumers. Platform-wide metadata cleanup still requires Lobby migration.
+
+### Risk / bug notes
+
+- No runtime bug was confirmed because executable validation is unavailable here.
+- Server-originated `systemMessage.message` content is intentionally not translated in the client; the client only localizes its own surrounding labels. If server messages are language-specific, that is a separate protocol/content-boundary task.
+- `gameCatalog.maxPlayers` is presentation fallback only. It must not become authoritative runtime capacity.
+
+### Validation
+
+- Build: NOT RUN
+- Typecheck: NOT RUN
+- Tests: NOT RUN
+- Browser QA: NOT RUN
+- Deploy: NOT RUN
+
+### Safety
+
+- `main` untouched.
+- governance branch untouched.
+- no merge.
+- no deployment.
+
 ### Next
 
-1. Migrate `/play/[roomId]` to `game-catalog` + typed locale messages without changing multiplayer/game-engine behavior.
-2. Migrate Lobby metadata/status/copy/routes.
-3. Update this progress log + HANDOFF after each consumer stage.
+Proceed directly to Lobby consumer migration, then Tournaments/Profile/auth. Do not wait for human approval unless a real product/architecture decision is encountered.
