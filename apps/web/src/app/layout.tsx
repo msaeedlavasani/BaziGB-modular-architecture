@@ -25,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <Providers direction={defaultLocale.direction} fontFamily={defaultLocale.fontFamily}>
-          <Header />
+          <Header locale={DEFAULT_LOCALE} />
           <main style={{ flex: 1, width: '100%', maxWidth: 1200, margin: '0 auto', padding: '16px' }}>
             {children}
           </main>
