@@ -11,11 +11,19 @@
 - Deployed: NO
 - Production verified: NO
 
-## Current phase
+## Operating mode
 
-Foundation/audit Tasks 0–3 are complete. Primary game-entry and Lobby consumers are now migrated to the bilingual/catalog foundations. Work continues autonomously into remaining page-copy migration unless a genuine human product/architecture decision is required.
+Continue autonomously from one approved implementation stage to the next. Do **not** wait for another user instruction unless a genuine human product/architecture decision is required.
 
-Target architecture:
+After every meaningful stage:
+1. update code,
+2. update `docs/platform-foundation-progress.md`,
+3. sync this HANDOFF,
+4. update `docs/platform-foundation.md` when architecture/debt status materially changes,
+5. report bugs/debt honestly,
+6. never claim unexecuted validation as PASS.
+
+## Bilingual architecture
 
 ```text
 shared components
@@ -30,88 +38,115 @@ localized metadata
 localized routes
 ```
 
-## Foundation already present
+Locales: `fa` (RTL) and `en` (LTR).
 
-- `apps/web/src/i18n/config.ts`: typed `fa/en`, direction, typography and metadata.
-- `apps/web/src/i18n/messages.ts`: typed shared messages for shell/game/multiplayer/lobby/tournament/footer foundations.
-- `apps/web/src/i18n/routing.ts`: language-neutral routes plus locale prefix/strip/resolution helpers.
-- `apps/web/src/hooks/useAppLocale.ts`: canonical client locale resolver.
-- locale-aware MUI theme factory and Providers inputs.
-- Header/Footer locale-aware shell copy and centralized route identities.
-- bilingual Footer Web/Server contract with legacy Persian compatibility and `footer.fa` / `footer.en` storage.
-- `apps/web/src/lib/game-catalog.ts`: canonical web presentation bridge for `GameId`; runtime capability remains GameAdapter/server-owned.
+## Foundation present
 
-## Completed consumer stages
+- `i18n/config.ts` — locale/direction/font/metadata.
+- `i18n/messages.ts` — shared shell/game/multiplayer/Lobby/Tournament messages.
+- `i18n/profile.ts`, `i18n/auth.ts`, `i18n/leaderboard.ts` — page-domain message dictionaries.
+- `i18n/routing.ts` — canonical route identities + localized app/game/play/tournament builders.
+- `hooks/useAppLocale.ts` — canonical client locale resolver.
+- locale-aware theme factory + Providers.
+- bilingual Footer Web/Server Site Settings contract.
+- canonical `lib/game-catalog.ts` with real `/game`, `/play`, Lobby/Profile consumers.
 
-### `/game/[gameId]`
-- Local title/chip maps removed.
-- Uses catalog + typed game-shell messages + `useAppLocale()`.
-- Guards game IDs through `isWebGameId()`.
+## Public locale routing is ACTIVE on this branch
 
-### `/play/[roomId]`
-- Local title/chip maps and page-local allowlist removed.
-- Uses catalog + multiplayer messages + `useAppLocale()`.
-- Waiting/spectator/turn/winner/chat/room-share copy localized.
-- Presentation capacity uses catalog fallback; runtime capacity remains server-owned.
-- Socket/gameplay behavior preserved.
+`apps/web/src/middleware.ts` exposes localized URLs while reusing one page tree:
 
-### Lobby
-- Removed `STATUS_LABEL`, `GAME_META`, `GAME_OPTIONS`, custom GameType metadata duplication.
-- Game choices come from `WEB_GAME_IDS`; names from `getGameTitle()`.
-- History/room game IDs use `isWebGameId()`.
-- Game/play navigation uses `gameRoute()` / `playRoute()`.
-- Lobby copy, errors, results, controls, room statuses and match-point labels moved to typed messages.
-- Recent-match date formatting is locale-aware.
-- Room player-capacity display uses catalog presentation fallback rather than `vegas ? 5 : 2` UI logic.
-- Directional room-row hover movement changed to vertical movement for RTL/LTR neutrality.
-- Existing inline loading/empty/game-card structures were intentionally preserved; component-graveyard cleanup is a later stage.
+```text
+/fa/lobby          /en/lobby
+/fa/profile        /en/profile
+/fa/leaderboard    /en/leaderboard
+/fa/tournaments    /en/tournaments
+/fa/game/...       /en/game/...
+/fa/play/...       /en/play/...
+/fa/login          /en/login
+```
+
+Behavior:
+- `/` → preferred locale Lobby (default `fa`).
+- Neutral public routes redirect to the preferred locale.
+- `bazigb-locale` cookie preserves locale across compatibility redirects during migration.
+- Middleware sets `x-bazigb-locale`; root layout uses it for HTML language/direction, metadata, theme and font.
+- Header/Footer now emit localized public navigation links.
+- Admin remains locale-neutral until bilingual Admin/Footer-content work.
+
+## Completed/substantially migrated consumers
+
+- `/game/[gameId]`
+- `/play/[roomId]`
+- Lobby
+- Tournaments list
+- Profile
+- OTP/Login
+- Leaderboard
+
+Client-owned copy is localized. Data/server-owned strings remain verbatim by design.
+
+## Important content boundaries
+
+Do not client-search/replace these:
+- server chat/system payload text,
+- tournament API fields such as name/description/prize,
+- join-result server messages.
+
+If multilingual versions are required, solve them in the data/protocol/content model.
+
+## Component graveyard state
+
+Canonical:
+- GameShell
+- Dice3D
+- Header/Footer
+- game-specific boards remain game-specific
+
+Candidates:
+- GameCard — UNUSED_CANDIDATE / INLINE_DUPLICATE
+- EmptyState — UNUSED_CANDIDATE
+- LoadingSkeleton — UNUSED_CANDIDATE / TOO_NARROW?
+- Modal — UNUSED_CANDIDATE
+
+A duplicate locale hook created during this refactor was already found and removed after confirming no consumers. Do not allow the refactor itself to create a new graveyard.
 
 ## Debt status
 
-- `DEBT-001` global locale/direction: partially mitigated; active locale route layouts remain.
-- `DEBT-002` Lobby mixed-language page copy: SUBSTANTIALLY RESOLVED.
-- `DEBT-003` GameCard canonicality mismatch: OPEN; cleanup later.
-- `DEBT-004` singleton RTL theme: foundation mitigated.
-- `DEBT-005` Footer single-locale: Web/Server mitigated; Admin + active routing remain.
-- `DEBT-006` duplicate game presentation metadata: RESOLVED for `/game`, `/play`, Lobby primary consumers.
-- `DEBT-007` route literal dispersion / locale-neutral active routes: partially mitigated; atomic locale route migration remains.
-- `DEBT-008` hard-coded game-entry copy: substantially resolved.
-- `DEBT-009` shared feedback primitives bypass: OPEN; intentionally not mixed into localization migration.
-- `DEBT-010` Tournament mixed-language copy: CURRENT NEXT MIGRATION.
-- `DEBT-011` Footer Web/Admin/Server coupling: Admin remains.
-- `DEBT-012` Admin monolith: non-blocking.
-- `DEBT-013` catalog graveyard risk: RESOLVED; three primary consumers now use the catalog.
+- DEBT-001 global locale/direction: SUBSTANTIALLY MITIGATED; runtime validation needed.
+- DEBT-002 Lobby mixed language: SUBSTANTIALLY RESOLVED.
+- DEBT-003 GameCard mismatch: OPEN.
+- DEBT-004 singleton RTL theme: MITIGATED; runtime validation needed.
+- DEBT-005 Footer single-locale: PARTIAL; Admin editor + eNamad English policy remain.
+- DEBT-006 duplicate game metadata: RESOLVED for primary consumers.
+- DEBT-007 locale-aware routes: SUBSTANTIALLY MITIGATED; normalize remaining neutral links.
+- DEBT-008 hard-coded game-entry copy: SUBSTANTIALLY RESOLVED.
+- DEBT-009 feedback primitive bypass: OPEN.
+- DEBT-010 Tournament list mixed language: SUBSTANTIALLY RESOLVED; detail/bracket remains.
+- DEBT-011 Footer Web/Admin/Server: PARTIAL; Admin remains.
+- DEBT-012 Admin monolith: OPEN / non-blocking.
+- DEBT-013 catalog graveyard risk: RESOLVED.
+- DEBT-014 duplicate locale hook: RESOLVED.
+- DEBT-015 server/data-owned localization boundary: TRACKED.
 
 ## Current next action
 
-Continue automatically with bilingual page-content migration:
+Proceed automatically:
 
-1. Tournaments.
-2. Profile/common feedback.
-3. Auth pages and remaining high-traffic shell copy.
-4. Then prepare/execute atomic locale route migration.
-5. Admin bilingual Footer editor.
-6. Component Graveyard Cleanup.
-7. Known-bug pass and executable validation in a suitable environment.
+1. Migrate Tournament detail/bracket client-owned copy and logical RTL/LTR positioning.
+2. Normalize remaining high-traffic internal links to explicit localized route helpers; middleware redirects remain compatibility safety only.
+3. Implement Admin bilingual Footer editor for `footer.fa` / `footer.en` while preserving legacy Persian compatibility.
+4. Component Graveyard Cleanup.
+5. Shared feedback pattern decision + Lobby/GameShell standardization.
+6. Known-bug pass.
+7. Executable validation in a suitable environment; one targeted visual check only if justified.
 
-Pause only if a human decision is genuinely required.
+## Human decision not currently blocking
 
-## Known content boundary
-
-Server-originated chat/system payload text is server-owned; client code localizes only client-owned labels. If server messages are Persian-only, handle that later as a protocol/content-boundary task.
-
-## Documentation rule
-
-- `docs/platform-foundation.md`: architectural baseline + canonical debt ledger.
-- `docs/platform-foundation-progress.md`: stage execution log.
-- `docs/HANDOFF.md`: current continuation state.
-
-Update HANDOFF and progress documentation after each meaningful stage.
+- Whether eNamad should appear on the English shell. Current behavior is preserved. Ask only when this policy must be changed/finalized.
 
 ## Validation
 
-Current connector environment cannot execute the application locally.
-
+- GitHub Actions lookup on a branch checkpoint returned no workflow runs.
 - Build: NOT RUN
 - Typecheck: NOT RUN
 - Tests: NOT RUN
@@ -122,11 +157,9 @@ Never report PASS without actual execution.
 
 ## Safety
 
-- `main` remains untouched.
-- Governance branch remains untouched.
-- No deploy.
-- Do not expose English routes piecemeal.
-- Do not create a second codebase for English.
-- Do not make web presentation metadata authoritative for runtime game capability.
-- Do not delete graveyard candidates before consumer migration + executable validation.
-- Continue stage-to-stage autonomously until human input is genuinely required.
+- Keep `main` untouched.
+- Keep governance branch untouched.
+- Do not merge or deploy without explicit release authorization.
+- Do not create a second Persian/English app.
+- Do not make presentation metadata authoritative for engine/runtime capability.
+- Do not delete graveyard candidates before consumer verification and executable validation.
