@@ -30,7 +30,7 @@ This is the stage-by-stage execution log. Architecture/debt lives in `docs/platf
 - Removed local status/game metadata registries.
 - Uses `WEB_GAME_IDS`, catalog title/guard helpers and centralized route builders.
 - Localized page-owned copy/results/errors/actions/dates.
-- Preserved inline card/loading/empty UI for later graveyard cleanup.
+- Initial migration intentionally preserved inline card/loading/empty UI for later graveyard cleanup.
 - Validation: NOT RUN.
 
 ---
@@ -104,45 +104,84 @@ This is the stage-by-stage execution log. Architecture/debt lives in `docs/platf
 A targeted shared-UI pass was performed against `DESIGN_SYSTEM.md` before asking for local visual review.
 
 Implemented:
-- `GameCard` was redesigned from an unused generic Card into the canonical **selectable game tile** shape that matches BaziGB's actual Lobby interaction language: selected state, visible border/state, tactile surface, focus-visible state, reduced-motion support and semantic `aria-pressed`.
-- `EmptyState` was upgraded into a reusable product-level empty-state panel with explanatory hierarchy, optional icon/CTA, responsive spacing and Honey Bronze/theme-token surfaces.
-- `LoadingSkeleton` was generalized into a configurable structural grid instead of a single arbitrary page-shaped skeleton.
-- These primitives are now architecture-ready for consumer migration; they are **not yet considered canonical-by-use until Lobby/other consumers adopt them**.
+- `GameCard` was redesigned from an unused generic Card into the canonical selectable game tile shape: selected state, visible state border, tactile surface, focus-visible state, reduced-motion support and semantic `aria-pressed`.
+- `EmptyState` became a reusable product-level empty-state panel with optional icon/CTA and responsive theme-token styling.
+- `LoadingSkeleton` became a configurable structural grid instead of one arbitrary page-shaped skeleton.
+- `Modal` was made locale-neutral: user-facing close/confirm copy is supplied by the consumer, and the dialog surface now follows BaziGB tokens instead of owning Persian copy.
 
-### GameShell audit and fix
+### GameShell bilingual defect
 
-A hidden bilingual/UI debt was found inside canonical `GameShell`: despite localized `/game` and `/play` pages, the shared shell still hard-coded Persian labels for connection status, room, Lobby/back actions, match score, rematch and waiting state.
+A hidden bilingual/UI debt was found inside canonical `GameShell`: despite localized `/game` and `/play` pages, the shared shell still hard-coded Persian labels.
 
 Implemented:
 - Added `i18n/game-shell.ts`.
-- `GameShell` now resolves locale itself through the canonical locale hook.
+- `GameShell` resolves locale through the canonical locale hook.
 - Connection/room/copy/match/rematch/back/waiting labels are bilingual.
-- Back arrow direction now follows locale (`→`-direction intent for RTL, left-arrow for LTR).
+- Back arrow direction follows locale.
 - Physical spacing touched in the shell was replaced by logical spacing.
-- Winner surface now uses theme semantic colors rather than white-on-Honey-Bronze hard-coding.
-- Focus/accessibility and responsive behavior were preserved.
-
-This closes a real gap where the English game routes could still show Persian shared-shell text.
+- Winner surface uses semantic theme colors.
 
 ### Language discoverability
 
-A missing product interaction was identified: bilingual routes existed, but there was no visible way for a user to switch languages.
+Bilingual routes existed but had no visible language control.
 
 Implemented:
 - Added `i18n/language-switcher.ts`.
-- Header now includes a compact FA/EN switcher that preserves the current logical pathname while changing locale.
+- Header exposes a compact FA/EN switcher preserving the current logical pathname.
 - The switcher is responsive and hidden on locale-neutral Admin routes.
-- Header spacing was tightened on mobile and active/navigation styles now use theme tokens instead of repeated raw color literals where touched.
+
+Validation: NOT RUN.
+
+---
+
+## 2026-08-24 — Lobby canonical UI migration
+
+### Implemented
+
+Lobby was rewritten around the shared visual primitives instead of keeping parallel page-local versions.
+
+- Game selection now consumes canonical `GameCard` for all `WEB_GAME_IDS`.
+- Recent-games loading uses canonical `LoadingSkeleton`.
+- Active-room loading uses structural `LoadingSkeleton` rows rather than a generic spinner.
+- Recent-games and active-rooms empty states use canonical `EmptyState`.
+- Error states now expose an immediate retry action where a retry is meaningful.
+- Game/room navigation now uses explicit locale-aware `localizedGameRoute()` / `localizedPlayRoute()` rather than relying on compatibility redirects.
+- Room-code input is explicitly LTR while the surrounding page remains locale-directed.
+- Join-arrow direction follows locale.
+- Game mode controls expose `aria-pressed` and keyboard focus state.
+- Recent-game cards and active-room rows use semantic theme surfaces/borders and reduced-motion-safe hover behavior.
+- Mobile layout adapts selection tiles, mode choices and room rows rather than only shrinking desktop spacing.
+
+### Debt movement
+
+- `DEBT-003` GameCard mismatch: **RESOLVED IN CODE** — Lobby now has a real canonical consumer.
+- `DEBT-009` shared feedback primitive bypass: **SUBSTANTIALLY MITIGATED** in the highest-traffic Lobby states.
+- `DEBT-007` neutral-link dispersion: reduced further by explicit localized Lobby navigation.
+
+### GameShell hierarchy pass
+
+The canonical GameShell received a second visual-hierarchy pass:
+- shell width expanded to `lg` so larger boards are not unnecessarily constrained,
+- utility controls live in a compact header row,
+- game title becomes the primary centered hierarchy,
+- status/match chips form a secondary state row,
+- game content is placed in an explicit centered `main` region,
+- winner state is now a restrained BaziGB panel rather than a large high-elevation primary-color block,
+- room code is forced LTR for stable readability in both locales,
+- mobile utility labels compact without removing the underlying action.
 
 ### Visual review policy
 
-The user explicitly prefers to delay local review until more UI/component cleanup is complete. Therefore the previous visual-review checkpoint is intentionally deferred.
-
-Do **not** request a local run yet. Continue with:
-1. migrate Lobby selection/empty/loading consumers onto the revised shared primitives,
-2. normalize remaining shared feedback patterns,
-3. clean Admin dead Footer logic when executable validation becomes available or when a safe isolated rewrite is possible,
-4. inspect major GameShell/Lobby responsive hierarchy and remaining physical RTL/LTR assumptions,
-5. then declare a new local visual-review checkpoint.
+User preference remains to delay local review until the broader UI cleanup and known visual issues are reduced further. Do not request a local run yet.
 
 Validation: build/typecheck/tests/browser/deploy NOT RUN.
+
+### Next
+
+Continue automatically with:
+1. high-traffic feedback/state consistency outside Lobby,
+2. targeted 360px + RTL/LTR audit of Profile/Tournaments/Game entry shells,
+3. neutral-link cleanup where explicit locale routing is still missing,
+4. safe Admin cleanup preparation,
+5. known-bug/UI pass,
+6. only then declare the next local visual-review checkpoint.
