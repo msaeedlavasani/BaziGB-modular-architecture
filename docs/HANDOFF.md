@@ -60,14 +60,14 @@ Active on this branch through one shared page tree:
 - Middleware rewrites localized URLs internally to shared pages.
 - Root shell activates locale language/direction/theme/font/metadata.
 - Header/Footer emit localized routes.
-- Header now exposes an explicit FA/EN language switcher while preserving the current logical path.
+- Header exposes FA/EN switching while preserving the current logical path.
 - Admin remains locale-neutral.
 
 ## Completed/substantially migrated consumers
 
 - `/game/[gameId]`
 - `/play/[roomId]`
-- Lobby copy/metadata
+- Lobby copy/metadata + canonical visual primitives
 - Tournaments list
 - Tournament detail/bracket
 - Profile
@@ -98,57 +98,66 @@ Canonical by real use:
 - GameShell
 - Dice3D
 - Header/Footer
+- `GameCard` — Lobby selectable-game primitive
+- `EmptyState` — Lobby product-level empty state
+- `LoadingSkeleton` — Lobby repeated-section structural loading
 - game-specific boards
 
-Prepared for canonical consumer migration:
-- `GameCard` — redesigned as selectable game tile with selected/focus/reduced-motion states.
-- `EmptyState` — upgraded to product-level empty-state panel.
-- `LoadingSkeleton` — generalized structural grid.
-
-Still candidate:
-- `Modal` — unused candidate; do not delete before executable verification.
+Remaining candidate:
+- `Modal` — now locale-neutral/design-token aligned but still has no verified consumer. Do not force adoption merely to keep it alive; do not delete before executable verification.
 
 Do not create additional wrappers unless a recurring product pattern justifies them.
 
-## GameShell fix
+## Lobby UI cleanup
 
-A hidden bilingual defect was found and fixed: `GameShell` still contained Persian labels after the entry pages had been localized.
+Lobby no longer maintains a parallel implementation for the shared patterns:
+- game selection uses `GameCard`,
+- Recent Games loading uses `LoadingSkeleton`,
+- room-list loading uses structural `LoadingSkeleton`,
+- recent/room empty states use `EmptyState`,
+- retryable errors provide retry actions,
+- game/room navigation uses explicit localized route builders,
+- room code input remains LTR in both locales,
+- join arrow follows locale,
+- mode choices expose semantic pressed/focus states,
+- mobile selection/mode/room hierarchy adapts for narrow screens,
+- introduced hover motion respects reduced-motion.
 
-Now localized:
-- connection state,
-- room/copy controls,
-- match score tooltip/text,
-- rematch/back labels,
-- waiting-for-opponent state.
+`DEBT-003`: RESOLVED IN CODE.
+`DEBT-009`: SUBSTANTIALLY MITIGATED for Lobby.
 
-Also:
-- back arrow follows RTL/LTR,
-- touched spacing uses logical properties,
-- winner surface uses semantic theme colors.
+## GameShell current hierarchy
 
-Tracked as `DEBT-017` and resolved in code pending executable validation.
+The canonical shell now has:
+- `lg` width for board-heavy games,
+- compact utility header for back/timer/room code,
+- primary centered game title,
+- secondary state/match chip row,
+- explicit centered main game-content region,
+- localized connection/room/match/back/rematch/waiting copy,
+- room code forced LTR,
+- locale-aware back arrow,
+- restrained semantic winner panel.
 
-## Language-switcher fix
-
-Bilingual routes previously had no visible user control to switch language. Header now exposes responsive FA/EN switching. Tracked as `DEBT-018`, resolved in code pending validation.
+This is intended to keep the game/board visually dominant instead of surrounding it with generic dashboard surfaces.
 
 ## Current debt focus
 
-- `DEBT-003` GameCard mismatch — Lobby consumer migration pending.
-- `DEBT-009` shared feedback primitives bypass — Lobby/common consumer migration pending.
+- `DEBT-007` remaining locale-neutral internal links — targeted normalization pending.
+- `DEBT-009` repeated feedback/state patterns outside Lobby — targeted review pending.
 - `DEBT-012` Admin monolith — non-blocking.
 - `DEBT-015` server/data-owned localization boundary — tracked.
 - `DEBT-016` dead Admin Footer logic — cleanup pending validation.
-- remaining locale-neutral page links — targeted normalization pending.
+- runtime/compile validation remains outstanding.
 
 ## Current next action
 
 Continue automatically:
-1. migrate Lobby game selection to revised `GameCard`,
-2. migrate appropriate Lobby loading/empty states to `LoadingSkeleton` / `EmptyState`,
-3. normalize recurring feedback patterns,
-4. inspect remaining Lobby/GameShell 360px + RTL/LTR physical assumptions,
-5. known-bug pass,
+1. audit Profile/Tournaments/game-entry screens for 360px responsive hierarchy and physical RTL/LTR assumptions,
+2. normalize remaining high-traffic neutral internal links,
+3. review repeated loading/empty/error patterns outside Lobby and only promote patterns that genuinely recur,
+4. prepare safe Admin dead-logic cleanup without expanding the monolith,
+5. known-bug/UI pass,
 6. then declare a new local visual-review checkpoint.
 
 Do not request a local run yet unless this cleanup reaches that checkpoint or a runtime-only blocker requires it.
