@@ -79,7 +79,22 @@ Canonical client locale resolver:
 
 A duplicate locale hook created during the refactor was removed after consumer verification (`DEBT-014`).
 
-## 4. Managed Footer Contract
+## 4. Design System Alignment
+
+`DESIGN_SYSTEM.md` is now version `2.1.0` and reflects the actual bilingual product architecture instead of the previous global RTL assumption.
+
+Important rules now explicit:
+- Persian is RTL; English is LTR.
+- Direction and typography come from locale, not page hard-coding.
+- Direction-independent codes/identifiers may remain LTR.
+- 360px is the minimum mobile target.
+- Global hover glow is not a default interaction rule; glow is reserved for meaningful game/state emphasis.
+- default MUI palette colors must not leak into BaziGB when approved tokens exist.
+- repeated loading/empty/error patterns should be shared only when they genuinely recur.
+
+The MUI theme now defines `warning` from the Honey Bronze token family instead of inheriting MUI default orange, and global Button hover no longer adds a bronze glow to every button.
+
+## 5. Managed Footer Contract
 
 Backward-compatible content model:
 
@@ -95,7 +110,7 @@ response: footer + footers.fa + footers.en
 - eNamad product policy is **resolved**: show it in both Persian and English shells for now.
 - eNamad stays outside locale-managed visibility settings until market policy changes.
 
-## 5. Canonical Game Presentation Metadata
+## 6. Canonical Game Presentation Metadata
 
 `apps/web/src/lib/game-catalog.ts` has real consumers in primary game/Lobby/Profile/Tournament presentation paths.
 
@@ -103,7 +118,7 @@ Boundary:
 - Web catalog owns presentation identity/fallback display metadata.
 - Runtime player capability/rules remain GameAdapter/server-owned.
 
-## 6. Shared UI / Component Graveyard
+## 7. Shared UI / Component Graveyard
 
 ### Canonical by real use
 - `GameShell`
@@ -135,7 +150,7 @@ Boundary:
 
 Do not wrap every MUI primitive merely to increase component count.
 
-## 7. GameShell Standardization
+## 8. GameShell Standardization
 
 The shared shell now serves as the visual hierarchy for both local/bot and multiplayer game routes.
 
@@ -152,7 +167,7 @@ Current behavior:
 
 The game board remains the intended visual center, consistent with `DESIGN_SYSTEM.md`.
 
-## 8. Lobby UI Standardization
+## 9. Lobby UI Standardization
 
 Lobby is now a real consumer of the shared primitives rather than a parallel inline UI system.
 
@@ -167,7 +182,20 @@ Implemented:
 - mobile layout adapts hierarchy for 360px+ rather than merely reducing desktop spacing,
 - hover motion respects reduced-motion preference where introduced.
 
-## 9. Consumer Migration Status
+## 10. Header / 360px Shell Hardening
+
+The bilingual Header was tightened for the 360px minimum target:
+- mobile toolbar gaps and padding reduced,
+- brand icon scales down on xs,
+- primary nav actions become compact icon targets with Tooltip labels,
+- language, sound and profile controls use compact mobile hit areas without hidden overflow,
+- desktop labels remain available at larger breakpoints,
+- active navigation exposes `aria-current`,
+- touched spacing uses logical properties and theme-derived colors.
+
+Executable 360px validation remains pending; this is code-level hardening, not a visual PASS.
+
+## 11. Consumer Migration Status
 
 Substantially migrated client-owned presentation:
 - `/game/[gameId]`
@@ -183,7 +211,7 @@ Substantially migrated client-owned presentation:
 
 Data/server-owned text remains verbatim by design, including tournament managed fields and server chat/system payloads.
 
-## 10. Bug / Debt Ledger
+## 12. Bug / Debt Ledger
 
 - **DEBT-001 — global locale/direction assumptions:** SUBSTANTIALLY MITIGATED; runtime validation pending.
 - **DEBT-002 — mixed-language Lobby copy:** SUBSTANTIALLY RESOLVED.
@@ -203,21 +231,23 @@ Data/server-owned text remains verbatim by design, including tournament managed 
 - **DEBT-016 — dead Footer editor state/functions in `/admin`:** OPEN; focused `/admin/footer` is canonical; dead logic removal pending safe executable validation.
 - **DEBT-017 — shared GameShell retained Persian hard-coded shell labels after page localization:** RESOLVED IN CODE; executable validation pending.
 - **DEBT-018 — bilingual routes had no visible language switcher:** RESOLVED IN CODE; Header exposes FA/EN switching.
+- **DEBT-019 — default MUI warning color + global Button hover glow diverged from Design System:** RESOLVED IN CODE; theme now stays inside Honey Bronze and global glow is removed.
+- **UI-001 — Profile xs stats grid is still two columns and may be overly dense at the 360px minimum:** OPEN / next targeted responsive pass; requires code adjustment before visual-review checkpoint.
 - **BUG-001 — runtime/compile state:** VALIDATION PENDING; no PASS claimed.
 
-## 11. Current UI Cleanup Order
+## 13. Current UI Cleanup Order
 
 User preference: **do not request local visual review yet**. First reduce known visual/UI debt.
 
 Continue in this order:
-1. targeted high-traffic state/feedback consistency outside Lobby,
-2. audit Profile/Tournaments/game-entry pages for 360px hierarchy and physical RTL/LTR assumptions,
-3. normalize remaining explicit neutral internal links,
+1. fix Profile 360px density and remaining neutral Profile links,
+2. audit Tournaments/game-entry pages for narrow-screen hierarchy and physical RTL/LTR assumptions,
+3. review repeated feedback/state patterns outside Lobby,
 4. prepare safe Admin dead-logic cleanup without expanding the monolith,
 5. known-bug/UI pass,
 6. then declare a new local visual-review checkpoint.
 
-## 12. Safety / Validation
+## 14. Safety / Validation
 
 - `main`: untouched.
 - Governance branch: untouched.
