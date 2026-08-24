@@ -65,7 +65,7 @@ The duplicate `i18n/useAppLocale.ts` was removed after consumer verification (`D
 
 ## 4. Design System Alignment
 
-`DESIGN_SYSTEM.md` v2.1.0 reflects the bilingual architecture.
+`DESIGN_SYSTEM.md` is now **v2.2.0** and reflects both bilingual behavior and a canonical visual-shape hierarchy.
 
 Current system rules include:
 - Persian RTL / English LTR,
@@ -75,9 +75,25 @@ Current system rules include:
 - 360px minimum mobile target,
 - theme tokens over arbitrary/default MUI colors,
 - global glow is not a default hover language,
-- structural loading/empty/error patterns are shared only when they genuinely recur.
+- structural loading/empty/error patterns are shared only when they genuinely recur,
+- canonical corner-radius hierarchy: compact controls `8px`, controls/inputs `10px`, small surfaces `12px`, cards/panels `16px`.
 
-Theme cleanup now also ensures:
+### Shape baseline
+
+MUI numeric `sx` border-radius values multiply `theme.shape.borderRadius`. The previous `12px` base made common values such as `borderRadius: 3/4` render at 36/48px and produced over-rounded inconsistent surfaces.
+
+The theme base is now **4px**:
+
+```text
+2   -> 8px
+2.5 -> 10px
+3   -> 12px
+4   -> 16px
+```
+
+The theme exports `shapeScale` for explicit-pixel cases. Functional exceptions remain valid for circles, avatars, game pieces and specialized board geometry.
+
+Theme cleanup also ensures:
 - `warning` stays in Honey Bronze instead of MUI default orange,
 - global Paper styling does not force visual elevation onto `elevation={0}` surfaces,
 - non-interactive Cards do not globally lift/glow,
@@ -223,6 +239,7 @@ This is an implementation/validation issue, not a product decision.
 - `DEBT-018` missing visible language switcher — RESOLVED IN CODE.
 - `DEBT-019` MUI warning/default hover-glow divergence — RESOLVED IN CODE.
 - `DEBT-020` MUI/Emotion RTL cache/plugin verification — OPEN / RUNTIME-VALIDATION DEPENDENT.
+- `DEBT-021` oversized/inconsistent MUI radius baseline — RESOLVED IN CODE; visual validation pending.
 - `UI-001` Profile 360px density — RESOLVED IN CODE.
 - `BUG-001` runtime/compile state — VALIDATION PENDING.
 - `BUG-002` `/play` imported deleted `i18n/useAppLocale` — RESOLVED IN CODE; executable validation pending.
