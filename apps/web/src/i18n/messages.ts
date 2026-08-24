@@ -108,10 +108,27 @@ export interface AppMessages {
     playersShort: (current: number, max: number) => string;
   };
   tournaments: {
+    title: string;
     registrationOpen: string;
     inProgress: string;
     completed: string;
     fallbackDescription: string;
+    openSummary: (count: number) => string;
+    emptySummary: string;
+    filterAll: string;
+    filterOpen: string;
+    loadError: string;
+    joinError: string;
+    noTournaments: string;
+    noTournamentsHint: string;
+    starts: (date: string) => string;
+    players: (current: number, max: number) => string;
+    joined: string;
+    signInToJoin: string;
+    full: string;
+    join: string;
+    viewBracket: string;
+    viewResults: string;
   };
   footer: {
     rules: string;
@@ -228,10 +245,27 @@ const MESSAGES: Record<Locale, AppMessages> = {
       playersShort: (current, max) => `${current}/${max}`,
     },
     tournaments: {
+      title: 'تورنمنت‌ها',
       registrationOpen: 'ثبت‌نام باز',
       inProgress: 'در حال برگزاری',
       completed: 'پایان‌یافته',
       fallbackDescription: 'حذفی تک‌مرحله‌ای؛ برنده‌ها صعود می‌کنند و یک نفر قهرمان می‌شود.',
+      openSummary: (count) => `${count} تورنمنت هم‌اکنون برای ثبت‌نام باز است.`,
+      emptySummary: 'یک تورنمنت انتخاب کنید و جای خود را بگیرید.',
+      filterAll: 'همه',
+      filterOpen: 'باز',
+      loadError: 'دریافت تورنمنت‌ها ممکن نشد.',
+      joinError: 'عضویت در تورنمنت ممکن نشد.',
+      noTournaments: 'تورنمنتی در این بخش نیست',
+      noTournamentsHint: 'بعداً دوباره سر بزنید — تورنمنت‌های جدید به‌صورت منظم اضافه می‌شوند.',
+      starts: (date) => `شروع: ${date}`,
+      players: (current, max) => `${current}/${max} بازیکن`,
+      joined: 'عضو شدید',
+      signInToJoin: 'برای عضویت وارد شوید',
+      full: 'ظرفیت تکمیل',
+      join: 'عضویت',
+      viewBracket: 'مشاهده جدول',
+      viewResults: 'مشاهده نتایج',
     },
     footer: {
       rules: 'قوانین بازی',
@@ -346,10 +380,27 @@ const MESSAGES: Record<Locale, AppMessages> = {
       playersShort: (current, max) => `${current}/${max}`,
     },
     tournaments: {
+      title: 'Tournaments',
       registrationOpen: 'Registration open',
       inProgress: 'In progress',
       completed: 'Completed',
       fallbackDescription: 'Single-elimination knockout. Winners advance and one player takes it all.',
+      openSummary: (count) => `${count} tournament${count === 1 ? '' : 's'} open for registration right now.`,
+      emptySummary: 'Pick a tournament and claim your spot.',
+      filterAll: 'All',
+      filterOpen: 'Open',
+      loadError: 'Could not load tournaments.',
+      joinError: 'Could not join the tournament.',
+      noTournaments: 'No tournaments here',
+      noTournamentsHint: 'Check back soon — new tournaments are added regularly.',
+      starts: (date) => `Starts ${date}`,
+      players: (current, max) => `${current}/${max} players`,
+      joined: 'Joined',
+      signInToJoin: 'Sign in to join',
+      full: 'Full',
+      join: 'Join',
+      viewBracket: 'View bracket',
+      viewResults: 'View results',
     },
     footer: {
       rules: 'Game rules',
