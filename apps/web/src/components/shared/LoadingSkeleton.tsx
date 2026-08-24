@@ -1,17 +1,47 @@
 'use client';
+
 import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
 
-/** اسکلت ساختاری برای حالت بارگذاری (Loading) */
-export default function LoadingSkeleton() {
+interface LoadingSkeletonProps {
+  count?: number;
+  height?: number;
+  columns?: { xs?: number; sm?: number; md?: number };
+}
+
+/**
+ * Structural loading skeleton for repeated section content.
+ * Use page-specific skeletons when the final layout has materially different geometry.
+ */
+export default function LoadingSkeleton({
+  count = 4,
+  height = 140,
+  columns = { xs: 1, sm: 2, md: 4 },
+}: LoadingSkeletonProps) {
+  const gridTemplateColumns = {
+    xs: `repeat(${columns.xs ?? 1}, minmax(0, 1fr))`,
+    sm: `repeat(${columns.sm ?? columns.xs ?? 1}, minmax(0, 1fr))`,
+    md: `repeat(${columns.md ?? columns.sm ?? columns.xs ?? 1}, minmax(0, 1fr))`,
+  };
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
-      <Skeleton variant="rectangular" width="100%" height={120} sx={{ borderRadius: 3 }} />
-      <Skeleton variant="rectangular" width="100%" height={320} sx={{ borderRadius: 3 }} />
-      <Box sx={{ display: 'flex', gap: 2 }}>
-        <Skeleton variant="rectangular" width="30%" height={48} sx={{ borderRadius: 2 }} />
-        <Skeleton variant="rectangular" width="30%" height={48} sx={{ borderRadius: 2 }} />
-      </Box>
+    <Box
+      aria-hidden
+      sx={{
+        width: '100%',
+        display: 'grid',
+        gridTemplateColumns,
+        gap: 3,
+      }}
+    >
+      {Array.from({ length: count }).map((_, index) => (
+        <Skeleton
+          key={index}
+          variant="rectangular"
+          height={height}
+          sx={{ borderRadius: 4, transform: 'none' }}
+        />
+      ))}
     </Box>
   );
 }
