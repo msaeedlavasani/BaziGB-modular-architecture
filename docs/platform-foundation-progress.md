@@ -160,6 +160,40 @@ Implemented:
 
 Tracked as `DEBT-019` and resolved in code pending executable validation.
 
+---
+
+## 2026-08-24 — Header 360px hardening
+
+A targeted mobile-shell pass was applied before local review:
+- reduced xs toolbar padding/gaps,
+- reduced brand icon size on xs,
+- primary navigation uses compact icon targets on mobile with Tooltip labels,
+- language/sound/profile controls use compact mobile dimensions,
+- desktop labels remain available at larger breakpoints,
+- active nav/profile controls expose `aria-current`,
+- physical brand spacing was replaced with logical `marginInlineStart`,
+- touched border/color styling derives from theme tokens.
+
+This is code-level hardening for the 360px minimum; it is not a browser-validation PASS.
+
+---
+
+## 2026-08-24 — Design System bilingual sync
+
+`DESIGN_SYSTEM.md` upgraded to v2.1.0 so documentation no longer contradicts the implementation:
+- Persian is RTL and English is LTR,
+- direction and typography are locale-derived,
+- LTR identifiers/codes are explicitly allowed,
+- 360px Header usability is now a completion requirement,
+- shared state primitives must earn reuse through real recurring patterns,
+- default MUI colors must not leak around the token system,
+- global hover glow is explicitly discouraged,
+- frontend completion checklist now covers locale direction/typography.
+
+### New responsive finding
+
+Static Profile inspection identified `UI-001`: the stats grid remains two columns at `xs`, which may be too dense at the 360px minimum given icon + text + internal padding. This is queued for the next targeted responsive pass before local visual review.
+
 ### Visual review policy
 
 User preference remains to delay local review until the broader UI cleanup and known visual issues are reduced further. Do not request a local run yet.
@@ -167,9 +201,9 @@ User preference remains to delay local review until the broader UI cleanup and k
 ### Next
 
 Continue automatically with:
-1. high-traffic feedback/state consistency outside Lobby,
-2. targeted 360px + RTL/LTR audit of Profile/Tournaments/game entry screens,
-3. remaining neutral-link cleanup,
+1. fix Profile 360px density and explicit localized links,
+2. audit Tournaments/game-entry narrow-screen hierarchy and RTL/LTR assumptions,
+3. remaining high-traffic feedback consistency,
 4. safe Admin cleanup preparation,
 5. known-bug/UI pass,
 6. only then declare the next local visual-review checkpoint.
