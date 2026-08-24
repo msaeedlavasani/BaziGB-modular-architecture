@@ -48,6 +48,29 @@ export interface AppMessages {
     draw: string;
     finalScore: (you: number, bot: number) => string;
   };
+  multiplayer: {
+    gameFallback: string;
+    opponentTurn: string;
+    opponentWon: string;
+    liveSpectating: string;
+    spectatorNotice: string;
+    waitingForOpponent: string;
+    shareRoomCode: (roomCode: string) => string;
+    players: (current: number, max: number) => string;
+    copied: string;
+    copyCode: string;
+    startGame: string;
+    ownerStarting: string;
+    matchScore: (a: number, b: number) => string;
+    turnExpired: string;
+    undoOwnMove: string;
+    chat: string;
+    noMessages: string;
+    guest: string;
+    system: string;
+    messagePlaceholder: string;
+    send: string;
+  };
   lobby: {
     waiting: string;
     inProgress: string;
@@ -117,6 +140,29 @@ const MESSAGES: Record<Locale, AppMessages> = {
       draw: 'مساوی!',
       finalScore: (you, bot) => `امتیاز نهایی — شما ${you} : ${bot} ربات`,
     },
+    multiplayer: {
+      gameFallback: 'بازی',
+      opponentTurn: 'نوبت حریف',
+      opponentWon: 'حریف برنده شد',
+      liveSpectating: 'تماشای زنده',
+      spectatorNotice: '👁 شما تماشاچی هستید — بازی را زنده می‌بینید',
+      waitingForOpponent: 'در انتظار حریف…',
+      shareRoomCode: (roomCode) => `کد اتاق ${roomCode} را برای دوستتان بفرستید`,
+      players: (current, max) => `${current}/${max} بازیکن`,
+      copied: 'کپی شد!',
+      copyCode: 'کپی کد',
+      startGame: 'شروع بازی',
+      ownerStarting: 'صاحب اتاق بازی را شروع می‌کند…',
+      matchScore: (a, b) => `مسابقه ${a} - ${b}`,
+      turnExpired: 'نوبت منقضی شد',
+      undoOwnMove: 'بازگردانی آخرین حرکت خودتان',
+      chat: 'گفتگو',
+      noMessages: 'هنوز پیامی نیست…',
+      guest: 'مهمان',
+      system: 'سیستم',
+      messagePlaceholder: 'پیام…',
+      send: 'ارسال',
+    },
     lobby: {
       waiting: 'در انتظار',
       inProgress: 'در حال بازی',
@@ -183,6 +229,29 @@ const MESSAGES: Record<Locale, AppMessages> = {
       botWon: 'Bot won',
       draw: 'Draw!',
       finalScore: (you, bot) => `Final score — You ${you} : ${bot} Bot`,
+    },
+    multiplayer: {
+      gameFallback: 'Game',
+      opponentTurn: "Opponent's turn",
+      opponentWon: 'Opponent won',
+      liveSpectating: 'Live spectating',
+      spectatorNotice: '👁 You are spectating this game live',
+      waitingForOpponent: 'Waiting for an opponent…',
+      shareRoomCode: (roomCode) => `Share room code ${roomCode} with your friend`,
+      players: (current, max) => `${current}/${max} players`,
+      copied: 'Copied!',
+      copyCode: 'Copy code',
+      startGame: 'Start game',
+      ownerStarting: 'The room owner will start the game…',
+      matchScore: (a, b) => `Match ${a} - ${b}`,
+      turnExpired: 'Turn expired',
+      undoOwnMove: 'Undo your last move',
+      chat: 'Chat',
+      noMessages: 'No messages yet…',
+      guest: 'Guest',
+      system: 'System',
+      messagePlaceholder: 'Message…',
+      send: 'Send',
     },
     lobby: {
       waiting: 'Waiting',
