@@ -41,7 +41,7 @@ localized metadata
 localized routes
 ```
 
-Locales: `fa` RTL and `en` LTR. `DESIGN_SYSTEM.md` v2.1.0 reflects this model.
+Locales: `fa` RTL and `en` LTR. `DESIGN_SYSTEM.md` is now **v2.2.0**.
 
 ## Public locale routing
 
@@ -82,6 +82,25 @@ Canonical by real use:
 Remaining candidate:
 - `Modal` — no verified consumer; do not force adoption and do not delete before executable verification.
 
+## Visual consistency / shape system
+
+`DEBT-021` is resolved in code pending visual validation.
+
+The previous MUI shape base was `12px`. Because numeric `sx` radius values multiply the base, common values such as `borderRadius: 3/4` produced 36/48px corners on ordinary surfaces.
+
+Canonical base is now `4px`:
+
+```text
+2   -> 8px   compact controls
+2.5 -> 10px  buttons / inputs
+3   -> 12px  icon containers / small surfaces
+4   -> 16px  cards / panels / major surfaces
+```
+
+Theme exports `shapeScale`. Circles, avatars, game pieces and specialized board geometry are intentional exceptions.
+
+This is a broad visual change and must be checked during the eventual local visual pass, but no local run is requested yet per current user preference.
+
 ## Major UI cleanup completed in code
 
 ### Lobby
@@ -108,7 +127,8 @@ Remaining candidate:
 - no forced shadow on every Paper,
 - non-interactive Cards do not globally lift/glow,
 - global Button hover glow removed,
-- focus-visible and reduced-motion handling strengthened.
+- focus-visible and reduced-motion handling strengthened,
+- radius hierarchy normalized through 4px MUI base.
 
 ### Header / root shell
 - Header hardened statically for 360px,
@@ -134,16 +154,40 @@ Remaining candidate:
 - canonical empty history treatment.
 
 ### Multiplayer `/play/[roomId]`
-A concrete compile-risk regression was found: this page still imported the already-deleted `i18n/useAppLocale` module.
-
 `BUG-002` resolved in code:
-- canonical `hooks/useAppLocale` import restored,
-- targeted search shows no remaining `i18n/useAppLocale` import,
+- removed stale import of deleted `i18n/useAppLocale`,
+- canonical `hooks/useAppLocale` import,
 - localized Lobby back route,
 - semantic waiting/spectator/chat colors,
-- removed unrelated hard-coded chat blue and heavy waiting shadow,
 - narrow-screen chat composer stacks,
 - realtime/gameplay protocol behavior preserved.
+
+### Tic-Tac-Toe board
+Game-specific UI audit found that the board itself still bypassed the bilingual/theme work.
+
+Fixed in code:
+- removed hard-coded Persian turn/winner copy from the board presentation,
+- uses active locale game-shell labels,
+- replaced unrelated hard-coded blue player styling with semantic theme colors while X/O symbols preserve non-color distinction,
+- cells are semantic keyboard-focusable buttons rather than clickable generic boxes,
+- board surface derives from theme colors,
+- radius now follows canonical shape scale,
+- reduced-motion/focus-visible behavior added.
+
+## Game-specific static audit findings
+
+### Chess
+- board is intentionally `direction: ltr`, which is correct game geometry rather than an RTL bug,
+- fixed wood/square colors are classified as game-art/specialized-board styling, not generic application palette leakage,
+- responsive width is already `width: 100%; maxWidth: 560`.
+
+### Backgammon
+- board geometry intentionally uses LTR and some physical `left/right/top/bottom` positioning inside the board; this is allowed specialized geometry, not application-direction debt,
+- outer board is width-constrained responsively (`width: 100%; maxWidth: 960`).
+
+`BUG-003` discovered during static inspection:
+- Backgammon SVG `<defs>` currently declares `id="bgPtLight"` twice.
+- This is duplicate SVG ID/dead-definition debt. It is not currently proven to break rendering but should be removed in the next safe Backgammon edit/validation pass.
 
 ## Admin Footer
 
@@ -167,8 +211,10 @@ Do not add dependency/lockfile changes blindly in connector-only mode. Verify MU
 - `DEBT-015` server/data-owned localization boundary — tracked.
 - `DEBT-016` dead Admin Footer logic — cleanup pending validation.
 - `DEBT-020` MUI/Emotion RTL cache/plugin verification — runtime dependent.
+- `DEBT-021` oversized/inconsistent radius baseline — RESOLVED IN CODE / visual validation pending.
 - `BUG-001` overall runtime/compile validation — outstanding.
 - `BUG-002` stale deleted locale-hook import in `/play` — RESOLVED IN CODE.
+- `BUG-003` duplicate Backgammon SVG gradient id — OPEN / non-blocking static cleanup target.
 
 ## Validation infrastructure
 
@@ -179,16 +225,16 @@ Branch-only `.github/workflows/foundation-web-check.yml` exists and is intended 
 - web typecheck,
 - web build.
 
-The connector has not surfaced a completed status for current commits. This is not PASS.
+A completed current status has not yet been confirmed. This is not PASS.
 
 ## Current next action
 
 Continue automatically:
-1. audit Tournament detail and local game-entry UI for remaining 360px/physical-direction issues,
-2. inspect game-specific surrounding controls for shell-level overflow without redesigning game art,
+1. finish Tournament detail + local game-entry narrow-screen/logical-route audit,
+2. continue game-specific surrounding UI scan (Vegas/Backgammon controls) without redesigning game art,
 3. normalize only proven recurring feedback patterns,
 4. prepare safe Admin dead Footer cleanup,
-5. perform static known-bug/compile-risk pass,
+5. perform static known-bug/compile-risk pass including `BUG-003`,
 6. then declare a new local visual-review checkpoint.
 
 Do not request local run before that checkpoint unless a runtime-only blocker makes static progress impossible.
