@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useAppLocale } from '@/hooks/useAppLocale';
+import { getAuthMessages } from '@/i18n/auth';
 import {
   Box,
   Button,
@@ -24,12 +26,10 @@ function toEnglishDigits(input: string): string {
     .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
 }
 
-/**
- * ورود فقط با شماره موبایل و کد OTP (ورود ایمیل/پسورد حذف شده است).
- * کاربر جدید بعد از دریافت کد، نام کاربری خود را انتخاب می‌کند.
- */
 export default function LoginPage() {
   const router = useRouter();
+  const locale = useAppLocale();
+  const messages = getAuthMessages(locale);
   const { user, isLoading, loginWithOtp } = useAuth();
 
   const [phone, setPhone] = useState('');
@@ -43,7 +43,6 @@ export default function LoginPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Countdown timer
   useEffect(() => {
     if (timer > 0) {
       const interval = setInterval(() => setTimer((t) => t - 1), 1000);
@@ -51,7 +50,6 @@ export default function LoginPage() {
     }
   }, [timer]);
 
-  // Already authenticated -> go home
   useEffect(() => {
     if (user && !isLoading) router.replace('/');
   }, [user, isLoading, router]);
@@ -59,9 +57,9 @@ export default function LoginPage() {
   function validatePhone(): { phone?: string } {
     const errors: { phone?: string } = {};
     if (!phone.trim()) {
-      errors.phone = 'شماره موبایل الزامی است';
+      errors.phone = messages.phoneRequired;
     } else if (!PHONE_RE.test(phone.trim())) {
-      errors.phone = 'شماره موبایل معتبر نیست (مثلاً ۰۹۱۲۳۴۵۶۷۸۹)';
+      errors.phone = messages.phoneInvalid;
     }
     return errors;
   }
@@ -80,9 +78,9 @@ export default function LoginPage() {
       setTimer(60);
     } catch (error: any) {
       if (error.status === 429) {
-        setServerError('۶۰ ثانیه صبر کنید');
+        setServerError(messages.waitBeforeRetry);
       } else {
-        setServerError(error.message || 'خطا در ارسال کد');
+        setServerError(error.message || messages.sendCodeError);
       }
     } finally {
       setSubmitting(false);
@@ -94,11 +92,11 @@ export default function LoginPage() {
     setServerError(null);
 
     const errors: { phone?: string; code?: string; username?: string } = {};
-    if (!code.trim()) errors.code = 'کد تایید الزامی است';
+    if (!code.trim()) errors.code = messages.verificationRequired;
     if (isNewUser && !username.trim()) {
-      errors.username = 'نام کاربری الزامی است';
+      errors.username = messages.usernameRequired;
     } else if (isNewUser && !USERNAME_RE.test(username.trim())) {
-      errors.username = 'نام کاربری باید ۳-۲۰ کاراکتر (حروف و اعداد لاتین) باشد';
+      errors.username = messages.usernameRule;
     }
 
     setFieldErrors(errors);
@@ -115,7 +113,7 @@ export default function LoginPage() {
         setIsNewUser(true);
       }
     } catch (error: any) {
-      setServerError(error.message || 'خطا در تایید کد');
+      setServerError(error.message || messages.verifyCodeError);
     } finally {
       setSubmitting(false);
     }
@@ -125,7 +123,7 @@ export default function LoginPage() {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 10, gap: 2 }}>
         <CircularProgress size={48} thickness={4} color="primary" />
-        <Typography color="text.secondary">بررسی نشست شما...</Typography>
+        <Typography color="text.secondary">{messages.checkingSession}</Typography>
       </Box>
     );
   }
@@ -135,10 +133,10 @@ export default function LoginPage() {
       <Box sx={{ width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 6 }}>
         <Box sx={{ textAlign: 'center' }}>
           <Typography variant="h3" sx={{ fontWeight: 900, color: 'primary.main', mb: 2 }}>
-            خوش آمدید
+            {messages.welcome}
           </Typography>
           <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-            {step === 'request' ? 'برای شروع شماره موبایل خود را وارد کنید' : 'کد تایید ارسال شده را وارد کنید'}
+            {step === 'request' ? messages.requestSubtitle : messages.verifySubtitle}
           </Typography>
         </Box>
 
@@ -164,14 +162,14 @@ export default function LoginPage() {
         >
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
-              شماره موبایل
+              {messages.phone}
             </Typography>
             <TextField
               fullWidth
               type="tel"
               value={phone}
               onChange={(e) => setPhone(toEnglishDigits(e.target.value))}
-              placeholder="۰۹۱۲۳۴۵۶۷۸۹"
+              placeholder="09123456789"
               disabled={step !== 'request'}
               error={!!fieldErrors.phone}
               helperText={fieldErrors.phone}
@@ -180,7 +178,7 @@ export default function LoginPage() {
                   direction: 'ltr',
                   fontWeight: 700,
                   fontSize: '1.1rem',
-                  letterSpacing: '0.05em'
+                  letterSpacing: '0.05em',
                 },
               }}
             />
@@ -193,20 +191,16 @@ export default function LoginPage() {
               disabled={submitting}
               variant="contained"
               size="large"
-              sx={{
-                py: 2,
-                fontWeight: 900,
-                fontSize: '1rem',
-              }}
+              sx={{ py: 2, fontWeight: 900, fontSize: '1rem' }}
             >
-              {submitting ? <CircularProgress size={24} color="inherit" /> : 'دریافت کد تایید'}
+              {submitting ? <CircularProgress size={24} color="inherit" /> : messages.requestCode}
             </Button>
           ) : (
             <>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
-                    کد تایید
+                    {messages.verificationCode}
                   </Typography>
                   <Button
                     size="small"
@@ -214,7 +208,7 @@ export default function LoginPage() {
                     onClick={handleRequestOtp}
                     sx={{ minWidth: 0, p: 0, fontWeight: 700 }}
                   >
-                    {timer > 0 ? `${timer} ثانیه تا ارسال مجدد` : 'ارسال مجدد کد'}
+                    {timer > 0 ? messages.resendIn(timer) : messages.resendCode}
                   </Button>
                 </Box>
                 <TextField
@@ -230,7 +224,7 @@ export default function LoginPage() {
                       textAlign: 'center',
                       letterSpacing: 8,
                       fontWeight: 900,
-                      fontSize: '1.25rem'
+                      fontSize: '1.25rem',
                     },
                   }}
                 />
@@ -239,7 +233,7 @@ export default function LoginPage() {
               {isNewUser && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
-                    نام کاربری (لاتین)
+                    {messages.username}
                   </Typography>
                   <TextField
                     fullWidth
@@ -247,7 +241,7 @@ export default function LoginPage() {
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="e.g. player_one"
                     error={!!fieldErrors.username}
-                    helperText={fieldErrors.username || 'حروف، اعداد و _ (۳ تا ۲۰ کاراکتر)'}
+                    helperText={fieldErrors.username || messages.usernameHint}
                   />
                 </Box>
               )}
@@ -258,13 +252,15 @@ export default function LoginPage() {
                 disabled={submitting}
                 variant="contained"
                 size="large"
-                sx={{
-                  py: 2,
-                  fontWeight: 900,
-                  fontSize: '1rem',
-                }}
+                sx={{ py: 2, fontWeight: 900, fontSize: '1rem' }}
               >
-                {submitting ? <CircularProgress size={24} color="inherit" /> : isNewUser ? 'ثبت‌نام و ورود' : 'ورود به حساب'}
+                {submitting ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : isNewUser ? (
+                  messages.registerAndLogin
+                ) : (
+                  messages.login
+                )}
               </Button>
 
               <Button
@@ -279,7 +275,7 @@ export default function LoginPage() {
                 }}
                 sx={{ color: 'text.secondary', fontWeight: 600 }}
               >
-                ویرایش شماره موبایل
+                {messages.editPhone}
               </Button>
             </>
           )}
