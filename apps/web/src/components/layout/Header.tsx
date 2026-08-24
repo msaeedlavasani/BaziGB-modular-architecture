@@ -56,9 +56,13 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
     p: 0,
     borderRadius: '50%',
     border: '1px solid',
-    borderColor: alpha(theme.palette.primary.main, 0.2),
+    borderColor: alpha(theme.palette.primary.main, 0.22),
     color: 'text.secondary',
     flexShrink: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    lineHeight: 1,
   } as const;
 
   return (
@@ -67,76 +71,46 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
       elevation={0}
       sx={{
         top: 0,
+        left: 0,
+        right: 0,
+        width: '100%',
+        maxWidth: '100%',
         zIndex: 40,
-        bgcolor: alpha(theme.palette.secondary.main, 0.92),
+        bgcolor: alpha(theme.palette.secondary.main, 0.96),
         backdropFilter: 'blur(10px)',
+        border: 0,
         borderBottom: '1px solid',
-        borderColor: 'divider',
+        borderBottomColor: 'divider',
+        borderRadius: 0,
+        overflowX: 'clip',
+        boxSizing: 'border-box',
       }}
     >
       <Toolbar
+        disableGutters
         sx={{
-          width: '100%',
-          minHeight: { xs: 64, sm: 64 },
-          px: { xs: 1.25, sm: 3, md: 6 },
           position: 'relative',
-          display: 'flex',
-          alignItems: 'center',
-          gap: { xs: 0.5, sm: 2, md: 4 },
+          width: '100%',
+          maxWidth: 1440,
+          minHeight: { xs: 64, md: 68 },
+          mx: 'auto',
+          px: { xs: 2, sm: 3, md: 6 },
+          boxSizing: 'border-box',
+          direction: 'ltr',
         }}
       >
-        <Link
-          href={localizedAppRoute(locale, 'lobby')}
-          aria-label="BaziGB"
-          style={{
-            textDecoration: 'none',
-            display: 'flex',
-            alignItems: 'center',
-          }}
-        >
-          <Box
-            sx={{
-              position: { xs: 'absolute', sm: 'relative' },
-              insetInlineStart: { xs: '50%', sm: 'auto' },
-              top: { xs: '50%', sm: 'auto' },
-              transform: { xs: 'translate(-50%, -50%)', sm: 'none' },
-              width: { xs: 38, sm: 36 },
-              height: { xs: 38, sm: 36 },
-              overflow: 'hidden',
-              borderRadius: 2.5,
-              flexShrink: 0,
-              zIndex: 2,
-            }}
-          >
-            <Image src="/brand/logo-icon.png" alt="BaziGB" fill sizes="38px" style={{ objectFit: 'contain' }} />
-          </Box>
-          <Typography
-            variant="h5"
-            sx={{
-              marginInlineStart: 2,
-              color: 'primary.main',
-              fontWeight: 900,
-              letterSpacing: '0.02em',
-              whiteSpace: 'nowrap',
-              display: { xs: 'none', sm: 'block' },
-            }}
-          >
-            BaziGB
-          </Typography>
-        </Link>
-
         <Box
           component="nav"
           aria-label={messages.navigation.lobby}
           sx={{
+            position: 'absolute',
+            right: { xs: 8, sm: 12, md: 24 },
+            top: '50%',
+            transform: 'translateY(-50%)',
             display: 'flex',
             alignItems: 'center',
-            gap: { xs: 0.25, sm: 0.75, md: 1.5 },
-            flexGrow: { xs: 0, sm: 1 },
-            justifyContent: { xs: 'flex-start', sm: 'center' },
-            minWidth: 0,
-            order: { xs: 2, sm: 0 },
-            marginInlineStart: { xs: 'auto', sm: 0 },
+            gap: { xs: 0.25, sm: 0.75, md: 1.25 },
+            direction: theme.direction,
           }}
         >
           {navLinks.map((link) => {
@@ -158,8 +132,11 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
                     py: { xs: 0, md: 1 },
                     borderRadius: { xs: '50%', md: 2.5 },
                     color: active ? 'secondary.main' : 'text.secondary',
-                    columnGap: { xs: 0, md: 1.25 },
-                    '& .MuiButton-startIcon': { margin: 0 },
+                    gap: { xs: 0, md: 1.25 },
+                    whiteSpace: 'nowrap',
+                    '& .MuiButton-startIcon': {
+                      margin: 0,
+                    },
                     '&:hover': {
                       color: active ? 'secondary.main' : 'primary.main',
                       bgcolor: active ? 'primary.light' : alpha(theme.palette.primary.main, 0.08),
@@ -175,52 +152,56 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
           })}
         </Box>
 
+        <Link
+          href={localizedAppRoute(locale, 'lobby')}
+          aria-label="BaziGB"
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            textDecoration: 'none',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
+          <Box
+            sx={{
+              position: 'relative',
+              width: { xs: 38, md: 34 },
+              height: { xs: 38, md: 34 },
+              flexShrink: 0,
+            }}
+          >
+            <Image src="/brand/logo-icon.png" alt="BaziGB" fill sizes="38px" style={{ objectFit: 'contain' }} />
+          </Box>
+          <Typography
+            variant="h5"
+            sx={{
+              ml: 1.5,
+              color: 'primary.main',
+              fontWeight: 900,
+              letterSpacing: '0.02em',
+              whiteSpace: 'nowrap',
+              display: { xs: 'none', md: 'block' },
+            }}
+          >
+            BaziGB
+          </Typography>
+        </Link>
+
         <Box
           sx={{
+            position: 'absolute',
+            left: { xs: 8, sm: 12, md: 24 },
+            top: '50%',
+            transform: 'translateY(-50%)',
             display: 'flex',
             alignItems: 'center',
             gap: { xs: 0.35, sm: 0.75, md: 1 },
-            flexShrink: 0,
-            order: { xs: 0, sm: 0 },
+            direction: 'ltr',
           }}
         >
-          {!isAdmin && (
-            <Tooltip title={languageMessages.label}>
-              <Button
-                component="a"
-                href={alternateHref}
-                aria-label={languageMessages.label}
-                sx={{
-                  ...circleControlSx,
-                  fontWeight: 900,
-                  letterSpacing: '0.02em',
-                  fontSize: { xs: '0.67rem', sm: '0.72rem' },
-                  lineHeight: 1,
-                  '&:hover': {
-                    borderColor: alpha(theme.palette.primary.main, 0.5),
-                    bgcolor: alpha(theme.palette.primary.main, 0.08),
-                    color: 'primary.main',
-                  },
-                }}
-              >
-                {languageMessages.shortLabel}
-              </Button>
-            </Tooltip>
-          )}
-
-          <Tooltip title={muted ? messages.sound.enable : messages.sound.disable}>
-            <IconButton
-              onClick={() => soundService.toggleMute()}
-              aria-label={muted ? messages.sound.enable : messages.sound.disable}
-              sx={{
-                ...circleControlSx,
-                color: muted ? 'text.disabled' : 'primary.main',
-              }}
-            >
-              {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-            </IconButton>
-          </Tooltip>
-
           <Tooltip title={messages.navigation.profile}>
             <IconButton
               component={Link}
@@ -235,6 +216,43 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
               <User size={19} />
             </IconButton>
           </Tooltip>
+
+          <Tooltip title={muted ? messages.sound.enable : messages.sound.disable}>
+            <IconButton
+              onClick={() => soundService.toggleMute()}
+              aria-label={muted ? messages.sound.enable : messages.sound.disable}
+              sx={{
+                ...circleControlSx,
+                color: muted ? 'text.disabled' : 'primary.main',
+              }}
+            >
+              {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+            </IconButton>
+          </Tooltip>
+
+          {!isAdmin && (
+            <Tooltip title={languageMessages.label}>
+              <Button
+                component="a"
+                href={alternateHref}
+                aria-label={languageMessages.label}
+                sx={{
+                  ...circleControlSx,
+                  fontWeight: 900,
+                  letterSpacing: 0,
+                  fontSize: { xs: '0.72rem', sm: '0.75rem' },
+                  textAlign: 'center',
+                  '&:hover': {
+                    borderColor: alpha(theme.palette.primary.main, 0.5),
+                    bgcolor: alpha(theme.palette.primary.main, 0.08),
+                    color: 'primary.main',
+                  },
+                }}
+              >
+                {languageMessages.shortLabel}
+              </Button>
+            </Tooltip>
+          )}
         </Box>
       </Toolbar>
     </AppBar>
