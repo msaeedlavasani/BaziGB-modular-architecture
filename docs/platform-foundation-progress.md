@@ -17,16 +17,16 @@ This is the stage-by-stage execution log. Architecture/debt lives in `docs/platf
 
 ---
 
-## 2026-08-24 — `/play/[roomId]`
+## 2026-08-24 — `/play/[roomId]` initial migration
 - Removed page-local title/chip maps and game allowlist duplication.
-- Uses catalog + multiplayer messages + canonical locale resolver.
+- Uses catalog + multiplayer messages.
 - Localized waiting/spectator/turn/winner/chat/room-share copy.
 - Runtime/socket/game behavior preserved.
 - Validation: NOT RUN.
 
 ---
 
-## 2026-08-24 — Lobby
+## 2026-08-24 — Lobby localization migration
 - Removed local status/game metadata registries.
 - Uses `WEB_GAME_IDS`, catalog title/guard helpers and centralized route builders.
 - Localized page-owned copy/results/errors/actions/dates.
@@ -35,7 +35,7 @@ This is the stage-by-stage execution log. Architecture/debt lives in `docs/platf
 
 ---
 
-## 2026-08-24 — Tournaments list
+## 2026-08-24 — Tournaments list localization
 - Migrated client-owned list/filter/status/error/action copy.
 - Dates now locale-aware.
 - API-owned tournament name/description/prize/join message remain verbatim.
@@ -44,12 +44,12 @@ This is the stage-by-stage execution log. Architecture/debt lives in `docs/platf
 
 ---
 
-## 2026-08-24 — Profile
+## 2026-08-24 — Profile localization
 - Added `apps/web/src/i18n/profile.ts`.
-- Profile now uses canonical locale resolver.
-- Removed hard-coded RTL from page root so direction is inherited from active locale theme/shell.
-- Localized profile editing, password validation/actions, stats, history headers/results/errors and fallback labels.
-- Game history uses canonical game titles for recognized game IDs.
+- Profile uses canonical locale resolver.
+- Removed hard-coded page RTL.
+- Localized profile editing/password/stats/history/results/errors.
+- Game history uses canonical game titles for recognized IDs.
 - Date presentation switches `fa-IR` / `en-US`.
 - Validation: NOT RUN.
 
@@ -57,34 +57,35 @@ This is the stage-by-stage execution log. Architecture/debt lives in `docs/platf
 
 ## 2026-08-24 — OTP/Login
 - Added `apps/web/src/i18n/auth.ts`.
-- Migrated all client-owned login/OTP/new-user copy and validation fallback messages.
-- Phone and verification-code inputs intentionally remain LTR because their data format is direction-independent numeric/Latin content.
-- Iranian `09xxxxxxxxx` mobile-number constraint remains product/auth behavior and was not changed for English.
+- Migrated client-owned login/OTP/new-user copy and validation fallback messages.
+- Phone/verification-code inputs intentionally remain LTR.
+- Iranian `09xxxxxxxxx` mobile-number constraint remains product/auth behavior.
 - Validation: NOT RUN.
 
 ---
 
 ## 2026-08-24 — Leaderboard
 - Added `apps/web/src/i18n/leaderboard.ts`.
-- Migrated title/subtitle/search/errors/podium labels/rating/rankings/stats/current-user/empty-state copy.
-- Replaced physical right alignment/margin usage touched by this migration with logical `end` / `marginInlineStart` equivalents.
+- Migrated title/subtitle/search/errors/podium/rating/rankings/stats/current-user/empty-state copy.
+- Touched physical alignment migrated to logical layout properties.
 - Validation: NOT RUN.
 
 ---
 
 ## 2026-08-24 — Locale route activation
 - Activated `/fa/*` and `/en/*` through middleware rewrites to one shared page tree.
-- Root layout now receives active locale for `lang`, `dir`, metadata, font and MUI direction.
+- Root layout receives active locale for `lang`, `dir`, metadata, font and MUI direction.
 - Header/Footer emit localized routes.
 - Removed duplicate unused `i18n/useAppLocale.ts`; `hooks/useAppLocale.ts` is canonical.
-- GitHub Actions lookup found no workflow run; validation remains NOT RUN.
+- GitHub Actions lookup found no workflow run at that checkpoint.
+- Validation: NOT RUN.
 
 ---
 
 ## 2026-08-24 — Tournament detail / bracket
 - Added localized detail/bracket messages and locale-aware date/status/action/round presentation.
 - Kept bracket geometry intentionally LTR while surrounding presentation remains locale-aware.
-- eNamad product policy resolved: visible in both `fa` and `en` for now.
+- eNamad policy resolved: visible in both `fa` and `en` for now.
 - Validation: NOT RUN.
 
 ---
@@ -101,19 +102,19 @@ This is the stage-by-stage execution log. Architecture/debt lives in `docs/platf
 - `GameCard` redesigned as canonical selectable game tile with selected/focus/reduced-motion states.
 - `EmptyState` upgraded to reusable product-level empty-state panel.
 - `LoadingSkeleton` generalized into a configurable structural grid.
-- `Modal` made locale-neutral and theme-token aligned; still an unused candidate until a real consumer is proven.
+- `Modal` made locale-neutral/design-token aligned but remains an unused candidate.
 - `GameShell` localized and corrected for RTL/LTR back direction and logical spacing.
-- Added visible FA/EN Header switcher while preserving the current logical path.
+- Added visible FA/EN Header switcher while preserving current logical path.
 - Validation: NOT RUN.
 
 ---
 
 ## 2026-08-24 — Lobby canonical UI migration
 
-Lobby was rewritten around the shared visual primitives instead of keeping parallel page-local versions.
+Lobby was migrated to the shared product primitives instead of keeping page-local duplicates.
 
 Implemented:
-- game selection consumes `GameCard` for all `WEB_GAME_IDS`,
+- game selection consumes `GameCard`,
 - recent/room loading consumes `LoadingSkeleton`,
 - recent/room empty states consume `EmptyState`,
 - retryable errors expose retry actions,
@@ -134,76 +135,155 @@ Validation: NOT RUN.
 ---
 
 ## 2026-08-24 — GameShell visual hierarchy pass
-
 - Expanded shell content width from `md` to `lg` for board-heavy games.
 - Separated utility header from primary game title.
 - Moved connection/turn/game/match state into a secondary chip hierarchy.
-- Added an explicit centered `main` game-content region.
-- Winner state is now a restrained semantic panel instead of a high-elevation full-primary block.
-- Room code is explicitly LTR for stable readability.
-- Mobile room-label presentation compacts without removing the copy/copy-code action.
-
-Validation: NOT RUN.
+- Added explicit centered main game-content region.
+- Winner state became a restrained semantic panel instead of a high-elevation full-primary block.
+- Room code explicitly remains LTR.
+- Mobile room presentation compacts without removing copy-code action.
+- Validation: NOT RUN.
 
 ---
 
 ## 2026-08-24 — Theme interaction cleanup
 
-A design-system inconsistency was found in the global theme:
-- `warning` was not defined, so MUI default orange could leak into BaziGB despite the rule against unrelated default MUI colors,
-- every MUI Button received a bronze hover glow globally, conflicting with the Design System rule that glow should communicate meaningful interaction rather than appear everywhere.
+Found:
+- MUI default warning orange could leak because `palette.warning` was not defined,
+- global Button hover glow conflicted with the Design System rule against ubiquitous glow,
+- global Paper shadow made `elevation={0}` visually noisy,
+- non-interactive Cards globally received interaction hover behavior.
 
 Implemented:
-- defined `palette.warning` from the existing Honey Bronze token family,
-- removed the global Button hover box-shadow/glow while keeping subtle tactile movement and focus-visible treatment,
-- meaningful game-specific glow remains available where interaction/state warrants it.
+- `palette.warning` now uses Honey Bronze tokens,
+- global Button glow removed while tactile movement/focus remain,
+- Paper no longer has a forced global shadow,
+- Card lift/glow is opt-in through explicit interactive state,
+- reduced-motion and focus-visible handling strengthened.
 
 Tracked as `DEBT-019` and resolved in code pending executable validation.
 
 ---
 
+## 2026-08-24 — Root layout surface cleanup
+- Removed global `maxWidth: 1200` + fixed main padding from root layout so individual pages/GameShell own content width and responsive hierarchy.
+- Removed duplicate root content constraints that were especially harmful for board-heavy games.
+- Persian font stylesheet is loaded only for `fa` requests; English uses its configured Latin stack.
+- Validation: NOT RUN.
+
+---
+
 ## 2026-08-24 — Header 360px hardening
-
-A targeted mobile-shell pass was applied before local review:
-- reduced xs toolbar padding/gaps,
-- reduced brand icon size on xs,
-- primary navigation uses compact icon targets on mobile with Tooltip labels,
-- language/sound/profile controls use compact mobile dimensions,
-- desktop labels remain available at larger breakpoints,
-- active nav/profile controls expose `aria-current`,
-- physical brand spacing was replaced with logical `marginInlineStart`,
-- touched border/color styling derives from theme tokens.
-
-This is code-level hardening for the 360px minimum; it is not a browser-validation PASS.
+- Reduced xs toolbar padding/gaps and mobile brand size.
+- Primary nav uses compact icon targets on mobile with accessible labels.
+- Language/sound/profile controls use compact mobile dimensions.
+- Desktop labels remain at larger breakpoints.
+- Active nav/profile expose `aria-current`.
+- Touched physical spacing migrated to logical spacing.
+- Validation: NOT RUN.
 
 ---
 
 ## 2026-08-24 — Design System bilingual sync
 
-`DESIGN_SYSTEM.md` upgraded to v2.1.0 so documentation no longer contradicts the implementation:
-- Persian is RTL and English is LTR,
-- direction and typography are locale-derived,
-- LTR identifiers/codes are explicitly allowed,
-- 360px Header usability is now a completion requirement,
-- shared state primitives must earn reuse through real recurring patterns,
-- default MUI colors must not leak around the token system,
-- global hover glow is explicitly discouraged,
-- frontend completion checklist now covers locale direction/typography.
+`DESIGN_SYSTEM.md` upgraded to v2.1.0:
+- Persian RTL / English LTR,
+- locale-derived direction and typography,
+- LTR identifiers/codes explicitly allowed,
+- 360px Header usability in completion requirements,
+- shared state primitives must earn reuse,
+- default MUI colors must not leak around theme tokens,
+- global hover glow discouraged,
+- completion checklist includes locale direction/typography.
 
-### New responsive finding
+Static inspection identified `UI-001`: Profile stats were two columns at xs and too dense for the 360px target.
 
-Static Profile inspection identified `UI-001`: the stats grid remains two columns at `xs`, which may be too dense at the 360px minimum given icon + text + internal padding. This is queued for the next targeted responsive pass before local visual review.
+---
+
+## 2026-08-24 — Tournaments shared feedback / visual pass
+- Tournaments list now uses `LoadingSkeleton` and `EmptyState` instead of parallel loading/empty implementations.
+- Retryable load failure has an explicit retry action.
+- Removed hard-coded orange CTA/progress treatment; primary/warning theme tokens drive state presentation.
+- Login and detail navigation now use explicit localized route helpers.
+- Replaced class-based spinner dependency with MUI `CircularProgress`.
+- Reduced card-hover decoration to border emphasis rather than generic dashboard shadow/glow.
+- Validation: NOT RUN.
+
+---
+
+## 2026-08-24 — Targeted branch validation workflow
+- Added `.github/workflows/foundation-web-check.yml` for this branch only.
+- Intended checks: `npm ci`, shared package builds, architecture-boundary check, web typecheck, web build.
+- The connector has not yet surfaced a completed status/check for the latest branch commits.
+- Therefore this does **not** count as validation PASS.
+
+---
+
+## 2026-08-24 — Profile 360px + route hardening
+
+Resolved `UI-001` in code:
+- stats now use 1 column on xs, 2 on sm, 4 on md,
+- Profile header stacks on mobile instead of forcing navigation/logout into one row,
+- profile hero/avatar hierarchy compacts at xs,
+- username/email text can wrap without breaking layout,
+- Lobby and unauthenticated-login navigation are explicitly locale-scoped,
+- back icon follows RTL/LTR,
+- history table is contained in an intentional horizontal-scroll region rather than forcing the whole page to overflow,
+- empty history uses canonical `EmptyState`,
+- history/password loading actions use visible `CircularProgress` rather than class-name animation assumptions,
+- surface/background values touched in this pass use theme tokens instead of duplicated raw dark colors.
+
+Validation: NOT RUN.
+
+---
+
+## 2026-08-24 — Multiplayer room UI hardening + compile-risk fix
+
+A concrete regression was discovered during the UI pass:
+- `/play/[roomId]` still imported `@/i18n/useAppLocale` even though that duplicate module had already been deleted after `hooks/useAppLocale.ts` became canonical.
+- This is a compile-blocking stale import, not merely visual debt.
+
+Fixed:
+- switched `/play/[roomId]` to canonical `@/hooks/useAppLocale`,
+- targeted search confirms no remaining `i18n/useAppLocale` import,
+- GameShell back route is explicitly localized instead of relying on compatibility redirect,
+- spectator/waiting treatments now derive from theme tokens rather than raw Honey Bronze rgba literals,
+- removed unnecessary large shadow from waiting panel,
+- waiting panel hierarchy is constrained/centered responsively,
+- chat speaker colors now use semantic theme colors instead of an unrelated hard-coded blue,
+- chat composer stacks on narrow mobile widths,
+- Enter handling prevents accidental newline/send duplication,
+- send button disables for empty messages.
+
+Tracked as `BUG-002` (stale deleted-module import) — RESOLVED IN CODE, executable validation pending.
+
+Validation: NOT RUN.
+
+---
+
+## Current static risk before local review
+
+### RTL infrastructure verification — `DEBT-020`
+
+The app now derives `html dir` and `theme.direction` from locale and touched layouts use logical CSS. However MUI 5 + Emotion can require an RTL style cache/plugin for components that emit physical left/right CSS. `stylis-plugin-rtl` is not currently declared in the web package.
+
+Do not add/update package dependencies without a coherent lockfile/install step in an executable environment. Therefore:
+- do not claim complete MUI RTL validation yet,
+- continue static removal of physical-direction assumptions,
+- verify real MUI component mirroring during the eventual local run,
+- add the RTL Emotion cache/plugin only if the runtime review confirms it is required (or when dependency installation/lockfile update can be executed safely).
+
+This is an implementation/validation issue, not a human product decision.
 
 ### Visual review policy
 
-User preference remains to delay local review until the broader UI cleanup and known visual issues are reduced further. Do not request a local run yet.
+User preference remains: **do not request local run yet**. Continue static high-impact UI cleanup first.
 
 ### Next
-
-Continue automatically with:
-1. fix Profile 360px density and explicit localized links,
-2. audit Tournaments/game-entry narrow-screen hierarchy and RTL/LTR assumptions,
-3. remaining high-traffic feedback consistency,
-4. safe Admin cleanup preparation,
-5. known-bug/UI pass,
-6. only then declare the next local visual-review checkpoint.
+1. audit Tournament detail/Profile/game-entry remaining physical-direction and 360px issues,
+2. inspect game-specific boards/surrounding controls for shell-level overflow issues without redesigning game art,
+3. normalize remaining high-traffic feedback patterns only where recurrence is proven,
+4. prepare Admin dead Footer logic cleanup safely,
+5. known-bug/static compile-risk pass,
+6. sync HANDOFF/Foundation docs,
+7. only then declare the local visual-review checkpoint.
