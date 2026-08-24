@@ -17,14 +17,26 @@ Continue autonomously through the approved foundation/UI cleanup path. Do **not*
 
 After every meaningful stage:
 1. update code,
-2. update `docs/platform-foundation-progress.md`,
+2. update implementation docs as practical,
 3. sync this HANDOFF,
 4. update `docs/platform-foundation.md` when architecture/debt materially changes,
 5. report bugs/debt honestly,
 6. never claim unexecuted validation as PASS,
 7. tell the user when UI cleanup has reached a useful local-run checkpoint.
 
-Current user preference: **do not request local visual review yet; reduce known UI/visual/component issues first.**
+### Git / branch authority boundary
+
+Autonomy applies inside the already-approved working branch. It does **not** authorize silent repository-structure changes.
+
+Without explicit user approval, do not:
+- create another working branch,
+- switch the canonical working branch,
+- merge/rebase major branch history,
+- delete branches,
+- modify `main`,
+- deploy.
+
+Normal implementation commits on `refactor/platform-foundation-i18n-v3` are allowed and must be reported.
 
 ## Architecture
 
@@ -61,6 +73,8 @@ Active through one shared page tree:
 - root shell activates locale language/direction/theme/font/metadata,
 - Header/Footer emit localized routes,
 - Header exposes FA/EN switching while preserving logical path,
+- local/bot game back navigation now remains inside the active locale,
+- multiplayer game back navigation remains inside the active locale,
 - Admin remains locale-neutral.
 
 ## eNamad policy
@@ -86,9 +100,7 @@ Remaining candidate:
 
 `DEBT-021` is resolved in code pending visual validation.
 
-The previous MUI shape base was `12px`. Because numeric `sx` radius values multiply the base, common values such as `borderRadius: 3/4` produced 36/48px corners on ordinary surfaces.
-
-Canonical base is now `4px`:
+Canonical MUI shape base is now `4px`:
 
 ```text
 2   -> 8px   compact controls
@@ -101,152 +113,149 @@ Theme exports `shapeScale`. Circles, avatars, game pieces and specialized board 
 
 ## Major UI cleanup completed in code
 
+### Global shell / theme
+- Header hardened for ~360px widths.
+- Visible FA/EN switcher preserves logical path.
+- Root no longer imposes duplicate global max-width/padding on every page/game.
+- Persian font stylesheet only loads for Persian requests.
+- Honey Bronze warning palette replaces default MUI orange.
+- Global Button/Card/Paper decorative glow/shadow behavior was reduced.
+- Focus-visible and reduced-motion behavior strengthened.
+- Radius hierarchy normalized.
+
 ### Lobby
-- shared `GameCard`, `LoadingSkeleton`, `EmptyState`,
-- explicit localized navigation,
+- canonical `GameCard`, `LoadingSkeleton`, `EmptyState`,
+- localized routes/copy/status,
 - retryable errors,
-- LTR invite code,
-- locale-aware arrow,
-- semantic selected/focus states,
+- LTR invite codes,
 - mobile-adaptive game/mode/room hierarchy.
 
 ### GameShell
-- `lg` width for board-heavy games,
-- utility header separated from title/state,
-- centered main game-content region,
+- wider board-capable content region,
+- utility header separated from game title/state,
+- centered game-content region,
 - localized shell labels,
-- logical spacing,
+- logical spacing and locale-aware arrows,
 - LTR room code,
-- locale-aware back arrow,
-- restrained winner treatment.
-
-### Theme / surfaces
-- Honey Bronze `warning` palette replaces MUI default orange,
-- no forced shadow on every Paper,
-- non-interactive Cards do not globally lift/glow,
-- global Button hover glow removed,
-- focus-visible and reduced-motion handling strengthened,
-- radius hierarchy normalized through 4px MUI base.
-
-### Header / root shell
-- Header hardened statically for 360px,
-- explicit language switcher,
-- root no longer imposes duplicate 1200px/padding constraints on every page/game,
-- Persian font stylesheet only loads for Persian requests.
+- restrained winner state.
 
 ### Tournaments
-- list uses canonical loading/empty states,
-- theme-token CTA/progress treatment,
-- localized login/detail links,
-- retry action,
-- restrained card interaction,
-- detail/bracket narrow-screen hierarchy hardened while bracket geometry remains intentionally LTR.
+- canonical loading/empty/error treatment,
+- theme-token CTA/progress styling,
+- localized list/detail routes,
+- narrow-screen tournament-detail hierarchy,
+- bracket geometry intentionally remains LTR while presentation is localized.
 
-### Profile
-`UI-001` resolved in code:
-- 1-column xs stats, 2-column sm, 4-column md,
-- mobile header stacks,
-- compact profile hero,
-- safe username/email wrapping,
-- localized Lobby/login navigation and locale-aware back icon,
-- history table overflow contained locally,
-- canonical empty history treatment.
+### Profile / Auth / Leaderboard
+- bilingual client-owned copy,
+- Profile mobile density fixed,
+- safe wrapping and local table overflow,
+- localized routes and date presentation,
+- auth phone/code inputs intentionally remain LTR.
 
 ### Multiplayer `/play/[roomId]`
-`BUG-002` resolved in code:
-- removed stale import of deleted `i18n/useAppLocale`,
-- canonical `hooks/useAppLocale` import,
+`BUG-002`: **RESOLVED IN CODE**.
+- removed stale deleted locale-hook import,
 - localized Lobby back route,
-- semantic waiting/spectator/chat colors,
+- semantic waiting/spectator/chat treatment,
 - narrow-screen chat composer stacks,
-- realtime/gameplay protocol behavior preserved.
+- realtime/game protocol behavior preserved.
 
 ## Game-specific UI cleanup
 
 ### Tic-Tac-Toe
-- removed hard-coded Persian turn/winner copy from board presentation,
-- active locale game-shell labels,
-- semantic theme colors,
+- bilingual board presentation,
+- semantic theme treatment,
 - keyboard-focusable cells,
-- reduced-motion/focus-visible handling.
+- reduced-motion/focus-visible support.
 
 ### Chess
-- `ChessInfo` now uses locale-aware labels instead of Persian-only captured/history copy,
-- board geometry remains intentionally `direction: ltr`,
-- fixed board wood/square colors are classified as game-art styling rather than generic app-palette leakage.
+- `ChessInfo` bilingual,
+- board geometry intentionally LTR,
+- wood/square colors remain specialized game-art styling.
 
 ### Vegas
-- board chrome and state labels were migrated away from Persian-only presentation,
-- semantic theme treatment replaces several unrelated dashboard-style colors where appropriate,
-- game-art/player identity colors remain game-specific,
-- game engine/rules were not changed.
+- board chrome/state labels bilingual,
+- generic application chrome moved toward semantic theme treatment,
+- game/player identity colors remain game-specific,
+- game engine/rules untouched.
 
 ### Backgammon
-Backgammon board chrome is now locale-aware while board geometry remains intentionally LTR.
+- surrounding board chrome bilingual through `i18n/backgammon-board.ts`,
+- board coordinate geometry intentionally LTR,
+- Off/roll/waiting/double/end-turn/dialog presentation localized,
+- dialog direction follows active locale,
+- CTA chrome uses theme semantics,
+- reduced-motion respected,
+- duplicate SVG `bgPtLight` definition removed.
 
-Implemented:
-- `apps/web/src/i18n/backgammon-board.ts` is the presentation dictionary,
-- Off/roll/waiting/double/end-turn/doubling-dialog copy is bilingual,
-- double dialog direction follows active locale instead of fixed RTL,
-- dice separator follows locale,
-- CTA controls use semantic theme colors instead of unrelated hard-coded orange/gray application styling,
-- introduced animation respects reduced-motion,
-- physical board coordinate placement remains fixed LTR by design,
-- duplicate `bgPtLight` SVG gradient definition removed.
+`BUG-003`: **RESOLVED IN CODE / executable validation pending.**
 
-`BUG-003` duplicate Backgammon SVG gradient ID: **RESOLVED IN CODE / executable validation pending.**
+### Local/bot `/game/[gameId]`
+- canonical game catalog + localized shell presentation,
+- safe game-id guard,
+- Lobby back navigation now uses `localizedAppRoute(locale, 'lobby')` instead of locale-neutral `/lobby`.
 
 ## Admin Footer
 
 Canonical bilingual editor: `/admin/footer`.
 
-`DEBT-016`: main `/admin` still contains dead legacy Footer editor state/load/save logic without rendered editor UI. Remove only with safe executable validation or a validated isolated rewrite.
+`DEBT-016`: `/admin` still contains dead legacy Footer state/load/save logic with no rendered editor UI. This is non-blocking for visual review and should be removed after executable validation or via a separately validated isolated cleanup.
 
-## RTL implementation risk
+## Runtime-only RTL risk
 
-`DEBT-020` is OPEN / runtime-validation dependent.
+`DEBT-020` remains OPEN until local/browser validation.
 
-Current app has locale `html dir`, locale `theme.direction`, and product layouts increasingly use logical CSS. However MUI 5 + Emotion may require an RTL style cache/plugin for internal physical styles; `stylis-plugin-rtl` is not currently declared.
+The app has locale `html dir`, `theme.direction`, and increasingly logical CSS. Actual MUI 5/Emotion internal mirroring may still require an RTL Emotion cache/plugin. `stylis-plugin-rtl` is not currently declared.
 
-Do not add dependency/lockfile changes blindly in connector-only mode. Verify MUI mirroring during the eventual local run and add the RTL Emotion cache/plugin only with a safe install/lockfile update if needed.
+Do not change dependency/lockfile state blindly in connector-only mode. Verify during local review first.
 
 ## Current debt / bug focus
 
-- `DEBT-007` remaining locale-neutral internal links — targeted review continues.
-- `DEBT-009` repeated feedback patterns outside migrated Lobby/Tournaments — targeted review continues.
-- `DEBT-012` Admin monolith — non-blocking.
-- `DEBT-015` server/data-owned localization boundary — tracked.
-- `DEBT-016` dead Admin Footer logic — cleanup pending validation.
-- `DEBT-020` MUI/Emotion RTL cache/plugin verification — runtime dependent.
-- `DEBT-021` oversized/inconsistent radius baseline — RESOLVED IN CODE / visual validation pending.
-- `BUG-001` overall runtime/compile validation — outstanding.
-- `BUG-002` stale deleted locale-hook import in `/play` — RESOLVED IN CODE.
-- `BUG-003` duplicate Backgammon SVG gradient id — RESOLVED IN CODE / validation pending.
+- `DEBT-007` locale-neutral navigation: high-traffic shell/game paths have been migrated; residual low-traffic cases can be caught during local review.
+- `DEBT-009` repeated feedback patterns: major Lobby/Tournament flows migrated; do not invent wrappers for every MUI primitive.
+- `DEBT-012` Admin monolith: non-blocking.
+- `DEBT-015` server/data-owned localization boundary: tracked separately.
+- `DEBT-016` dead Admin Footer logic: non-blocking cleanup after executable validation.
+- `DEBT-020` MUI/Emotion RTL cache verification: **runtime dependent**.
+- `DEBT-021` oversized radius baseline: **RESOLVED IN CODE / visual validation pending**.
+- `BUG-001` overall runtime/compile validation: outstanding.
+- `BUG-002` stale locale-hook import: **RESOLVED IN CODE**.
+- `BUG-003` duplicate Backgammon SVG gradient id: **RESOLVED IN CODE**.
 
 ## Validation infrastructure
 
-Branch-only `.github/workflows/foundation-web-check.yml` exists and is intended to run:
+Branch-only `.github/workflows/foundation-web-check.yml` exists and is configured for:
 - `npm ci`,
 - shared package build,
 - boundary check,
 - web typecheck,
 - web build.
 
-No completed run is currently associated with the latest branch commit. This is not PASS.
+The connector has not exposed a completed run for the latest branch commit. This is **not PASS**.
 
-## Current next action
+## LOCAL VISUAL REVIEW CHECKPOINT
 
-Continue automatically:
-1. finish remaining high-traffic locale-neutral route scan,
-2. static compile-risk scan around newly migrated game-specific UI,
-3. review recurring feedback patterns without speculative abstraction,
-4. prepare safe Admin dead Footer cleanup without expanding the monolith,
-5. perform final known-bug/UI pass,
-6. then declare a local visual-review checkpoint.
+**READY.**
 
-Do not request local run before that checkpoint unless a runtime-only blocker makes static progress impossible.
+Known high-impact static UI cleanup is now far enough along that another large code-only polish pass is lower value than running the branch locally.
 
-## Validation
+The local review should now validate the things static inspection cannot prove:
+
+1. `/fa/lobby` and `/en/lobby` shell direction, fonts and Header/Footer behavior.
+2. FA/EN switch preserving the same logical page.
+3. ~360px Header/Lobby/Profile/Tournaments layouts.
+4. GameShell sizing and back navigation in both locales.
+5. Tic-Tac-Toe, Chess, Vegas and Backgammon presentation in both locales.
+6. Backgammon/Chess fixed LTR game geometry inside Persian RTL pages.
+7. Tournament bracket horizontal behavior.
+8. Footer + eNamad in both locales.
+9. MUI component mirroring to determine whether `DEBT-020` actually requires an RTL Emotion cache/plugin.
+10. Radius/surface hierarchy after the global 4px shape-base change.
+
+Do not perform broad redesign during this local pass. Capture concrete visual/runtime defects and place them in the bug ledger for targeted correction.
+
+## Validation status
 
 - Build: NOT CONFIRMED
 - Typecheck: NOT CONFIRMED
@@ -260,6 +269,7 @@ Never report PASS without actual execution.
 
 - keep `main` untouched,
 - keep governance branch untouched,
+- no new branch without explicit user approval,
 - no merge/deploy without explicit release authorization,
 - do not duplicate Persian/English app trees,
 - do not make presentation metadata authoritative for game rules/capability,
