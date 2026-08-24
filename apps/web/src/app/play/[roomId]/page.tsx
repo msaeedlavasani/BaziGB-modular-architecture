@@ -1,21 +1,26 @@
 'use client';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
-import Paper from '@mui/material/Paper';
-import Snackbar from '@mui/material/Snackbar';
-import Alert from '@mui/material/Alert';
-import Typography from '@mui/material/Typography';
-import TextField from '@mui/material/TextField';
+import { useParams } from 'next/navigation';
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Paper,
+  Snackbar,
+  TextField,
+  Typography,
+  alpha,
+  useTheme,
+} from '@mui/material';
 import { Play, Share2, Undo2, Users } from 'lucide-react';
 
 import { connectSocket, socket, rejoinRoom } from '@/lib/socket';
 import { fetchRoom } from '@/lib/rooms';
-import { APP_ROUTES } from '@/i18n/routing';
+import { localizedAppRoute } from '@/i18n/routing';
 import { getMessages } from '@/i18n/messages';
-import { useAppLocale } from '@/i18n/useAppLocale';
+import { useAppLocale } from '@/hooks/useAppLocale';
 import {
   getGameCatalogEntry,
   getGameChip,
@@ -34,14 +39,10 @@ import type { GameId } from '@bazigb/engine';
 
 type ChatMessage = { type: string; message: string; username?: string; ts: number };
 
-/**
- * Room-based multiplayer game page using the shared BaziGB realtime protocol.
- * Game presentation metadata and user-facing shell copy are resolved from the
- * canonical web catalog/i18n layer rather than page-local maps.
- */
+/** Room-based multiplayer page using the shared BaziGB realtime protocol. */
 export default function PlayPage() {
   const params = useParams<{ roomId: string }>();
-  const router = useRouter();
+  const theme = useTheme();
   const locale = useAppLocale();
   const messages = getMessages(locale);
   const roomCode = (params.roomId ?? '').toUpperCase();
@@ -82,25 +83,30 @@ export default function PlayPage() {
     connectSocket();
 
     const handlers: Record<string, (payload: any) => void> = {
-      gameState: (st) => setState(st),
-      roomUpdate: (r) => {
+      gameState: (nextState) => setState(nextState),
+      roomUpdate: (nextRoom) => {
         setRoom({
-          status: r.status,
-          players: r.players,
-          gameType: normalizeGameId(r.gameType),
-          maxRounds: r.maxRounds,
+          status: nextRoom.status,
+          players: nextRoom.players,
+          gameType: normalizeGameId(nextRoom.gameType),
+          maxRounds: nextRoom.maxRounds,
         });
-        if (r.status === 'playing' && r.currentState) setState(r.currentState);
+        if (nextRoom.status === 'playing' && nextRoom.currentState) setState(nextRoom.currentState);
       },
-      matchScore: ({ scores: sc }) => setScores(sc ?? {}),
-      gameOver: ({ winner, scores: sc }) => {
-        setScores(sc ?? {});
-        setState((prev: any) => (prev ? { ...prev, phase: 'finished', winner } : prev));
+      matchScore: ({ scores: nextScores }) => setScores(nextScores ?? {}),
+      gameOver: ({ winner, scores: nextScores }) => {
+        setScores(nextScores ?? {});
+        setState((previous: any) => previous ? { ...previous, phase: 'finished', winner } : previous);
       },
-      systemMessage: (m) =>
-        setChatMessages((prev) => [
-          ...prev.slice(-49),
-          { type: m.type, message: m.message, username: m.username, ts: Date.now() },
+      systemMessage: (message) =>
+        setChatMessages((previous) => [
+          ...previous.slice(-49),
+          {
+            type: message.type,
+            message: message.message,
+            username: message.username,
+            ts: Date.now(),
+          },
         ]),
       turnStarted: ({ player, endsAt }) => {
         setTurnInfo({ player, endsAt });
@@ -113,14 +119,15 @@ export default function PlayPage() {
         setTurnInfo(null);
         setTimeout(() => setTurnExpired(false), 5000);
       },
-      seatKey: ({ seatKey: key }) => {
-        if (key && typeof window !== 'undefined') {
-          window.sessionStorage.setItem(`bazigb_seat_${roomCode}`, key);
+      seatKey: ({ seatKey }) => {
+        if (seatKey && typeof window !== 'undefined') {
+          window.sessionStorage.setItem(`bazigb_seat_${roomCode}`, seatKey);
         }
       },
       error: ({ message }) => setError(message),
       spectate: () => setSpectating(true),
     };
+
     Object.entries(handlers).forEach(([event, handler]) => socket.on(event, handler as never));
 
     const onConnect = () => {
@@ -128,22 +135,22 @@ export default function PlayPage() {
       rejoinRoom(roomCode);
     };
     const onDisconnect = () => setConnected(false);
+
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
+
     if (socket.connected) {
       setConnected(true);
       rejoinRoom(roomCode);
     }
 
     void fetchRoom(roomCode)
-      .then((r) =>
-        setRoom({
-          status: r.status,
-          players: r.players,
-          gameType: normalizeGameId(r.gameType),
-          maxRounds: r.maxRounds,
-        }),
-      )
+      .then((nextRoom) => setRoom({
+        status: nextRoom.status,
+        players: nextRoom.players,
+        gameType: normalizeGameId(nextRoom.gameType),
+        maxRounds: nextRoom.maxRounds,
+      }))
       .catch(() => undefined);
 
     return () => {
@@ -173,17 +180,16 @@ export default function PlayPage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Clipboard unavailable; no gameplay impact.
+      // Clipboard availability is non-critical and does not affect gameplay.
     }
   };
 
   const gameId = room?.gameType ?? 'tic-tac-toe';
   const gameCatalog = getGameCatalogEntry(gameId);
   const isOwner = room?.players[0] === myId;
-  const isSpectator =
-    spectating || (!!room && room.players.length > 0 && !!myId && !room.players.includes(myId));
-  const humanTurn = !!state && state.phase === 'playing' && state.turn === myId && !isSpectator;
-  const isFinished = !!state && state.phase === 'finished';
+  const isSpectator = spectating || Boolean(room && room.players.length > 0 && myId && !room.players.includes(myId));
+  const humanTurn = Boolean(state && state.phase === 'playing' && state.turn === myId && !isSpectator);
+  const isFinished = Boolean(state && state.phase === 'finished');
 
   const turnRemainingSec =
     turnInfo && state?.phase === 'playing' && state.turn === myId
@@ -193,12 +199,13 @@ export default function PlayPage() {
   const board = (() => {
     if (!state) return null;
     const disabled = !humanTurn;
+
     switch (gameId) {
       case 'tic-tac-toe':
         return (
           <TicTacToeBoard
             state={state}
-            onMove={(m) => socket.emit('makeMove', { roomCode, move: m })}
+            onMove={(move) => socket.emit('makeMove', { roomCode, move })}
             disabled={disabled}
           />
         );
@@ -207,7 +214,7 @@ export default function PlayPage() {
           <BackgammonBoard
             state={state}
             onRoll={() => socket.emit('rollDice', { roomCode })}
-            onMove={(m: BackgammonMove) => socket.emit('makeMove', { roomCode, move: [m] })}
+            onMove={(move: BackgammonMove) => socket.emit('makeMove', { roomCode, move: [move] })}
             onChain={(chain) => socket.emit('makeMove', { roomCode, move: chain })}
             onEndTurn={() => socket.emit('gameAction', { room: roomCode, moveName: 'endTurn' })}
             onOfferDouble={() => socket.emit('double', { room: roomCode })}
@@ -220,7 +227,7 @@ export default function PlayPage() {
         return (
           <ChessBoard
             state={state}
-            onMove={(m) => socket.emit('makeMove', { roomCode, move: m })}
+            onMove={(move) => socket.emit('makeMove', { roomCode, move })}
             disabled={disabled}
             orientation={state.players?.[0]?.id === myId ? 'w' : 'b'}
           />
@@ -229,7 +236,7 @@ export default function PlayPage() {
         return (
           <VegasBoard
             state={state}
-            onMove={(m) => socket.emit('makeMove', { roomCode, move: m })}
+            onMove={(move) => socket.emit('makeMove', { roomCode, move })}
             disabled={disabled}
             youId={myId}
           />
@@ -239,9 +246,9 @@ export default function PlayPage() {
     }
   })();
 
-  const [p0, p1] = state?.players ?? [];
-  const scoreA = p0 ? (scores[p0.id] ?? 0) : 0;
-  const scoreB = p1 ? (scores[p1.id] ?? 0) : 0;
+  const [playerA, playerB] = state?.players ?? [];
+  const scoreA = playerA ? (scores[playerA.id] ?? 0) : 0;
+  const scoreB = playerB ? (scores[playerB.id] ?? 0) : 0;
   const maxRounds = room?.maxRounds ?? 1;
 
   const winner = isFinished
@@ -269,7 +276,7 @@ export default function PlayPage() {
     <GameShell
       title={getGameTitle(gameId, locale) || messages.multiplayer.gameFallback}
       gameChip={getGameChip(gameId, locale)}
-      onBack={() => router.push(APP_ROUTES.lobby)}
+      backHref={localizedAppRoute(locale, 'lobby')}
       connStatus={connected ? 'connected' : 'reconnecting'}
       roomCode={roomCode}
       onCopyRoom={handleCopy}
@@ -297,7 +304,6 @@ export default function PlayPage() {
               color="primary"
               onClick={() => socket.emit('undo', { room: roomCode })}
               startIcon={<Undo2 size={14} />}
-              sx={{ borderRadius: 3, fontWeight: 700, textTransform: 'none' }}
               title={messages.multiplayer.undoOwnMove}
             >
               {messages.gameShell.undo}
@@ -311,12 +317,10 @@ export default function PlayPage() {
             variant="outlined"
             sx={{
               alignSelf: 'center',
-              borderRadius: 10,
-              borderColor: 'rgba(238,172,47,0.4)',
-              bgcolor: 'rgba(238,172,47,0.08)',
+              borderColor: alpha(theme.palette.primary.main, 0.35),
+              bgcolor: alpha(theme.palette.primary.main, 0.08),
               color: 'primary.light',
               fontWeight: 700,
-              px: 1,
             }}
           />
         )}
@@ -325,59 +329,51 @@ export default function PlayPage() {
           <Paper
             elevation={0}
             sx={{
-              p: 3.5,
+              width: '100%',
+              maxWidth: 620,
+              mx: 'auto',
+              p: { xs: 3, sm: 4 },
               borderRadius: 4,
-              bgcolor: 'background.paper',
-              border: '1px solid',
-              borderColor: 'divider',
+              bgcolor: alpha(theme.palette.background.paper, 0.5),
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
+              textAlign: 'center',
               gap: 2,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
             }}
           >
-            <Typography variant="h5" sx={{ fontWeight: 900, color: 'primary.light' }}>
+            <Typography variant="h5" sx={{ fontWeight: 900, color: 'text.primary' }}>
               {messages.multiplayer.waitingForOpponent}
             </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 480 }}>
               {messages.multiplayer.shareRoomCode(roomCode)}
             </Typography>
+
             {room && (
               <Chip
                 icon={<Users size={15} />}
                 label={messages.multiplayer.players(room.players.length, gameCatalog.maxPlayers)}
                 variant="outlined"
-                sx={{ borderRadius: 10, borderColor: 'divider', bgcolor: 'background.paper' }}
+                sx={{ borderColor: 'divider' }}
               />
             )}
+
             <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', justifyContent: 'center' }}>
               <Button
                 variant="outlined"
                 onClick={handleCopy}
                 startIcon={copied ? undefined : <Share2 size={16} />}
-                sx={{
-                  borderRadius: 3,
-                  borderColor: 'rgba(238,172,47,0.4)',
-                  bgcolor: 'rgba(238,172,47,0.08)',
-                  color: 'primary.light',
-                  px: 2.5,
-                  fontWeight: 700,
-                }}
+                sx={{ borderColor: alpha(theme.palette.primary.main, 0.35), fontWeight: 800 }}
               >
                 {copied ? messages.multiplayer.copied : messages.multiplayer.copyCode}
               </Button>
               {room && room.players.length >= 2 && isOwner && (
-                <Button
-                  variant="contained"
-                  onClick={startGame}
-                  startIcon={<Play size={16} />}
-                  sx={{ borderRadius: 3, px: 3, fontWeight: 800 }}
-                >
+                <Button variant="contained" onClick={startGame} startIcon={<Play size={16} />} sx={{ fontWeight: 900 }}>
                   {messages.multiplayer.startGame}
                 </Button>
               )}
             </Box>
+
             {room && room.players.length >= 2 && !isOwner && (
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                 {messages.multiplayer.ownerStarting}
@@ -400,9 +396,7 @@ export default function PlayPage() {
             maxWidth: 520,
             mx: 'auto',
             borderRadius: 3,
-            bgcolor: 'background.paper',
-            border: '1px solid',
-            borderColor: 'divider',
+            bgcolor: alpha(theme.palette.background.paper, 0.5),
             overflow: 'hidden',
           }}
         >
@@ -411,47 +405,59 @@ export default function PlayPage() {
               {messages.multiplayer.chat}
             </Typography>
           </Box>
+
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, px: 2, py: 1.5, maxHeight: 180, overflowY: 'auto' }}>
             {chatMessages.length === 0 && (
               <Typography variant="caption" sx={{ color: 'text.disabled' }}>
                 {messages.multiplayer.noMessages}
               </Typography>
             )}
-            {chatMessages.map((m, i) => (
-              <Box key={i} sx={{ textAlign: 'start' }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary', wordBreak: 'break-word' }}>
-                  <b style={{ color: m.type === 'success' ? '#EEAC2F' : m.type === 'chat' ? '#7FA8D9' : 'inherit' }}>
-                    {m.type === 'chat'
-                      ? m.username ?? messages.multiplayer.guest
-                      : m.type === 'success'
-                        ? messages.multiplayer.system
-                        : m.username ?? messages.multiplayer.system}
-                    :
-                  </b>{' '}
-                  {m.message}
-                </Typography>
-              </Box>
-            ))}
+
+            {chatMessages.map((message, index) => {
+              const speaker = message.type === 'chat'
+                ? message.username ?? messages.multiplayer.guest
+                : message.type === 'success'
+                  ? messages.multiplayer.system
+                  : message.username ?? messages.multiplayer.system;
+              const speakerColor = message.type === 'success'
+                ? theme.palette.primary.main
+                : theme.palette.text.primary;
+
+              return (
+                <Box key={`${message.ts}-${index}`} sx={{ textAlign: 'start' }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', wordBreak: 'break-word' }}>
+                    <Box component="span" sx={{ color: speakerColor, fontWeight: 800 }}>
+                      {speaker}:
+                    </Box>{' '}
+                    {message.message}
+                  </Typography>
+                </Box>
+              );
+            })}
             <div ref={chatEndRef} />
           </Box>
-          <Box sx={{ display: 'flex', gap: 1, px: 2, pb: 1.5 }}>
+
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1, px: 2, pb: 1.5 }}>
             <TextField
-              size="small"
               fullWidth
               placeholder={messages.multiplayer.messagePlaceholder}
               value={chat}
-              onChange={(e) => setChat(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendChat()}
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: 'rgba(0,0,0,0.2)' } }}
+              onChange={(event) => setChat(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  sendChat();
+                }
+              }}
             />
-            <Button variant="outlined" color="primary" onClick={sendChat} sx={{ borderRadius: 2, fontWeight: 700 }}>
+            <Button variant="outlined" color="primary" onClick={sendChat} disabled={!chat.trim()} sx={{ flexShrink: 0, fontWeight: 800 }}>
               {messages.multiplayer.send}
             </Button>
           </Box>
         </Paper>
       </Box>
 
-      <Snackbar open={!!error} autoHideDuration={4000} onClose={() => setError(null)}>
+      <Snackbar open={Boolean(error)} autoHideDuration={4000} onClose={() => setError(null)}>
         <Alert severity="error" onClose={() => setError(null)}>
           {error}
         </Alert>
