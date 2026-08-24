@@ -1,18 +1,12 @@
 import { DEFAULT_LOCALE, isLocale, type Locale } from './config';
 
-/**
- * Language-neutral application routes. Consumers should compose these with a
- * locale instead of hard-coding `/fa` or `/en` throughout the UI.
- *
- * These helpers are intentionally introduced before the route-tree migration;
- * locale-neutral production routes remain active until the migration is done
- * atomically.
- */
+/** Language-neutral application route identities. */
 export const APP_ROUTES = {
   lobby: '/lobby',
   leaderboard: '/leaderboard',
   tournaments: '/tournaments',
   profile: '/profile',
+  login: '/login',
   rules: '/rules',
   contact: '/contact',
   admin: '/admin',
@@ -28,9 +22,25 @@ export function playRoute(roomId: string): string {
   return `/play/${encodeURIComponent(roomId)}`;
 }
 
+export function tournamentRoute(tournamentId: string): string {
+  return `/tournaments/${encodeURIComponent(tournamentId)}`;
+}
+
 export function localePath(locale: Locale, pathname: string): string {
   const normalized = pathname.startsWith('/') ? pathname : `/${pathname}`;
   return `/${locale}${normalized === '/' ? '' : normalized}`;
+}
+
+export function localizedGameRoute(locale: Locale, gameId: string): string {
+  return localePath(locale, gameRoute(gameId));
+}
+
+export function localizedPlayRoute(locale: Locale, roomId: string): string {
+  return localePath(locale, playRoute(roomId));
+}
+
+export function localizedTournamentRoute(locale: Locale, tournamentId: string): string {
+  return localePath(locale, tournamentRoute(tournamentId));
 }
 
 export function stripLocale(pathname: string): {
@@ -55,11 +65,6 @@ export function resolveLocaleFromPathname(pathname: string): Locale {
   return stripLocale(pathname).locale ?? DEFAULT_LOCALE;
 }
 
-/**
- * Route helper for the future locale-scoped tree. Do not switch production
- * links to this helper piecemeal; use it when `/[locale]/...` routes are
- * introduced as one coherent migration.
- */
 export function localizedAppRoute(locale: Locale, route: AppRouteKey): string {
   return localePath(locale, APP_ROUTES[route]);
 }
