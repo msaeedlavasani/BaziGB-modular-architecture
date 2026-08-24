@@ -1,55 +1,113 @@
 'use client';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
+
 import type { ReactNode } from 'react';
+import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
+import Typography from '@mui/material/Typography';
+import { alpha, useTheme } from '@mui/material/styles';
 
 interface GameCardProps {
   title: string;
-  description: string;
+  description?: string;
   icon: ReactNode;
-  accent?: string;
+  selected?: boolean;
+  disabled?: boolean;
   onClick?: () => void;
 }
 
-/** کارت انتخاب بازی در لابی (Honey Bronze) */
-export default function GameCard({ title, description, icon, accent = '#EEAC2F', onClick }: GameCardProps) {
+/**
+ * Canonical BaziGB game-selection tile.
+ *
+ * This component represents a selectable game identity, not a generic content
+ * card. Keep game rules/capabilities outside this component and pass only
+ * presentation/state required by the selection interaction.
+ */
+export default function GameCard({
+  title,
+  description,
+  icon,
+  selected = false,
+  disabled = false,
+  onClick,
+}: GameCardProps) {
+  const theme = useTheme();
+
   return (
-    <Card
+    <ButtonBase
       onClick={onClick}
+      disabled={disabled}
+      aria-pressed={selected}
       sx={{
-        cursor: onClick ? 'pointer' : 'default',
+        width: '100%',
         height: '100%',
+        minWidth: 0,
         display: 'flex',
         flexDirection: 'column',
-        minWidth: 0,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 2,
+        p: { xs: 3, sm: 5 },
+        borderRadius: 4,
+        border: '2px solid',
+        borderColor: selected ? 'primary.main' : 'divider',
+        bgcolor: selected
+          ? alpha(theme.palette.primary.main, 0.12)
+          : alpha(theme.palette.background.paper, 0.45),
+        color: selected ? 'primary.main' : 'text.secondary',
+        transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': {
+          bgcolor: selected
+            ? alpha(theme.palette.primary.main, 0.18)
+            : alpha(theme.palette.background.paper, 0.75),
+          borderColor: selected ? 'primary.main' : alpha(theme.palette.primary.main, 0.35),
+          transform: 'translateY(-2px)',
+        },
+        '&:focus-visible': {
+          outline: `3px solid ${alpha(theme.palette.primary.main, 0.35)}`,
+          outlineOffset: 2,
+        },
+        '&.Mui-disabled': {
+          opacity: 0.45,
+        },
+        '@media (prefers-reduced-motion: reduce)': {
+          transition: 'none',
+          '&:hover': { transform: 'none' },
+        },
       }}
     >
-      <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, flex: 1 }}>
-        <Box
-          sx={{
-            width: 56,
-            height: 56,
-            borderRadius: '14px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            bgcolor: 'secondary.light',
-            color: accent,
-            fontSize: 30,
-            boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.4), 0 2px 10px rgba(238,172,47,0.15)',
-          }}
-        >
-          {icon}
-        </Box>
-        <Typography variant="h6" sx={{ color: 'text.primary' }}>
+      <Box
+        sx={{
+          width: { xs: 44, sm: 52 },
+          height: { xs: 44, sm: 52 },
+          borderRadius: 3,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: selected
+            ? alpha(theme.palette.primary.main, 0.16)
+            : alpha(theme.palette.text.primary, 0.05),
+          color: 'inherit',
+          transform: selected ? 'scale(1.06)' : 'none',
+          transition: 'transform 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+          '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+        }}
+      >
+        {icon}
+      </Box>
+
+      <Box sx={{ textAlign: 'center', minWidth: 0 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 900, color: 'inherit' }}>
           {title}
         </Typography>
-        <Typography variant="body2" sx={{ color: 'text.secondary', flex: 1 }}>
-          {description}
-        </Typography>
-      </CardContent>
-    </Card>
+        {description && (
+          <Typography
+            variant="caption"
+            sx={{ display: 'block', mt: 0.5, color: 'text.secondary', lineHeight: 1.5 }}
+          >
+            {description}
+          </Typography>
+        )}
+      </Box>
+    </ButtonBase>
   );
 }
