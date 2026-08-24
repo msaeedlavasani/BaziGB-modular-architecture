@@ -11,10 +11,17 @@ import {
 } from '@/lib/site-settings';
 import type { Locale } from '@/i18n/config';
 import { getMessages } from '@/i18n/messages';
-import { APP_ROUTES } from '@/i18n/routing';
+import { localePath, localizedAppRoute, stripLocale } from '@/i18n/routing';
 
 interface FooterProps {
   locale?: Locale;
+}
+
+function localizeManagedHref(locale: Locale, href: string): string {
+  if (!href.startsWith('/') || href.startsWith('//')) return href;
+  if (stripLocale(href).locale) return href;
+  if (href === '/admin' || href.startsWith('/admin/')) return href;
+  return localePath(locale, href);
 }
 
 /** Global BaziGB footer. Managed copy and shell labels are locale-aware. */
@@ -58,7 +65,7 @@ export default function Footer({ locale = 'fa' }: FooterProps) {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Typography
                 component={Link}
-                href={APP_ROUTES.lobby}
+                href={localizedAppRoute(locale, 'lobby')}
                 sx={{ fontSize: '1.5rem', fontWeight: 900, color: 'primary.main', textDecoration: 'none' }}
               >
                 BaziGB
@@ -75,17 +82,27 @@ export default function Footer({ locale = 'fa' }: FooterProps) {
               <Typography
                 key={`${link.label}-${link.href}`}
                 component={Link}
-                href={link.href}
+                href={localizeManagedHref(locale, link.href)}
                 variant="subtitle2"
                 sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}
               >
                 {link.label}
               </Typography>
             ))}
-            <Typography component={Link} href={APP_ROUTES.rules} variant="subtitle2" sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}>
+            <Typography
+              component={Link}
+              href={localizedAppRoute(locale, 'rules')}
+              variant="subtitle2"
+              sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}
+            >
               {messages.footer.rules}
             </Typography>
-            <Typography component={Link} href={APP_ROUTES.contact} variant="subtitle2" sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}>
+            <Typography
+              component={Link}
+              href={localizedAppRoute(locale, 'contact')}
+              variant="subtitle2"
+              sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}
+            >
               {messages.footer.contact}
             </Typography>
           </Box>
