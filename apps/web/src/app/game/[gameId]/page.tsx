@@ -35,8 +35,11 @@ import BackgammonBoard from '@/components/game/BackgammonBoard';
 import ChessBoard from '@/components/game/ChessBoard';
 import ChessInfo from '@/components/game/ChessInfo';
 import VegasBoard from '@/components/game/VegasBoard';
-
+import { useAppLocale } from '@/hooks/useAppLocale';
+import { getMessages } from '@/i18n/messages';
+import { APP_ROUTES } from '@/i18n/routing';
 import { api } from '@/lib/api';
+import { getGameChip, getGameTitle, isWebGameId } from '@/lib/game-catalog';
 
 const ADAPTERS: Record<GameId, GameAdapter> = {
   'tic-tac-toe': TicTacToe,
@@ -59,24 +62,13 @@ const AI_FNS: Record<GameId, (state: unknown, d: AIDifficulty) => unknown> = {
   vegas: vegasAI as (state: unknown, d: AIDifficulty) => unknown,
 };
 
-const GAME_TITLES: Record<GameId, string> = {
-  'tic-tac-toe': 'دوز',
-  backgammon: 'نرد',
-  chess: 'شطرنج',
-  vegas: 'وگاس',
-};
-
-const GAME_CHIPS: Record<GameId, string> = {
-  'tic-tac-toe': '✕ دوز',
-  backgammon: '🎲 نرد',
-  chess: '♞ شطرنج',
-  vegas: '💵 وگاس',
-};
-
 function GameInner() {
   const params = useParams<{ gameId: string }>();
   const router = useRouter();
-  const gameId = (params.gameId ?? 'tic-tac-toe') as GameId;
+  const locale = useAppLocale();
+  const messages = getMessages(locale);
+  const rawGameId = params.gameId ?? 'tic-tac-toe';
+  const gameId: GameId = isWebGameId(rawGameId) ? rawGameId : 'tic-tac-toe';
   const adapter = ADAPTERS[gameId];
 
   const [difficulty, setDifficulty] = useState<AIDifficulty>('medium');
@@ -87,7 +79,6 @@ function GameInner() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [state, setState] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  // پشتهٔ آندو: اسنپشات state قبل از هر اقدام بازیکن (حداکثر ۱۰)
   const [undoStack, setUndoStack] = useState<any[]>([]);
 
   const stateRef = useRef(state);
@@ -98,10 +89,10 @@ function GameInner() {
 
   const players = useMemo<Player[]>(
     () => [
-      { id: 'p1', name: 'شما', color: COLORS[gameId][0] },
-      { id: 'p2', name: 'ربات', color: COLORS[gameId][1], isBot: true },
+      { id: 'p1', name: messages.gameShell.you, color: COLORS[gameId][0] },
+      { id: 'p2', name: messages.gameShell.bot, color: COLORS[gameId][1], isBot: true },
     ],
-    [gameId],
+    [gameId, messages.gameShell.bot, messages.gameShell.you],
   );
 
   const newGame = useCallback(() => {
@@ -116,14 +107,12 @@ function GameInner() {
   const myId = 'p1';
   const humanTurn = !!state && state.phase === 'playing' && state.turn === myId;
 
-  // ---- منطق محلی (بازی با ربات) ----
   const applyLocal = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (m: any) => {
       const s = stateRef.current;
       if (!s) return;
       try {
-        // قبل از هر اقدام بازیکن، وضعیت فعلی برای آندو ذخیره می‌شود
         setUndoStack((prev) => {
           const next = [...prev, s];
           return next.length > 10 ? next.slice(next.length - 10) : next;
@@ -138,10 +127,10 @@ function GameInner() {
         }
         setState(next);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'حرکت نامعتبر');
+        setError(e instanceof Error ? e.message : messages.gameShell.invalidMove);
       }
     },
-    [adapter, gameId],
+    [adapter, gameId, messages.gameShell.invalidMove],
   );
 
   const handleUndo = useCallback(() => {
@@ -153,15 +142,13 @@ function GameInner() {
     });
   }, []);
 
-  // حرکت ربات (فقط حالت محلی)
   const runBot = useCallback(async () => {
     if (isBotRunning.current) return;
     const s = stateRef.current;
     if (!s || s.phase === 'finished' || s.turn !== 'p2') return;
     isBotRunning.current = true;
     try {
-      let cur = s;
-      // وگاس: اول تاس، بعد انتخاب مقدار و گذاشتن
+      const cur = s;
       if (gameId === 'vegas') {
         if (!cur.rolled) {
           setState(adapter.applyMove(cur, { player: 'p2', kind: 'roll' }));
@@ -177,7 +164,6 @@ function GameInner() {
         isBotRunning.current = false;
         return;
       }
-      // نرد: گام‌به‌گام
       if (gameId === 'backgammon') {
         if (!cur.rolled) {
           const next = adapter.applyChain(cur, [{ player: 'p2', kind: 'roll' }]);
@@ -213,11 +199,11 @@ function GameInner() {
       }
       setState(next);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'خطای ربات');
+      setError(e instanceof Error ? e.message : messages.gameShell.botError);
     } finally {
       isBotRunning.current = false;
     }
-  }, [adapter, difficulty, gameId]);
+  }, [adapter, difficulty, gameId, messages.gameShell.botError]);
 
   useEffect(() => {
     if (state && state.phase === 'playing' && state.turn === 'p2') {
@@ -242,7 +228,6 @@ function GameInner() {
       return () => clearTimeout(t);
     }
   }, [state]);
-
 
   const board = (() => {
     if (!state) return null;
@@ -282,7 +267,6 @@ function GameInner() {
   const isFinished = !!state && state.phase === 'finished';
   useEffect(() => {
     if (isFinished && state && state.winner) {
-      // Record bot game result for authenticated users
       const winnerId = state.winner === 'p1' ? 'p1' : 'p2';
       api.post('/game/bot-result', {
         gameId,
@@ -296,11 +280,11 @@ function GameInner() {
     ? {
         label: state.winner
           ? state.winner === myId
-            ? '🎉 شما برنده شدید!'
-            : 'ربات برنده شد'
-          : 'مساوی!',
+            ? messages.gameShell.youWon
+            : messages.gameShell.botWon
+          : messages.gameShell.draw,
         sub: gameId === 'backgammon' && state.scores
-          ? `امتیاز نهایی — شما ${state.scores[myId] ?? 0} : ${state.scores.p2 ?? 0} ربات`
+          ? messages.gameShell.finalScore(state.scores[myId] ?? 0, state.scores.p2 ?? 0)
           : undefined,
         onRematch: newGame,
       }
@@ -314,16 +298,16 @@ function GameInner() {
   const settings = (
     <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
       <FormControl size="small" sx={{ minWidth: 120 }}>
-        <InputLabel>سطح ربات</InputLabel>
+        <InputLabel>{messages.gameShell.difficulty}</InputLabel>
         <Select
           value={difficulty}
-          label="سطح ربات"
+          label={messages.gameShell.difficulty}
           onChange={(e) => setDifficulty(e.target.value as AIDifficulty)}
           sx={{ borderRadius: 2, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' } }}
         >
-          <MenuItem value="easy">آسان</MenuItem>
-          <MenuItem value="medium">متوسط</MenuItem>
-          <MenuItem value="hard">سخت</MenuItem>
+          <MenuItem value="easy">{messages.gameShell.easy}</MenuItem>
+          <MenuItem value="medium">{messages.gameShell.medium}</MenuItem>
+          <MenuItem value="hard">{messages.gameShell.hard}</MenuItem>
         </Select>
       </FormControl>
       {supportsMatchPoint(gameId) && (
@@ -340,7 +324,7 @@ function GameInner() {
                 }}
               />
             }
-            label={<Typography variant="body2">مسابقه</Typography>}
+            label={<Typography variant="body2">{messages.gameShell.match}</Typography>}
           />
           {match.matchPoint && (
             <>
@@ -353,20 +337,20 @@ function GameInner() {
                       onChange={(e) => setMatch({ ...match, winByTwo: e.target.checked })}
                     />
                   }
-                  label={<Typography variant="body2">برد با ۲</Typography>}
+                  label={<Typography variant="body2">{messages.gameShell.winByTwo}</Typography>}
                 />
               )}
               <FormControl size="small" sx={{ minWidth: 90 }}>
-                <InputLabel>هدف</InputLabel>
+                <InputLabel>{messages.gameShell.target}</InputLabel>
                 <Select
                   value={match.targetScore}
-                  label="هدف"
+                  label={messages.gameShell.target}
                   onChange={(e) => setMatch({ ...match, targetScore: Number(e.target.value) })}
                   sx={{ borderRadius: 2, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' } }}
                 >
                   {[3, 5, 7, 9].map((n) => (
                     <MenuItem key={n} value={n}>
-                      {n} امتیاز
+                      {n} {messages.gameShell.points}
                     </MenuItem>
                   ))}
                 </Select>
@@ -382,22 +366,22 @@ function GameInner() {
         onClick={handleUndo}
         disabled={undoStack.length === 0 || !humanTurn}
         startIcon={<Undo2 size={14} />}
-        title="بازگردانی آخرین حرکت"
+        title={messages.gameShell.undoLastMove}
       >
-        آندو
+        {messages.gameShell.undo}
       </Button>
       <Button size="small" variant="outlined" color="primary" onClick={newGame}>
-        بازی جدید
+        {messages.common.newGame}
       </Button>
     </Box>
   );
 
   return (
     <GameShell
-      title={GAME_TITLES[gameId]}
-      gameChip={GAME_CHIPS[gameId]}
-      onBack={() => router.push('/lobby')}
-      turnText={state && state.phase === 'playing' ? (humanTurn ? 'نوبت شما' : 'نوبت ربات') : null}
+      title={getGameTitle(gameId, locale)}
+      gameChip={getGameChip(gameId, locale)}
+      onBack={() => router.push(APP_ROUTES.lobby)}
+      turnText={state && state.phase === 'playing' ? (humanTurn ? messages.gameShell.yourTurn : messages.gameShell.botTurn) : null}
       scores={scores}
       maxRounds={match.matchPoint ? match.targetScore : 1}
       settings={settings}
@@ -405,7 +389,7 @@ function GameInner() {
     >
       {!state ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 8, gap: 2 }}>
-          <Chip label="در حال آماده‌سازی بازی…" variant="outlined" />
+          <Chip label={messages.gameShell.preparing} variant="outlined" />
         </Box>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0 }}>
@@ -424,8 +408,10 @@ function GameInner() {
 }
 
 export default function GamePage() {
+  const locale = useAppLocale();
+  const messages = getMessages(locale);
   return (
-    <Suspense fallback={<Typography sx={{ color: 'text.secondary' }}>در حال بارگذاری...</Typography>}>
+    <Suspense fallback={<Typography sx={{ color: 'text.secondary' }}>{messages.common.loading}</Typography>}>
       <GameInner />
     </Suspense>
   );
