@@ -3,6 +3,8 @@
 import { Fragment, useMemo } from 'react';
 import { Box, Chip, Paper, Typography, alpha, useTheme } from '@mui/material';
 import { getCapturedPieces, indexToSquare } from '@/lib/chess-fen';
+import { useAppLocale } from '@/hooks/useAppLocale';
+import { getChessInfoMessages } from '@/i18n/chess-info';
 import type { ChessState } from '@bazigb/game-chess';
 
 const PIECE_GLYPHS: Record<string, string> = { p: '♟', r: '♜', n: '♞', b: '♝', q: '♛' };
@@ -10,12 +12,13 @@ const MATERIAL: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9 };
 
 function CapturedRow({ label, pieces }: { label: string; pieces: string[] }) {
   const theme = useTheme();
-  const value = pieces.reduce((sum, p) => sum + (MATERIAL[p] ?? 0), 0);
+  const value = pieces.reduce((sum, piece) => sum + (MATERIAL[piece] ?? 0), 0);
+
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
       <Typography
         variant="caption"
-        sx={{ width: 56, flexShrink: 0, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}
+        sx={{ minWidth: 56, flexShrink: 0, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}
       >
         {label}
       </Typography>
@@ -23,8 +26,8 @@ function CapturedRow({ label, pieces }: { label: string; pieces: string[] }) {
         {pieces.length === 0 ? (
           <Typography variant="caption" sx={{ color: 'text.disabled' }}>—</Typography>
         ) : (
-          pieces.map((piece, i) => (
-            <Box key={i} component="span" sx={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))' }}>
+          pieces.map((piece, index) => (
+            <Box key={`${piece}-${index}`} component="span" sx={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))' }}>
               {PIECE_GLYPHS[piece] ?? piece}
             </Box>
           ))
@@ -49,24 +52,26 @@ function CapturedRow({ label, pieces }: { label: string; pieces: string[] }) {
   );
 }
 
-/** پنل‌های زیر برد شطرنج: مهره‌های خورده‌شده + تاریخچه حرکات */
+/** Captured pieces + move history below the chess board. */
 export default function ChessInfo({ state }: { state: ChessState }) {
+  const locale = useAppLocale();
+  const messages = getChessInfoMessages(locale);
   const captured = useMemo(() => getCapturedPieces(state), [state]);
 
   const historyPairs = useMemo(() => {
-    const out: { number: number; white?: string; black?: string }[] = [];
-    (state.history ?? []).forEach((m, i) => {
-      const san = `${indexToSquare(m.from)}–${indexToSquare(m.to)}${m.promotion ? '=' + m.promotion.toUpperCase() : ''}`;
-      const num = Math.floor(i / 2) + 1;
-      let pair = out.find((p) => p.number === num);
+    const output: { number: number; white?: string; black?: string }[] = [];
+    (state.history ?? []).forEach((move, index) => {
+      const san = `${indexToSquare(move.from)}–${indexToSquare(move.to)}${move.promotion ? '=' + move.promotion.toUpperCase() : ''}`;
+      const number = Math.floor(index / 2) + 1;
+      let pair = output.find((item) => item.number === number);
       if (!pair) {
-        pair = { number: num };
-        out.push(pair);
+        pair = { number };
+        output.push(pair);
       }
-      if (i % 2 === 0) pair.white = san;
+      if (index % 2 === 0) pair.white = san;
       else pair.black = san;
     });
-    return out;
+    return output;
   }, [state]);
 
   return (
@@ -78,50 +83,29 @@ export default function ChessInfo({ state }: { state: ChessState }) {
         width: '100%',
         maxWidth: 560,
         mx: 'auto',
-        textAlign: 'left',
+        textAlign: 'start',
       }}
     >
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2,
-          borderRadius: 3,
-          bgcolor: 'background.paper',
-          border: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
+      <Paper elevation={0} sx={{ p: 2, borderRadius: 3, bgcolor: 'background.paper' }}>
         <Typography variant="caption" sx={{ display: 'block', mb: 1.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
-          مهره‌های خورده‌شده
+          {messages.captured}
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <CapturedRow label="سفید" pieces={captured.white} />
-          <CapturedRow label="سیاه" pieces={captured.black} />
+          <CapturedRow label={messages.white} pieces={captured.white} />
+          <CapturedRow label={messages.black} pieces={captured.black} />
         </Box>
       </Paper>
 
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2,
-          borderRadius: 3,
-          bgcolor: 'background.paper',
-          border: '1px solid',
-          borderColor: 'divider',
-          display: 'flex',
-          flexDirection: 'column',
-          maxHeight: 200,
-        }}
-      >
+      <Paper elevation={0} sx={{ p: 2, borderRadius: 3, bgcolor: 'background.paper', display: 'flex', flexDirection: 'column', maxHeight: 200 }}>
         <Typography variant="caption" sx={{ display: 'block', mb: 1.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
-          تاریخچه حرکات
+          {messages.history}
         </Typography>
         {historyPairs.length === 0 ? (
           <Typography variant="body2" sx={{ color: 'text.disabled' }}>
-            هنوز حرکتی نبود — نوبت سفید.
+            {messages.noMoves}
           </Typography>
         ) : (
-          <Box sx={{ flex: 1, overflowY: 'auto', pr: 1, fontFamily: 'monospace' }}>
+          <Box sx={{ flex: 1, overflowY: 'auto', paddingInlineEnd: 1, fontFamily: 'monospace', direction: 'ltr' }}>
             <Box sx={{ display: 'grid', gridTemplateColumns: '2.5rem 1fr 1fr', gap: 1.5 }}>
               {historyPairs.map((pair) => (
                 <Fragment key={pair.number}>
