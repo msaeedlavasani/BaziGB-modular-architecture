@@ -1,21 +1,32 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import Providers from './Providers';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
-import { DEFAULT_LOCALE, getLocaleConfig } from '../i18n/config';
+import { DEFAULT_LOCALE, getLocaleConfig, isLocale, type Locale } from '../i18n/config';
 
-const defaultLocale = getLocaleConfig(DEFAULT_LOCALE);
+const LOCALE_HEADER = 'x-bazigb-locale';
 
-export const metadata: Metadata = {
-  title: defaultLocale.metadata.title,
-  description: defaultLocale.metadata.description,
-};
+function getRequestLocale(): Locale {
+  const value = headers().get(LOCALE_HEADER);
+  return value && isLocale(value) ? value : DEFAULT_LOCALE;
+}
+
+export function generateMetadata(): Metadata {
+  const locale = getLocaleConfig(getRequestLocale());
+  return {
+    title: locale.metadata.title,
+    description: locale.metadata.description,
+  };
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = getRequestLocale();
+  const config = getLocaleConfig(locale);
+
   return (
-    <html lang={defaultLocale.htmlLang} dir={defaultLocale.direction}>
+    <html lang={config.htmlLang} dir={config.direction}>
       <head>
-        {/* Persian-first fallback until locale-scoped layouts are introduced. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
@@ -24,12 +35,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <Providers direction={defaultLocale.direction} fontFamily={defaultLocale.fontFamily}>
-          <Header locale={DEFAULT_LOCALE} />
+        <Providers direction={config.direction} fontFamily={config.fontFamily}>
+          <Header locale={locale} />
           <main style={{ flex: 1, width: '100%', maxWidth: 1200, margin: '0 auto', padding: '16px' }}>
             {children}
           </main>
-          <Footer locale={DEFAULT_LOCALE} />
+          <Footer locale={locale} />
         </Providers>
       </body>
     </html>
