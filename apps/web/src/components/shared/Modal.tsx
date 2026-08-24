@@ -1,32 +1,68 @@
 'use client';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import Button from '@mui/material/Button';
+
 import type { ReactNode } from 'react';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 
 interface ModalProps {
   open: boolean;
   title: string;
   children: ReactNode;
   onClose: () => void;
+  closeLabel: string;
   confirmLabel?: string;
   onConfirm?: () => void;
+  confirmDisabled?: boolean;
 }
 
-/** مودال مشترک BaziGB */
-export default function Modal({ open, title, children, onClose, confirmLabel, onConfirm }: ModalProps) {
+/**
+ * Locale-neutral BaziGB confirmation/focus dialog.
+ *
+ * All user-facing copy is provided by the consumer so this primitive can be
+ * reused in both Persian and English without owning product language.
+ */
+export default function Modal({
+  open,
+  title,
+  children,
+  onClose,
+  closeLabel,
+  confirmLabel,
+  onConfirm,
+  confirmDisabled = false,
+}: ModalProps) {
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle sx={{ color: 'text.primary' }}>{title}</DialogTitle>
-      <DialogContent sx={{ color: 'text.secondary' }}>{children}</DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} color="inherit">
-          بستن
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="xs"
+      PaperProps={{
+        sx: {
+          borderRadius: 4,
+          border: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          backgroundImage: 'none',
+        },
+      }}
+    >
+      <DialogTitle sx={{ color: 'text.primary', fontWeight: 800 }}>{title}</DialogTitle>
+      <DialogContent sx={{ color: 'text.secondary', lineHeight: 1.75 }}>{children}</DialogContent>
+      <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+        <Button onClick={onClose} color="inherit" variant="outlined">
+          {closeLabel}
         </Button>
         {confirmLabel && onConfirm && (
-          <Button variant="contained" color="primary" onClick={onConfirm}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={onConfirm}
+            disabled={confirmDisabled}
+          >
             {confirmLabel}
           </Button>
         )}
