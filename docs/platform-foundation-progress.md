@@ -1,116 +1,129 @@
 # Platform Foundation — Implementation Progress
 
-This is the stage-by-stage execution log for the foundation work. Architectural baseline and debt definitions remain in `docs/platform-foundation.md`; continuation state remains in `docs/HANDOFF.md`.
+This is the stage-by-stage execution log. Architecture/debt lives in `docs/platform-foundation.md`; current continuation state lives in `docs/HANDOFF.md`.
 
 ## 2026-08-24 — Consumer migration preparation
-
-- Added `apps/web/src/hooks/useAppLocale.ts`.
-- Locale-neutral routes resolve to Persian during migration.
-- Client consumers use one canonical locale resolver.
-
-Validation: build/typecheck/tests/browser/deploy NOT RUN.
+- Added canonical `apps/web/src/hooks/useAppLocale.ts`.
+- Locale-neutral routes used Persian during the pre-route migration phase.
+- Validation: NOT RUN.
 
 ---
 
-## 2026-08-24 — `/game/[gameId]` consumer migration
-
-- Removed local game title/chip maps.
-- Uses canonical catalog + typed game-shell messages.
-- Guarded game route input with `isWebGameId()`.
-- Back navigation uses centralized routes.
-
-Debt: DEBT-006/008 partially resolved; DEBT-013 graveyard risk mitigated.
-
-Validation: NOT RUN.
+## 2026-08-24 — `/game/[gameId]`
+- Removed page-local game title/chip maps.
+- Uses game catalog + typed game-shell messages.
+- Added safe `isWebGameId()` route guard.
+- Validation: NOT RUN.
 
 ---
 
-## 2026-08-24 — `/play/[roomId]` consumer migration
-
-- Removed local title/chip maps and local game allowlist duplication.
-- Uses canonical catalog + multiplayer messages + `useAppLocale()`.
+## 2026-08-24 — `/play/[roomId]`
+- Removed page-local title/chip maps and game allowlist duplication.
+- Uses catalog + multiplayer messages + canonical locale resolver.
 - Localized waiting/spectator/turn/winner/chat/room-share copy.
-- Presentation capacity uses catalog fallback; runtime capacity remains server/GameAdapter-owned.
-- Chat alignment uses logical `start` for RTL/LTR.
-- Socket/gameplay behavior preserved.
-
-Debt: DEBT-006 further resolved; DEBT-008 substantially resolved for entry pages; DEBT-013 resolved as graveyard risk.
-
-Boundary: server-originated system-message payload text remains server-owned.
-
-Validation: NOT RUN.
+- Runtime/socket/game behavior preserved.
+- Validation: NOT RUN.
 
 ---
 
-## 2026-08-24 — Lobby consumer migration
-
-- Lobby uses `useAppLocale()` + typed Lobby messages.
-- Removed local `STATUS_LABEL`, `GAME_META`, `GAME_OPTIONS`, custom GameType duplication.
-- Game choices use `WEB_GAME_IDS`; names use `getGameTitle()`.
-- History/room game IDs use `isWebGameId()`.
-- Game/play navigation uses `gameRoute()` / `playRoute()`.
-- Room capacity display uses catalog presentation fallback.
-- Recent dates are locale-aware.
-- Directional hover movement changed to vertical movement for RTL/LTR neutrality.
-- Existing inline loading/empty/card UI intentionally preserved for later graveyard cleanup.
-
-Debt:
-- DEBT-002 substantially resolved.
-- DEBT-006 resolved for `/game`, `/play`, Lobby primary consumers.
-- DEBT-007 partially mitigated; locale routes remain.
-- DEBT-013 resolved.
-- DEBT-003/009 remain open by design.
-
-Validation: NOT RUN.
+## 2026-08-24 — Lobby
+- Removed local status/game metadata registries.
+- Uses `WEB_GAME_IDS`, catalog title/guard helpers and centralized route builders.
+- Localized page-owned copy/results/errors/actions/dates.
+- Preserved inline card/loading/empty UI for later graveyard cleanup.
+- Validation: NOT RUN.
 
 ---
 
-## 2026-08-24 — Tournaments consumer migration
+## 2026-08-24 — Tournaments list
+- Migrated client-owned list/filter/status/error/action copy.
+- Dates now locale-aware.
+- API-owned tournament name/description/prize/join message remain verbatim.
+- Identified tournament data localization as a separate content boundary.
+- Validation: NOT RUN.
 
-### Scope
+---
 
-Remove the English-only tournament-page presentation layer without changing tournament API/data behavior.
+## 2026-08-24 — Profile
+- Added `apps/web/src/i18n/profile.ts`.
+- Profile now uses canonical locale resolver.
+- Removed hard-coded RTL from page root so direction is inherited from active locale theme/shell.
+- Localized profile editing, password validation/actions, stats, history headers/results/errors and fallback labels.
+- Game history uses canonical game titles for recognized game IDs.
+- Date presentation switches `fa-IR` / `en-US`.
+- Validation: NOT RUN.
 
-### Implemented
+---
 
-- Tournaments now resolves locale via `useAppLocale()`.
-- Removed page-local English fallback description/status-label/filter-label constants as presentation sources.
-- Added typed tournament messages only for real page consumers:
-  - title/header summary
-  - status/filter labels
-  - load/join errors
-  - empty state
-  - start date/player count formatting
-  - joined/sign-in/full/join actions
-  - bracket/results actions
-- Tournament date formatting now uses `fa-IR` or `en-US` from the active locale.
-- Existing API-provided `t.name`, `t.description`, `t.prize`, and `joinResult.message` remain data/server-owned and are not silently translated in the client.
-- Existing tournament links remain locale-neutral until the atomic route migration.
+## 2026-08-24 — OTP/Login
+- Added `apps/web/src/i18n/auth.ts`.
+- Migrated all client-owned login/OTP/new-user copy and validation fallback messages.
+- Phone and verification-code inputs intentionally remain LTR because their data format is direction-independent numeric/Latin content.
+- Iranian `09xxxxxxxxx` mobile-number constraint remains product/auth behavior and was not changed for English.
+- Validation: NOT RUN.
 
-### Debt movement
+---
 
-- `DEBT-010` English-only Tournament page copy: **SUBSTANTIALLY RESOLVED** for client-owned copy.
-- A new content boundary is explicit: tournament records returned by the API may themselves contain language-specific managed/user content. That must be handled as a data/content localization problem, not by client string substitution.
+## 2026-08-24 — Leaderboard
+- Added `apps/web/src/i18n/leaderboard.ts`.
+- Migrated title/subtitle/search/errors/podium labels/rating/rankings/stats/current-user/empty-state copy.
+- Replaced physical right alignment/margin usage touched by this migration with logical `end` / `marginInlineStart` equivalents.
+- Validation: NOT RUN.
 
-### Risk / bug notes
+---
 
-- No runtime bug confirmed; executable validation has not run.
-- Tournament dynamic/data fields are intentionally preserved verbatim.
+## 2026-08-24 — Locale route activation
 
-### Validation
+### Architecture
 
+Activated bilingual public URLs without duplicating the App Router page tree.
+
+- Added `apps/web/src/middleware.ts`.
+- `/fa/*` and `/en/*` remain visible public URLs while middleware rewrites internally to the existing shared pages.
+- Public locale roots include Lobby, Leaderboard, Tournaments, Profile, Login, Game, Play, Rules and Contact.
+- `/` redirects to the preferred locale Lobby.
+- Locale-neutral public URLs redirect to the preferred locale, defaulting to Persian.
+- Middleware persists `bazigb-locale` as a compatibility cookie so remaining neutral links do not unexpectedly switch an English user back to Persian during migration.
+- Admin remains locale-neutral until its bilingual content-editor stage.
+
+### Root shell
+
+- Root layout now reads the middleware request locale from `x-bazigb-locale`.
+- Active request locale drives HTML `lang`, `dir`, localized metadata, MUI direction and locale font stack.
+- Header/Footer receive the active locale.
+- Header primary navigation now emits locale-prefixed links.
+- Footer brand/rules/contact and internal managed links emit locale-prefixed links while external URLs remain unchanged.
+
+### Route helpers
+
+`i18n/routing.ts` now includes localized builders for app/game/play/tournament routes. Route literals remain language-neutral at the source.
+
+### Graveyard prevention discovered during this stage
+
+Two copies of `useAppLocale` existed after the foundation work:
+- `hooks/useAppLocale.ts`
+- `i18n/useAppLocale.ts`
+
+Targeted consumer search confirmed the latter had no consumers. It was deleted immediately; `hooks/useAppLocale.ts` is canonical. Logged as `DEBT-014` and resolved.
+
+### Validation attempt
+
+A GitHub Actions lookup was performed for the branch commit available at that checkpoint. No workflow runs were associated with it. Therefore:
+- CI: NOT RUN / unavailable for this branch checkpoint
 - Build: NOT RUN
 - Typecheck: NOT RUN
 - Tests: NOT RUN
 - Browser QA: NOT RUN
 - Deploy: NOT RUN
 
-### Safety
+No static inspection is promoted to PASS.
 
-- `main` untouched.
-- governance branch untouched.
-- no merge/deploy.
+### Remaining risks/boundaries
+
+- Some page-local neutral links still rely on middleware compatibility redirects and should be normalized to explicit localized helpers.
+- Tournament detail/bracket remains a high-traffic page with English client-owned copy.
+- eNamad visibility on English pages is preserved for now; whether it should be hidden is a product-policy decision, not silently assumed.
 
 ### Next
 
-Continue automatically with Profile/common-feedback migration, then Auth pages. Pause only for a genuine human decision.
+Continue automatically with tournament detail/bracket and remaining internal-link normalization, then Admin bilingual Footer editor and Component Graveyard Cleanup. Pause only when a genuine human decision becomes necessary.
