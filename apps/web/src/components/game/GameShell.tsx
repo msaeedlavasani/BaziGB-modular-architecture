@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useState } from 'react';
 import {
   Box,
   Button,
@@ -15,6 +16,7 @@ import {
 } from '@mui/material';
 import {
   ArrowLeft,
+  ArrowRight,
   Copy,
   Check,
   Timer,
@@ -23,13 +25,8 @@ import {
   Wifi,
   WifiOff,
 } from 'lucide-react';
-import { useState } from 'react';
-
-/**
- * GameShell — قاب مشترک صفحه بازی (بازسازی UI قبلی روی MUI).
- * هدر بازی، اسکوربورد مسابقه (best-of-N)، نوار راند و بنر برنده.
- * هم برای بازی محلی با ربات و هم برای چندنفره آنلاین استفاده می‌شود.
- */
+import { useAppLocale } from '@/hooks/useAppLocale';
+import { getGameShellMessages } from '@/i18n/game-shell';
 
 export interface WinnerBanner {
   label: string;
@@ -43,32 +40,25 @@ export interface MatchScores {
 }
 
 interface Props {
-  /** عنوان بازی (فارسی) */
   title: string;
-  /** چیپ نام بازی، مثلاً «♞ شطرنج» */
   gameChip?: string;
   backHref?: string;
   onBack?: () => void;
-  /** متن نوبت، مثلاً «نوبت شما» / «نوبت حریف» */
   turnText?: string | null;
-  /** برچسب تایمر (ثانیه‌های باقی‌مانده) یا هشدار انقضا */
   timerLabel?: string | null;
   connStatus?: 'connected' | 'connecting' | 'reconnecting';
-  /** کد اتاق (فقط آنلاین) */
   roomCode?: string | null;
   onCopyRoom?: () => void;
   copied?: boolean;
-  /** اسکوربورد مسابقه */
   scores?: MatchScores | null;
   maxRounds?: number;
   roundNotice?: string | null;
-  /** نوار تنظیمات (سطح ربات، حالت مسابقه…) — فقط ربات */
   settings?: React.ReactNode;
-  /** بنر برنده (جایگزین برد می‌شود) */
   winner?: WinnerBanner | null;
   children: React.ReactNode;
 }
 
+/** Shared game shell for both local/bot and realtime multiplayer game routes. */
 export default function GameShell({
   title,
   gameChip,
@@ -88,19 +78,22 @@ export default function GameShell({
   children,
 }: Props) {
   const theme = useTheme();
+  const locale = useAppLocale();
+  const messages = getGameShellMessages(locale);
+  const BackIcon = locale === 'fa' ? ArrowRight : ArrowLeft;
   const isMultiRound = maxRounds > 1 && scores !== null && scores !== undefined;
 
   const connChip =
     connStatus === 'connected'
       ? {
-          label: 'متصل',
+          label: messages.connected,
           Icon: Wifi,
           bgcolor: alpha(theme.palette.success.main, 0.1),
           color: theme.palette.success.light,
           borderColor: alpha(theme.palette.success.main, 0.3),
         }
       : {
-          label: connStatus === 'reconnecting' ? 'در حال اتصال مجدد…' : 'در حال اتصال…',
+          label: connStatus === 'reconnecting' ? messages.reconnecting : messages.connecting,
           Icon: WifiOff,
           bgcolor: alpha(theme.palette.warning.main, 0.1),
           color: theme.palette.warning.light,
@@ -131,14 +124,13 @@ export default function GameShell({
           minWidth: 0,
         }}
       >
-        {/* هدر */}
         <Box
           component="header"
           sx={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: 0.5,
+            gap: 1,
             flexWrap: 'wrap',
           }}
         >
@@ -146,19 +138,22 @@ export default function GameShell({
             component={Link}
             href={backHref}
             onClick={onBack}
-            startIcon={<ArrowLeft size={18} />}
+            startIcon={<BackIcon size={18} />}
             sx={{
               color: 'text.secondary',
               '&:hover': { color: 'text.primary' },
               textTransform: 'none',
-              fontWeight: 600,
-              minWidth: { xs: 'auto', sm: 64 },
+              fontWeight: 700,
+              minWidth: { xs: 'auto', sm: 72 },
               px: { xs: 1, sm: 2 },
               fontSize: { xs: '0.8rem', sm: '0.875rem' },
-              '& .MuiButton-startIcon': { mr: { xs: 0.5, sm: 1 } },
+              '& .MuiButton-startIcon': {
+                marginInlineEnd: { xs: 0.5, sm: 1 },
+                marginInlineStart: 0,
+              },
             }}
           >
-            لابی
+            {messages.lobby}
           </Button>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1.5 }, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -185,7 +180,7 @@ export default function GameShell({
                   alignItems: 'center',
                   gap: 0.5,
                   borderRadius: 10,
-                  bgcolor: 'background.paper',
+                  bgcolor: alpha(theme.palette.background.paper, 0.72),
                   border: '1px solid',
                   borderColor: 'divider',
                   px: 1.5,
@@ -196,20 +191,17 @@ export default function GameShell({
                   variant="caption"
                   sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}
                 >
-                  اتاق
+                  {messages.room}
                 </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{ fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.08em' }}
-                >
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 800, letterSpacing: '0.08em' }}>
                   {roomCode}
                 </Typography>
-                <Tooltip title={copied ? 'کپی شد!' : 'کپی کد اتاق'}>
+                <Tooltip title={copied ? messages.copied : messages.copyRoomCode}>
                   <IconButton
                     size="small"
                     onClick={onCopyRoom}
-                    aria-label={copied ? 'کپی شد' : 'کپی کد اتاق'}
-                    sx={{ color: copied ? 'success.main' : 'text.disabled', p: 0.25 }}
+                    aria-label={copied ? messages.copied : messages.copyRoomCode}
+                    sx={{ color: copied ? 'success.main' : 'text.secondary', p: 0.25 }}
                   >
                     {copied ? <Check size={14} /> : <Copy size={14} />}
                   </IconButton>
@@ -219,7 +211,6 @@ export default function GameShell({
           </Box>
         </Box>
 
-        {/* چیپ‌های وضعیت */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, flexWrap: 'wrap' }}>
           {connStatus && (
             <Chip
@@ -265,25 +256,24 @@ export default function GameShell({
               }}
             />
           )}
-          <Typography variant="h5" sx={{ color: 'text.primary', fontWeight: 800, mr: 0.5 }}>
+          <Typography variant="h5" sx={{ color: 'text.primary', fontWeight: 800, marginInlineStart: 0.5 }}>
             {title}
           </Typography>
         </Box>
 
-        {/* اسکوربورد مسابقه + نوار راند */}
         {(isMultiRound || roundNotice) && (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, flexWrap: 'wrap' }}>
             {isMultiRound && (
               <Chip
                 icon={<Trophy size={14} />}
-                label={`مسابقه ${scores.a} - ${scores.b}`}
+                label={messages.matchScore(scores.a, scores.b)}
                 size="small"
-                title={`بهترین از ${maxRounds} — اولی به ${Math.ceil(maxRounds / 2)}`}
+                title={messages.bestOf(maxRounds, Math.ceil(maxRounds / 2))}
                 sx={{
                   fontSize: '0.72rem',
                   fontWeight: 700,
                   bgcolor: alpha(theme.palette.warning.main, 0.12),
-                  color: '#fbbf24',
+                  color: theme.palette.warning.light,
                   border: '1px solid',
                   borderColor: alpha(theme.palette.warning.main, 0.3),
                   '& .MuiChip-icon': { color: 'inherit' },
@@ -307,19 +297,17 @@ export default function GameShell({
           </Box>
         )}
 
-        {/* تنظیمات (ربات) */}
         {settings && <Box sx={{ display: 'flex', justifyContent: 'center' }}>{settings}</Box>}
 
-        {/* برد یا بنر برنده */}
         {winner ? (
           <Paper
             elevation={8}
             sx={{
-              p: 3.5,
+              p: { xs: 3, sm: 3.5 },
               bgcolor: 'primary.main',
-              color: 'white',
+              color: 'secondary.main',
               borderRadius: 4,
-              boxShadow: `0 8px 32px 0 ${alpha(theme.palette.primary.main, 0.4)}`,
+              boxShadow: `0 8px 32px 0 ${alpha(theme.palette.primary.main, 0.28)}`,
               display: 'flex',
               flexDirection: 'column',
               gap: 1.5,
@@ -330,7 +318,7 @@ export default function GameShell({
               {winner.label}
             </Typography>
             {winner.sub && (
-              <Typography variant="body2" sx={{ fontWeight: 500, color: alpha('#fff', 0.85) }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: alpha(theme.palette.secondary.main, 0.78) }}>
                 {winner.sub}
               </Typography>
             )}
@@ -339,28 +327,18 @@ export default function GameShell({
                 <Button
                   variant="contained"
                   onClick={winner.onRematch}
-                  sx={{
-                    bgcolor: 'success.main',
-                    color: 'white',
-                    fontWeight: 700,
-                    '&:hover': { bgcolor: 'success.dark' },
-                  }}
+                  sx={{ bgcolor: 'secondary.main', color: 'text.primary', fontWeight: 800 }}
                 >
-                  بازی دوباره
+                  {messages.rematch}
                 </Button>
               )}
               <Button
                 component={Link}
                 href={backHref}
-                variant="contained"
-                sx={{
-                  bgcolor: 'white',
-                  color: 'primary.main',
-                  fontWeight: 700,
-                  '&:hover': { bgcolor: alpha('#fff', 0.9) },
-                }}
+                variant="outlined"
+                sx={{ borderColor: 'secondary.main', color: 'secondary.main', fontWeight: 800 }}
               >
-                بازگشت به لابی
+                {messages.backToLobby}
               </Button>
             </Box>
           </Paper>
@@ -368,11 +346,10 @@ export default function GameShell({
           children
         )}
 
-        {/* تعداد بازیکنان اتاق (صبر برای حریف) */}
         {roomCode && !children && (
           <Chip
             icon={<Users size={16} />}
-            label="در انتظار حریف… کد اتاق را به اشتراک بگذارید"
+            label={messages.waitingForOpponent}
             variant="outlined"
             sx={{ alignSelf: 'center', borderColor: 'divider', bgcolor: 'background.paper' }}
           />
