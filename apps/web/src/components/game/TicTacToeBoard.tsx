@@ -93,10 +93,7 @@ export default function TicTacToeBoard({ state, onMove, disabled }: Props) {
           {isHumanTurn ? messages.gameShell.yourTurn : messages.gameShell.botTurn}
         </Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          {messages.gameShell.you} {humanColor === 'x' ? '✕' : '◯'} · {messages.gameShell.finalScore(
-            state.scores[humanId] ?? 0,
-            state.scores[botId] ?? 0,
-          )}
+          {messages.gameShell.you} {humanColor === 'x' ? '✕' : '◯'} · {state.scores[humanId] ?? 0} : {state.scores[botId] ?? 0} {messages.gameShell.bot}
         </Typography>
       </Box>
     </Box>
