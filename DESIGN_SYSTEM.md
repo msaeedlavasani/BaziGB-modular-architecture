@@ -1,6 +1,6 @@
 # BaziGB — Design System & UI Architecture
 
-**Version:** 2.1.0
+**Version:** 2.2.0
 
 This document defines the visual and interaction language of BaziGB. It does not define backend architecture, game rules, deployment, database strategy, or business strategy.
 
@@ -111,6 +111,28 @@ AppShell
 over implementing global layout structures independently in every page.
 
 Use MUI layout primitives. Avoid unnecessary absolute positioning.
+
+## 6A. SHAPE / CORNER-RADIUS HIERARCHY
+
+BaziGB uses a restrained radius hierarchy. The goal is consistency, not making every element identical.
+
+The MUI base shape radius is **4px**. Numeric `sx` radius values multiply this base, so common values map predictably:
+
+| Usage | Typical value | Effective radius |
+|---|---:|---:|
+| compact chips/small controls | `2` | `8px` |
+| buttons/inputs/filter controls | `2.5` | `10px` |
+| icon containers/small surfaces | `3` | `12px` |
+| cards/panels/major surfaces | `4` | `16px` |
+
+Rules:
+- Do not use very large rounded corners on ordinary cards/panels unless the component has a deliberate pill/capsule role.
+- Do not scatter arbitrary pixel radii when the shared hierarchy expresses the intended level.
+- Game pieces, circular indicators, avatars and specialized board geometry may use shapes dictated by their function.
+- Radius should communicate hierarchy: controls tighter, major surfaces slightly softer.
+- Border treatment and radius should work together; avoid stacking heavy borders, excessive elevation and exaggerated rounding on the same surface.
+
+The theme exports `shapeScale` for cases that require explicit pixel values outside numeric `sx` multiplication.
 
 ## 7. COMPONENT DECISION RULES
 
@@ -310,6 +332,7 @@ Avoid speculative design-system abstractions.
 - [ ] Existing BaziGB theme tokens used
 - [ ] Active locale direction (`RTL`/`LTR`) preserved
 - [ ] Locale-specific typography applied correctly
+- [ ] Shape/radius hierarchy follows the canonical scale
 - [ ] 360px+ responsive behavior checked
 - [ ] No accidental horizontal overflow
 - [ ] Existing components reused where appropriate
