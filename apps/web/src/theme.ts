@@ -2,12 +2,7 @@
 import { createTheme, alpha } from '@mui/material/styles';
 import type { TextDirection } from './i18n/config';
 
-/**
- * استاندارد طراحی Elite — تم Honey Bronze
- * primary.main: #EEAC2F (برنز عسلی)
- * secondary.main: #061A2D (سرمهای تیره)
- * هیچ رنگ پیشفرض MUI (Indigo/Slate/Rose) استفاده نمیشود.
- */
+/** Honey Bronze — canonical BaziGB design tokens. */
 export const honeyBronze = {
   primary: '#EEAC2F',
   secondary: '#061A2D',
@@ -26,6 +21,8 @@ export interface BaziGBThemeOptions {
   direction?: TextDirection;
   fontFamily?: string;
 }
+
+const motion = '200ms cubic-bezier(0.4, 0, 0.2, 1)';
 
 export function createBaziGBTheme({
   direction = 'rtl',
@@ -78,18 +75,37 @@ export function createBaziGBTheme({
     },
     shape: { borderRadius: 12 },
     components: {
+      MuiCssBaseline: {
+        styleOverrides: {
+          '*, *::before, *::after': { boxSizing: 'border-box' },
+          body: { minWidth: 360, overflowX: 'hidden' },
+          '@media (prefers-reduced-motion: reduce)': {
+            '*, *::before, *::after': {
+              scrollBehavior: 'auto !important',
+              animationDuration: '0.01ms !important',
+              animationIterationCount: '1 !important',
+              transitionDuration: '0.01ms !important',
+            },
+          },
+        },
+      },
       MuiButton: {
         defaultProps: { disableElevation: true },
         styleOverrides: {
           root: {
             borderRadius: 10,
             padding: '8px 20px',
-            transition: 'all .2s ease',
+            transition: `background-color ${motion}, border-color ${motion}, color ${motion}, transform ${motion}, box-shadow ${motion}`,
             '&:hover': {
               transform: 'translateY(-1px)',
-              boxShadow: '0 4px 16px rgba(238, 172, 47, 0.25)',
+              boxShadow: `0 4px 16px ${alpha(honeyBronze.primary, 0.18)}`,
             },
             '&:active': { transform: 'translateY(0)' },
+            '&:focus-visible': {
+              outline: `3px solid ${alpha(honeyBronze.primary, 0.32)}`,
+              outlineOffset: 2,
+            },
+            '&.Mui-disabled': { transform: 'none', boxShadow: 'none' },
           },
           sizeLarge: { padding: '12px 28px', fontSize: '1rem' },
           sizeSmall: { padding: '4px 12px', fontSize: '0.75rem' },
@@ -102,10 +118,14 @@ export function createBaziGBTheme({
       MuiIconButton: {
         styleOverrides: {
           root: {
-            transition: 'all .2s ease',
+            transition: `background-color ${motion}, color ${motion}, border-color ${motion}`,
             '&:hover': {
-              backgroundColor: 'rgba(238, 172, 47, 0.08)',
+              backgroundColor: alpha(honeyBronze.primary, 0.08),
               color: honeyBronze.primary,
+            },
+            '&:focus-visible': {
+              outline: `3px solid ${alpha(honeyBronze.primary, 0.32)}`,
+              outlineOffset: 2,
             },
           },
         },
@@ -115,7 +135,6 @@ export function createBaziGBTheme({
           root: {
             backgroundImage: 'none',
             border: `1px solid ${honeyBronze.border}`,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
           },
         },
       },
@@ -124,10 +143,12 @@ export function createBaziGBTheme({
           root: {
             background: `linear-gradient(160deg, ${honeyBronze.bgPaper} 0%, ${honeyBronze.secondary} 100%)`,
             border: `1px solid ${honeyBronze.border}`,
-            transition: 'transform .2s ease, box-shadow .2s ease',
-            '&:hover': {
-              transform: 'translateY(-4px)',
-              boxShadow: '0 12px 32px rgba(238, 172, 47, 0.18)',
+            transition: `transform ${motion}, box-shadow ${motion}, border-color ${motion}`,
+            // Cards are not interactive by default. Opt in deliberately.
+            '&[data-interactive="true"]:hover': {
+              transform: 'translateY(-2px)',
+              borderColor: alpha(honeyBronze.primary, 0.35),
+              boxShadow: `0 10px 28px ${alpha(honeyBronze.primary, 0.14)}`,
             },
           },
         },
@@ -139,7 +160,7 @@ export function createBaziGBTheme({
             '& .MuiOutlinedInput-root': {
               borderRadius: 10,
               backgroundColor: 'rgba(0, 0, 0, 0.2)',
-              transition: 'all .2s ease',
+              transition: `border-color ${motion}, background-color ${motion}`,
               '& fieldset': { borderColor: honeyBronze.border },
               '&:hover fieldset': { borderColor: alpha(honeyBronze.primary, 0.4) },
               '&.Mui-focused fieldset': { borderColor: honeyBronze.primary },
@@ -191,8 +212,5 @@ export function createBaziGBTheme({
   });
 }
 
-/**
- * Backward-compatible default theme while the route tree is still Persian-only.
- * Locale-scoped layouts should call createBaziGBTheme with locale config instead.
- */
+/** Backward-compatible Persian default theme for non-request-aware consumers. */
 export const theme = createBaziGBTheme();
