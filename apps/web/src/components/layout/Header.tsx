@@ -89,7 +89,7 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
           <Typography
             variant="h5"
             sx={{
-              ms: 2,
+              marginInlineStart: 2,
               color: 'primary.main',
               fontWeight: 900,
               letterSpacing: '0.02em',
