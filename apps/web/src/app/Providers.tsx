@@ -1,11 +1,27 @@
 'use client';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import type { ReactNode } from 'react';
-import { theme } from '../theme';
+import { useMemo, type ReactNode } from 'react';
+import { createBaziGBTheme } from '../theme';
+import type { TextDirection } from '../i18n/config';
 import { AuthProvider } from '../context/AuthContext';
 
-export default function Providers({ children }: { children: ReactNode }) {
+interface ProvidersProps {
+  children: ReactNode;
+  direction?: TextDirection;
+  fontFamily?: string;
+}
+
+export default function Providers({
+  children,
+  direction = 'rtl',
+  fontFamily = 'Vazirmatn, "Segoe UI", Tahoma, sans-serif',
+}: ProvidersProps) {
+  const theme = useMemo(
+    () => createBaziGBTheme({ direction, fontFamily }),
+    [direction, fontFamily],
+  );
+
   return (
     <AuthProvider>
       <ThemeProvider theme={theme}>
