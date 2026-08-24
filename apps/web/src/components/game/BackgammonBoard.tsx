@@ -22,17 +22,12 @@ import {
 } from '@bazigb/game-backgammon';
 import Dice3D from './Dice3D';
 import { soundService } from '@/lib/sound-service';
+import { useAppLocale } from '@/hooks/useAppLocale';
+import { getBackgammonBoardMessages } from '@/i18n/backgammon-board';
 
 /**
- * برد نرد — بازسازی UI قبلی (Elite) روی انجین جدید.
- *
- * - قاب گردویی + سطح چرمی سبز + مثلث‌های چوبی (SVG) + مهره‌های سه‌بعدی
- * - ریختن تاس با Dice3D، انتخاب نقطه و مقصدهای قانونی، بار و بیرون‌بردن
- * - کار با callback ها: onRoll / onMove / onEndTurn / onPlayChain
- *   (هم برای بازی محلی با ربات و هم برای چندنفره آنلاین)
+ * Backgammon board with fixed LTR game geometry and locale-aware surrounding chrome.
  */
-
-// مهره روشن (بازیکن پایین) و مهره تیره (بازیکن بالا) — مطابق رسم کاربر
 const CHECKER_LIGHT = '#F1E6CF';
 const CHECKER_DARK = '#3A3A40';
 
@@ -40,18 +35,15 @@ interface Props {
   state: BackgammonState;
   onRoll?: () => void;
   onMove?: (move: BackgammonMove) => void;
-  /** اجرای زنجیرهٔ کامل (حرکت ترکیبی یک‌کلیک) */
   onChain?: (chain: BackgammonMove[]) => void;
   onEndTurn?: () => void;
   onOfferDouble?: () => void;
   onRespondDouble?: (accept: boolean) => void;
   disabled?: boolean;
   isMyTurn?: boolean;
-  /** رنگ بازیکن جاری: 1 (روشن) یا -1 (تیره). پیش‌فرض: بازیکن اول. */
   myColor?: number;
 }
 
-/** حرکت مهره با from/to پر شده (نوع انجین آن‌ها را اختیاری اعلام کرده) */
 type PieceMove = BackgammonMove & {
   kind: 'move';
   from: number | 'bar';
@@ -70,6 +62,8 @@ export default function BackgammonBoard({
   isMyTurn = false,
   myColor,
 }: Props) {
+  const locale = useAppLocale();
+  const messages = getBackgammonBoardMessages(locale);
   const myColorNum: number = myColor ?? ((state.players[0]?.color as number) || 1);
   const [selected, setSelected] = useState<number | 'bar' | null>(null);
 
@@ -87,7 +81,6 @@ export default function BackgammonBoard({
   const p1Id = state.players.find((p) => p.color === 1)?.id;
   const p2Id = state.players.find((p) => p.color === -1)?.id;
 
-  // همه حرکت‌های قانونی (شامل حرکت تاس وقتی ریخته نشده)
   const legalMoves = useMemo(() => getLegalMoves(state), [state]);
 
   const pieceMoves = useMemo(
@@ -98,13 +91,11 @@ export default function BackgammonBoard({
     [legalMoves],
   );
 
-  // مقصدهای قانونی برای نقطه/بار انتخاب‌شده
   const destinations = useMemo(() => {
     if (selected === null) return new Set<number | 'off'>();
     return new Set(pieceMoves.filter((m) => m.from === selected).map((m) => m.to));
   }, [selected, pieceMoves]);
 
-  // حرکت ترکیبی یک‌کلیک: زنجیره‌های حداکثری که همهٔ تاس‌ها را از همین نقطه مصرف می‌کنند
   const combinedChains = useMemo(() => {
     if (selected === null || !rolled || !onChain) return [];
     const hints = getMoveHints(state);
@@ -124,10 +115,8 @@ export default function BackgammonBoard({
   const mustFromBar = myBarCount > 0;
   const myCheckerOnPoint = (i: number) => (myColorNum === 1 ? board[i] > 0 : board[i] < 0);
 
-  // کلید وضعیت برای گارد حرکت خودکار
   const stateKey = [board.join(','), bar[1], bar[-1], off[1], off[-1], dice.join(',')].join('|');
 
-  // حرکت خودکار وقتی فقط یک حرکت قانونی وجود دارد (بار یا بیرون‌بردن اجباری)
   const forcedPlayedRef = useRef<string | null>(null);
   useEffect(() => {
     if (disabled || !isMyTurn || !rolled || dice.length === 0) return;
@@ -141,7 +130,6 @@ export default function BackgammonBoard({
     }
   }, [stateKey, disabled, isMyTurn, rolled, dice.length, pieceMoves, myBarCount, onMove, state]);
 
-  // پاس خودکار وقتی تاس مانده ولی حرکتی ممکن نیست
   const passedRef = useRef<string | null>(null);
   useEffect(() => {
     if (disabled || !isMyTurn || !rolled || dice.length === 0) return;
@@ -154,7 +142,6 @@ export default function BackgammonBoard({
   const handleMove = (move: BackgammonMove) => {
     if (disabled || !isMyTurn || move.kind !== 'move') return;
     const to = move.to;
-    // تشخیص زدن مهره (Hit)
     const isHit = typeof to === 'number' && board[to] === -myColorNum;
     onMove?.(move);
     setSelected(null);
@@ -172,7 +159,6 @@ export default function BackgammonBoard({
       if (move) handleMove(move);
       return;
     }
-    // حرکت ترکیبی: یک کلیک روی مقصد نهایی → اجرای همهٔ تاس‌ها
     if (combinedDests.has(index)) {
       const chain = combinedChains.find((c) => c[c.length - 1].to === index);
       if (chain) {
@@ -182,7 +168,6 @@ export default function BackgammonBoard({
       }
       return;
     }
-    // انتخاب نقطه خودی (اگر مجبور به حرکت از بار نباشیم)
     if (!mustFromBar && myCheckerOnPoint(index)) {
       setSelected(index);
     } else {
@@ -207,13 +192,10 @@ export default function BackgammonBoard({
       return;
     }
     if (selected === null && !mustFromBar) {
-      // انتخاب نقطه‌ای که امکان بیرون‌بردن دارد
       const bearOffFrom = pieceMoves.find((m) => m.to === 'off')?.from;
       if (typeof bearOffFrom === 'number') setSelected(bearOffFrom);
     }
   };
-
-  /* ------------------------------- رندر مهره ------------------------------ */
 
   const renderCheckers = (count: number, isTop: boolean, keyPrefix: string, isBar = false) => {
     if (count === 0) return null;
@@ -394,7 +376,6 @@ export default function BackgammonBoard({
     );
   };
 
-  // چینش استاندارد نرد (مثل برد قدیمی): ردیف بالا ۱۳..۲۴، ردیف پایین ۱۲..۱
   const topLeft = [12, 13, 14, 15, 16, 17];
   const topRight = [18, 19, 20, 21, 22, 23];
   const bottomLeft = [11, 10, 9, 8, 7, 6];
@@ -458,8 +439,6 @@ export default function BackgammonBoard({
         boxShadow: '0 30px 60px -15px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
       }}
     >
-      {/* سطح بازی — direction:ltr چون صفحه RTL است و چیدمان نرد LTR است
-          (ستون «خارج» باید سمت راست بماند، نه آینه‌شده) */}
       <Box
         sx={{
           position: 'relative',
@@ -491,17 +470,11 @@ export default function BackgammonBoard({
               <stop offset="45%" stopColor="#dfbd85" />
               <stop offset="100%" stopColor="#bf9257" />
             </linearGradient>
-            <linearGradient id="bgPtLight" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#f5e0b2" />
-              <stop offset="45%" stopColor="#dfbd85" />
-              <stop offset="100%" stopColor="#bf9257" />
-            </linearGradient>
           </defs>
         </svg>
 
         {renderHalf(topLeft, bottomLeft)}
 
-        {/* بار */}
         <Box
           onClick={handleBarClick}
           sx={{
@@ -536,7 +509,7 @@ export default function BackgammonBoard({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                bgcolor: '#2a1408', // تیره برای کنتراست روی پنل روشن
+                bgcolor: '#2a1408',
                 color: '#f0d9b5',
                 fontWeight: 900,
                 fontSize: { xs: 11, sm: 15 },
@@ -566,7 +539,6 @@ export default function BackgammonBoard({
 
         {renderHalf(topRight, bottomRight)}
 
-        {/* خارج */}
         <Box
           onClick={handleOffClick}
           sx={{
@@ -590,7 +562,7 @@ export default function BackgammonBoard({
         >
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
             <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: 8, fontWeight: 700 }}>
-              خارج
+              {messages.off}
             </Typography>
             {Array.from({ length: Math.min(Math.abs(off[-1] ?? 0), 8) }, (_, i) => (
               <Box
@@ -627,12 +599,11 @@ export default function BackgammonBoard({
               />
             ))}
             <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: 8, fontWeight: 700 }}>
-              خارج
+              {messages.off}
             </Typography>
           </Box>
         </Box>
 
-        {/* وینیت عمق */}
         <Box
           sx={{
             position: 'absolute',
@@ -645,7 +616,6 @@ export default function BackgammonBoard({
         />
       </Box>
 
-      {/* نوار پایین: تاس + دکمه‌ها + راهنمای حرکت ترکیبی */}
       <Box
         sx={{
           display: 'flex',
@@ -660,7 +630,6 @@ export default function BackgammonBoard({
         <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, alignItems: 'center' }}>
           {showDice ? (
             (() => {
-              // گروه‌بندی تاس‌ها (جفت → ۴ تاس، هر حرکت یکی مصرف می‌شود)
               const groups: { value: number; count: number }[] = [];
               for (const d of dice) {
                 const g = groups.find((x) => x.value === d);
@@ -691,8 +660,8 @@ export default function BackgammonBoard({
                       )}
                     </Box>
                   ))}
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)', ml: 0.5 }}>
-                    {groups.map((g) => g.value).join(' و ')}
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)', marginInlineStart: 0.5 }}>
+                    {groups.map((g) => g.value).join(messages.diceSeparator)}
                   </Typography>
                 </Box>
               );
@@ -701,24 +670,25 @@ export default function BackgammonBoard({
             <Typography
               variant="overline"
               sx={{
-                color: '#f59e0b',
+                color: 'primary.main',
                 fontWeight: 'bold',
                 letterSpacing: '0.12em',
                 animation: 'bg-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                 fontSize: { xs: '0.68rem', sm: '0.8rem' },
                 lineHeight: 1.2,
+                '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
                 '@keyframes bg-pulse': {
                   '0%, 100%': { opacity: 1 },
                   '50%': { opacity: 0.45 },
                 },
               }}
             >
-              {isMyTurn && state.phase === 'playing' ? 'نوبت شما برای ریختن تاس' : 'در انتظار حریف...'}
+              {isMyTurn && state.phase === 'playing' ? messages.yourRoll : messages.waiting}
             </Typography>
           )}
         </Box>
 
-        <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1.5, flexWrap: 'wrap' }}>
           {canDouble && (
             <Button
               variant="contained"
@@ -726,35 +696,34 @@ export default function BackgammonBoard({
               onClick={() => onOfferDouble?.()}
               sx={{
                 px: { xs: 1.5, sm: 2 },
-                bgcolor: '#B97F12',
-                '&:hover': { bgcolor: '#EEAC2F' },
-                color: 'white',
+                bgcolor: 'primary.dark',
+                '&:hover': { bgcolor: 'primary.main' },
+                color: 'secondary.main',
                 fontWeight: 'bold',
                 fontSize: { xs: '0.68rem', sm: '0.75rem' },
                 borderRadius: 2,
               }}
             >
-              دابل
+              {messages.double}
             </Button>
           )}
           {canEndTurn && (
             <Button
-              variant="contained"
+              variant="outlined"
               onClick={() => {
                 soundService.play('move');
                 onEndTurn?.();
               }}
               sx={{
                 px: { xs: 1.5, sm: 2.5 },
-                bgcolor: '#2C3A45',
-                '&:hover': { bgcolor: '#5B6570' },
-                color: 'white',
+                borderColor: 'divider',
+                color: 'text.primary',
                 fontWeight: 'bold',
                 fontSize: { xs: '0.68rem', sm: '0.75rem' },
                 borderRadius: 2,
               }}
             >
-              پایان نوبت
+              {messages.endTurn}
             </Button>
           )}
           {canRoll && (
@@ -767,18 +736,18 @@ export default function BackgammonBoard({
               sx={{
                 px: { xs: 2, sm: 3 },
                 py: 1,
-                background: '#EA580C',
-                color: 'white',
+                bgcolor: 'primary.main',
+                color: 'secondary.main',
                 fontWeight: 900,
                 fontSize: { xs: '0.7rem', sm: '0.875rem' },
                 borderRadius: 3,
-                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-                transition: 'all 0.2s',
-                '&:hover': { transform: 'scale(1.04)', background: '#F97316' },
-                '&:active': { transform: 'scale(0.95)' },
+                transition: 'transform 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': { transform: 'scale(1.03)', bgcolor: 'primary.light' },
+                '&:active': { transform: 'scale(0.98)' },
+                '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' } },
               }}
             >
-              🎲 ریختن تاس
+              🎲 {messages.rollDice}
             </Button>
           )}
         </Box>
@@ -786,23 +755,21 @@ export default function BackgammonBoard({
 
       {doubling && doubling.offeredBy === myId && (
         <Typography variant="caption" sx={{ color: 'primary.main', mt: 1 }}>
-          در انتظار پاسخ حریف به پیشنهاد دابل...
+          {messages.waitingDoubleResponse}
         </Typography>
       )}
 
-      <Dialog open={!!(doubling && doubling.offeredBy !== myId && !disabled)} dir="rtl">
-        <DialogTitle>پیشنهاد دابل</DialogTitle>
+      <Dialog open={!!(doubling && doubling.offeredBy !== myId && !disabled)} dir={locale === 'fa' ? 'rtl' : 'ltr'}>
+        <DialogTitle>{messages.doubleOffer}</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            حریف پیشنهاد دوبرابر کردن امتیاز داده. اگر رد کنید بازی را با امتیاز فعلی می‌بازید.
-          </DialogContentText>
+          <DialogContentText>{messages.doubleOfferDescription}</DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => onRespondDouble?.(false)} color="error">
-            رد
+            {messages.decline}
           </Button>
           <Button onClick={() => onRespondDouble?.(true)} variant="contained" color="primary">
-            پذیرش
+            {messages.accept}
           </Button>
         </DialogActions>
       </Dialog>
