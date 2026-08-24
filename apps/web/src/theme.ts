@@ -78,7 +78,7 @@ export function createBaziGBTheme({
       MuiCssBaseline: {
         styleOverrides: {
           '*, *::before, *::after': { boxSizing: 'border-box' },
-          body: { minWidth: 360, overflowX: 'hidden' },
+          body: { overflowX: 'hidden' },
           '@media (prefers-reduced-motion: reduce)': {
             '*, *::before, *::after': {
               scrollBehavior: 'auto !important',
@@ -144,7 +144,6 @@ export function createBaziGBTheme({
             background: `linear-gradient(160deg, ${honeyBronze.bgPaper} 0%, ${honeyBronze.secondary} 100%)`,
             border: `1px solid ${honeyBronze.border}`,
             transition: `transform ${motion}, box-shadow ${motion}, border-color ${motion}`,
-            // Cards are not interactive by default. Opt in deliberately.
             '&[data-interactive="true"]:hover': {
               transform: 'translateY(-2px)',
               borderColor: alpha(honeyBronze.primary, 0.35),
