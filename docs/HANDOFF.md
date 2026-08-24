@@ -1,78 +1,21 @@
-# BaziGB — HANDOFF (تحویل و ادامه کار)
+# BaziGB — HANDOFF
 
-## وضعیت فعلی
+## Current state
 
-- **Baseline تولید:** `main`
-- **Working branch:** `refactor/platform-foundation-i18n-v3`
-- **Governance source:** آخرین نسخه تاییدشده روی `ai/autonomous-development-system-v1`
-- **Production:** این branch هنوز merge یا deploy نشده است.
-- **مرحله:** Taskهای 0–3 برای Foundation/Audit بسته شده‌اند؛ مرحله بعد consumer migration + bilingual implementation cleanup است.
+- Production baseline: `main`
+- Working branch: `refactor/platform-foundation-i18n-v3`
+- Governance source: latest verified governance on `ai/autonomous-development-system-v1`
+- `main`: NOT MODIFIED
+- Governance branch: NOT MODIFIED
+- Merged: NO
+- Deployed: NO
+- Production verified: NO
 
-## خلاصه آخرین مرحله
+## Current phase
 
-Foundation دو زبان و audit اولیه اکنون به حدی رسیده که معماری تصمیم‌گیری‌شده است و ادامه کار نیازمند discovery گسترده دوباره نیست.
+Tasks 0–3 (foundation/audit) are complete for their agreed scope. Work has moved into implementation cleanup and bilingual consumer migration.
 
-### اضافه/اصلاح شده
-
-- `apps/web/src/i18n/config.ts`
-  - `fa` / `en`
-  - RTL/LTR
-  - locale font + metadata
-
-- `apps/web/src/i18n/messages.ts`
-  - navigation
-  - common feedback
-  - game names
-  - game-shell copy
-  - Lobby copy
-  - Tournament status/fallback copy
-  - Footer labels
-
-- `apps/web/src/i18n/routing.ts`
-  - `APP_ROUTES`
-  - `localePath`
-  - `localizedAppRoute`
-  - `stripLocale`
-  - `resolveLocaleFromPathname`
-  - `gameRoute` / `playRoute`
-  - این helperها route migration را آماده می‌کنند ولی هنوز `/fa` و `/en` را در production tree فعال نکرده‌اند.
-
-- Header
-  - route literalهای اصلی از `APP_ROUTES` می‌آیند.
-  - active state با `stripLocale` هم route فعلی و هم future locale-prefixed route را می‌فهمد.
-  - labelها locale-aware هستند.
-
-- Footer
-  - locale-aware managed content + labels.
-  - route identityهای ثابت از `APP_ROUTES`.
-
-- Footer/Site Settings
-  - legacy `footer` = Persian compatibility.
-  - `footer.fa` / `footer.en` storage.
-  - public response: `footer` + `footers.fa` / `footers.en`.
-  - English محتوای Persian legacy را inherit نمی‌کند.
-  - Prisma migration لازم نیست.
-
-- `apps/web/src/lib/game-catalog.ts`
-  - canonical web presentation bridge برای `GameId`.
-  - localized titleها در messages باقی می‌مانند.
-  - chip symbol + presentation fallback capacity یک منبع دارند.
-  - `isWebGameId` و lookup helper اضافه شده‌اند.
-  - Runtime player capability همچنان باید از GameAdapter بیاید، نه web catalog.
-
-## Task 0–3 Status
-
-### Task 0 — Baseline & Governance Check
-**COMPLETE FOR THIS BRANCH**
-
-- `main` دست نخورده است.
-- deploy انجام نشده است.
-- branch از main جدا و جلوتر است.
-
-### Task 1 — Persian / English Architecture
-**COMPLETE AS FOUNDATION — MIGRATION PENDING**
-
-مدل قطعی:
+Target architecture remains:
 
 ```text
 shared components
@@ -87,115 +30,96 @@ localized metadata
 localized routes
 ```
 
-Architecture دیگر سوال باز ندارد. باقیمانده implementation است:
-- page consumer migration
-- locale route tree
-- active locale layouts
-- bilingual Admin Footer editor
+## Foundation already present
 
-### Task 2 — Platform Architecture Audit
-**COMPLETE FOR FOUNDATION SCOPE**
+- `apps/web/src/i18n/config.ts`: typed `fa/en`, direction, typography and metadata.
+- `apps/web/src/i18n/messages.ts`: typed shared messages for shell/game/lobby/tournament/footer foundations.
+- `apps/web/src/i18n/routing.ts`: language-neutral routes plus locale prefix/strip/resolution helpers.
+- `apps/web/src/i18n/useAppLocale.ts`: route-aware client locale resolver added in the current stage. Locale-neutral routes resolve to Persian during migration; future `/fa/*` and `/en/*` consumers use the same hook.
+- locale-aware MUI theme factory and Providers inputs.
+- Header/Footer locale-aware shell copy and centralized route identities.
+- bilingual Footer Web/Server contract with legacy Persian compatibility and `footer.fa` / `footer.en` storage.
+- `apps/web/src/lib/game-catalog.ts`: canonical web presentation bridge for `GameId`; runtime capability remains owned by GameAdapter.
 
-یافته‌ها ثبت شده‌اند:
-- mixed-language Lobby/Tournaments/game pages
-- Footer cross-layer localization
-- duplicate game presentation metadata
-- component graveyard risk
-- shared feedback primitives bypass
-- Admin monolith
+## Current implementation stage
 
-### Task 3 — Component Inventory
-**COMPLETE FOR INITIAL HIGH-TRAFFIC SCOPE**
+### Consumer migration
 
-- `GameShell`: `CANONICAL`
-- `Dice3D`: `CANONICAL REUSABLE GAME PRIMITIVE`
-- boards: `GAME_SPECIFIC`
-- `Header` / `Footer`: `CANONICAL`
-- `GameCard`: `UNUSED_CANDIDATE / INLINE_DUPLICATE`
-- `EmptyState`: `UNUSED_CANDIDATE`
-- `LoadingSkeleton`: `UNUSED_CANDIDATE / TOO_NARROW?`
-- `Modal`: `UNUSED_CANDIDATE`
+Goal:
 
-هیچ unused candidate هنوز حذف نشده است؛ حذف قبل از consumer migration + validation ممنوع است.
+1. `/game/[gameId]` consumes `game-catalog` + shared game-shell messages.
+2. `/play/[roomId]` consumes `game-catalog` + shared messages.
+3. Lobby consumes `game-catalog` + Lobby messages.
+4. Then Tournaments/Profile/auth move to dictionaries.
+5. Locale route tree is activated only after these consumers are ready.
 
-## Bug / Debt Ledger — وضعیت کلیدی
+A client-side locale hook now exists so each large client page does not invent pathname/locale parsing independently.
 
-جزئیات کامل در `docs/platform-foundation.md`.
+### Important evidence from current consumers
 
-- `DEBT-001` global locale/direction → partially mitigated; active locale route layouts باقی است.
-- `DEBT-002` Lobby mixed language → dictionary آماده، page migration باقی است.
-- `DEBT-003` GameCard graveyard mismatch → باز.
-- `DEBT-004` singleton RTL theme → foundation-level mitigated.
-- `DEBT-005` Footer single-locale → partially mitigated; Admin + routing باقی است.
-- `DEBT-006` duplicate game metadata → catalog آماده؛ consumer migration باقی است.
-- `DEBT-007` locale-aware copy vs locale-neutral links → route identities centralized؛ locale tree باقی است.
-- `DEBT-008` Persian game-page copy → game-shell dictionary آماده؛ page migration باقی است.
-- `DEBT-009` shared feedback primitives bypass → باز.
-- `DEBT-010` Tournament English copy → dictionary آماده؛ page migration باقی است.
-- `DEBT-011` Footer Web/Admin/Server coupling → Server/Web coherent؛ Admin باقی است.
-- `DEBT-012` Admin monolith → non-blocking debt.
-- `DEBT-013` game catalog بدون consumer migration → باید در مرحله بعد حل شود تا registry جدید خودش graveyard نشود.
-- Runtime bug جدید در این مرحله تایید نشده؛ چون runtime validation در این محیط قابل اجرا نیست.
+- Lobby still owns local `STATUS_LABEL`, `GAME_META`, `GAME_OPTIONS`, recent-result labels, errors and route literals.
+- `/game/[gameId]` still owns duplicate `GAME_TITLES` and `GAME_CHIPS` plus Persian game-shell copy.
+- These are the next consumers to migrate; the canonical catalog/dictionaries must not remain unused abstractions.
 
-## مرحله بعد — ترتیب دقیق
+## Component graveyard state
 
-1. **Consumer migration برای metadata/copy**
-   - `/game/[gameId]` → `game-catalog.ts` + `messages.gameShell`
-   - `/play/[roomId]` → `game-catalog.ts` + locale messages
-   - Lobby → game catalog + Lobby dictionary
+- `GameShell`: CANONICAL.
+- `Dice3D`: CANONICAL reusable game primitive.
+- Header/Footer: CANONICAL.
+- Game boards: GAME_SPECIFIC.
+- `GameCard`: UNUSED_CANDIDATE / INLINE_DUPLICATE; strongest graveyard signal.
+- `EmptyState`: UNUSED_CANDIDATE.
+- `LoadingSkeleton`: UNUSED_CANDIDATE / possibly too narrow.
+- `Modal`: UNUSED_CANDIDATE.
 
-2. **Bilingual page content migration**
-   - Tournaments
-   - Profile/common feedback
-   - auth و copyهای باقیمانده
+Do not delete candidates until consumers are migrated and executable validation is available.
 
-3. **Atomic locale route migration**
-   - `/fa/...` و `/en/...`
-   - active locale layout/theme/metadata
-   - localized links
-   - English نباید قبل از کامل‌شدن این migration expose شود.
+## Active debt / bug summary
 
-4. **Admin bilingual Footer editor**
-   - edit `footer.fa`
-   - edit `footer.en`
-   - legacy read compatibility تا پایان rollout حفظ شود.
+- DEBT-001 global locale/direction: partially mitigated; locale route layouts remain.
+- DEBT-002 Lobby mixed-language copy: migration pending.
+- DEBT-003 GameCard canonicality mismatch: open.
+- DEBT-004 singleton RTL theme: foundation mitigated.
+- DEBT-005 Footer single-locale: Web/Server mitigated; Admin + active routing remain.
+- DEBT-006 duplicate game metadata: catalog exists; consumer migration pending.
+- DEBT-007 locale-aware copy vs locale-neutral links: contained until atomic route migration.
+- DEBT-008 hard-coded game-page copy: migration pending.
+- DEBT-009 shared feedback primitives bypass: open.
+- DEBT-010 Tournament mixed language: migration pending.
+- DEBT-011 Footer Web/Admin/Server coupling: Admin remains.
+- DEBT-012 Admin monolith: non-blocking.
+- DEBT-013 catalog without consumers: active until migration completes.
+- BUG-001: no runtime bug confirmed yet; runtime validation has not run.
 
-5. **Component Graveyard Cleanup**
-   - canonicalize GameCard / product feedback patterns
-   - delete فقط بعد از executable validation
+## Next action
 
-6. Lobby / GameShell standardization
+Continue targeted consumer migration without broad repo rediscovery:
 
-## قواعد اجرایی مهم برای Agent بعدی
+- migrate `/game/[gameId]` first,
+- then `/play/[roomId]`,
+- then Lobby,
+- update dictionaries/catalog only when a real consumer needs the key,
+- record new debt/bugs as discovered,
+- keep this HANDOFF and `docs/platform-foundation.md` synchronized after each meaningful stage.
 
-- discovery کل repo را از صفر تکرار نکن؛ `docs/platform-foundation.md` + latest governance + فایل affected نقطه شروع هستند.
-- `main` را تغییر نده.
-- governance branch را تغییر نده.
-- deploy نکن.
-- route migration را نصفه انجام نده.
-- هر shared component/registry جدید باید consumer واقعی داشته باشد.
-- runtime capability بازی را از web presentation metadata استخراج نکن؛ GameAdapter منبع capability است.
-- هر bug/debt جدید را همان مرحله در `docs/platform-foundation.md` ثبت کن.
-- این HANDOFF را بعد از هر مرحله معنادار sync کن.
+## Validation
 
-## Validation State
+Current connector environment cannot execute the application locally.
 
-محیط فعلی GitHub connector اجرای محلی واقعی ندارد:
+- Build: NOT RUN
+- Typecheck: NOT RUN
+- Tests: NOT RUN
+- Browser visual verification: NOT RUN
+- Deployment: NOT RUN
 
-- Build: **NOT RUN**
-- Typecheck: **NOT RUN**
-- Tests: **NOT RUN**
-- Browser visual verification: **NOT RUN**
-- Deployment: **NOT RUN**
+Never convert these to PASS without real execution.
 
-هیچ PASS حدسی ثبت نشده است.
+## Safety
 
-## Safety / Release
-
-- `main`: NOT MODIFIED
-- Governance branch: NOT MODIFIED
-- Merged: NO
-- Deployed: NO
-- Production verified: NO
-
-روش Zero Build موجود پروژه بخشی از این مرحله نیست و نباید اجرا شود مگر با مجوز صریح بعدی.
+- Do not modify `main` during this refactor.
+- Do not modify governance branch.
+- Do not deploy.
+- Do not expose English routes piecemeal.
+- Do not create a second app/codebase for English.
+- Do not make web presentation metadata authoritative for game runtime capability.
+- Do not create shared components/registries without real consumers.
