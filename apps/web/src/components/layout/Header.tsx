@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
@@ -13,21 +13,27 @@ import { usePathname } from 'next/navigation';
 import { Gamepad2, Swords, Trophy, User, Volume2, VolumeX } from 'lucide-react';
 import { soundService } from '@/lib/sound-service';
 import { honeyBronze } from '@/theme';
+import type { Locale } from '@/i18n/config';
+import { getMessages } from '@/i18n/messages';
 
-/**
- * هدر BaziGB — بازسازی هدر قدیمی (لوگو + لینک‌های بازی + صدا + پروفایل)
- * RTL: برند در راست، لینک‌ها وسط، اکشن‌ها چپ
- */
-const NAV_LINKS = [
-  { href: '/lobby', label: 'لابی', icon: Gamepad2 },
-  { href: '/leaderboard', label: 'رتبه‌بندی', icon: Trophy },
-  { href: '/tournaments', label: 'تورنمنت', icon: Swords },
-];
+interface HeaderProps {
+  locale?: Locale;
+}
 
-export default function Header() {
+export default function Header({ locale = 'fa' }: HeaderProps) {
   const theme = useTheme();
   const pathname = usePathname();
   const [muted, setMuted] = useState(false);
+  const messages = getMessages(locale);
+
+  const navLinks = useMemo(
+    () => [
+      { href: '/lobby', label: messages.navigation.lobby, icon: Gamepad2 },
+      { href: '/leaderboard', label: messages.navigation.leaderboard, icon: Trophy },
+      { href: '/tournaments', label: messages.navigation.tournaments, icon: Swords },
+    ],
+    [messages],
+  );
 
   useEffect(() => {
     setMuted(soundService.isMuted());
@@ -49,7 +55,6 @@ export default function Header() {
       }}
     >
       <Toolbar sx={{ gap: 4, minHeight: 64, px: { xs: 4, sm: 6 } }}>
-        {/* برند — راست در RTL */}
         <Link href="/lobby" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: theme.spacing(3) }}>
           <Box sx={{ position: 'relative', width: 36, height: 36, overflow: 'hidden', borderRadius: 2.5 }}>
             <Image src="/brand/logo-icon.png" alt="BaziGB Logo" fill sizes="36px" style={{ objectFit: 'contain' }} />
@@ -61,16 +66,15 @@ export default function Header() {
               fontWeight: 900,
               letterSpacing: '0.02em',
               whiteSpace: 'nowrap',
-              display: { xs: 'none', sm: 'block' }
+              display: { xs: 'none', sm: 'block' },
             }}
           >
             BaziGB
           </Typography>
         </Link>
 
-        {/* لینک‌های ناوبری */}
         <Box sx={{ display: 'flex', gap: 2, flexGrow: 1, justifyContent: 'center', minWidth: 0 }}>
-          {NAV_LINKS.map((link) => {
+          {navLinks.map((link) => {
             const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
               <Button
@@ -85,14 +89,14 @@ export default function Header() {
                   py: 1.5,
                   borderRadius: 3,
                   color: active ? 'secondary.main' : 'text.secondary',
-                  '& .MuiButton-startIcon': { 
+                  '& .MuiButton-startIcon': {
                     marginInlineEnd: 2,
                     marginInlineStart: -0.5,
                   },
                   '&:hover': {
                     color: active ? 'secondary.main' : 'primary.main',
                     bgcolor: active ? 'primary.light' : 'rgba(238,172,47,0.08)',
-                  }
+                  },
                 }}
               >
                 <Box component="span" sx={{ display: { xs: 'none', md: 'inline' }, fontWeight: 800 }}>
@@ -106,11 +110,11 @@ export default function Header() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <IconButton
             onClick={() => soundService.toggleMute()}
-            aria-label={muted ? 'فعال‌سازی صدا' : 'قطع صدا'}
-            sx={{ 
+            aria-label={muted ? messages.sound.enable : messages.sound.disable}
+            sx={{
               color: muted ? 'text.disabled' : 'primary.main',
               border: '1px solid',
-              borderColor: alpha(honeyBronze.primary, 0.15)
+              borderColor: alpha(honeyBronze.primary, 0.15),
             }}
           >
             {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
@@ -124,14 +128,14 @@ export default function Header() {
               px: 3,
               borderRadius: 3,
               fontWeight: 800,
-              '& .MuiButton-startIcon': { 
+              '& .MuiButton-startIcon': {
                 marginInlineEnd: 2,
-                marginInlineStart: -0.5
+                marginInlineStart: -0.5,
               },
             }}
           >
             <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
-              پروفایل
+              {messages.navigation.profile}
             </Box>
           </Button>
         </Box>
