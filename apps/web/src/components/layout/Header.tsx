@@ -79,10 +79,10 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
           width: '100%',
           minHeight: { xs: 64, sm: 64 },
           px: { xs: 1.25, sm: 3, md: 6 },
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr auto 1fr', sm: 'auto minmax(0, 1fr) auto' },
+          position: 'relative',
+          display: 'flex',
           alignItems: 'center',
-          columnGap: { xs: 1, sm: 2, md: 4 },
+          gap: { xs: 0.5, sm: 2, md: 4 },
         }}
       >
         <Link
@@ -92,18 +92,20 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
             textDecoration: 'none',
             display: 'flex',
             alignItems: 'center',
-            justifySelf: 'center',
-            gridColumn: '2',
           }}
         >
           <Box
             sx={{
-              position: 'relative',
+              position: { xs: 'absolute', sm: 'relative' },
+              insetInlineStart: { xs: '50%', sm: 'auto' },
+              top: { xs: '50%', sm: 'auto' },
+              transform: { xs: 'translate(-50%, -50%)', sm: 'none' },
               width: { xs: 38, sm: 36 },
               height: { xs: 38, sm: 36 },
               overflow: 'hidden',
               borderRadius: 2.5,
               flexShrink: 0,
+              zIndex: 2,
             }}
           >
             <Image src="/brand/logo-icon.png" alt="BaziGB" fill sizes="38px" style={{ objectFit: 'contain' }} />
@@ -127,13 +129,14 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
           component="nav"
           aria-label={messages.navigation.lobby}
           sx={{
-            gridColumn: { xs: '3', sm: '2' },
-            gridRow: 1,
             display: 'flex',
             alignItems: 'center',
             gap: { xs: 0.25, sm: 0.75, md: 1.5 },
-            justifySelf: { xs: 'end', sm: 'center' },
+            flexGrow: { xs: 0, sm: 1 },
+            justifyContent: { xs: 'flex-start', sm: 'center' },
             minWidth: 0,
+            order: { xs: 2, sm: 0 },
+            marginInlineStart: { xs: 'auto', sm: 0 },
           }}
         >
           {navLinks.map((link) => {
@@ -156,9 +159,7 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
                     borderRadius: { xs: '50%', md: 2.5 },
                     color: active ? 'secondary.main' : 'text.secondary',
                     columnGap: { xs: 0, md: 1.25 },
-                    '& .MuiButton-startIcon': {
-                      margin: 0,
-                    },
+                    '& .MuiButton-startIcon': { margin: 0 },
                     '&:hover': {
                       color: active ? 'secondary.main' : 'primary.main',
                       bgcolor: active ? 'primary.light' : alpha(theme.palette.primary.main, 0.08),
@@ -176,13 +177,11 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
 
         <Box
           sx={{
-            gridColumn: { xs: '1', sm: '3' },
-            gridRow: 1,
             display: 'flex',
             alignItems: 'center',
-            justifySelf: { xs: 'start', sm: 'end' },
             gap: { xs: 0.35, sm: 0.75, md: 1 },
             flexShrink: 0,
+            order: { xs: 0, sm: 0 },
           }}
         >
           {!isAdmin && (
