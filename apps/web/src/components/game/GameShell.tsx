@@ -2,23 +2,22 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useState } from 'react';
 import {
   Box,
   Button,
   Chip,
+  IconButton,
   Paper,
+  Tooltip,
   Typography,
   alpha,
   useTheme,
-  Tooltip,
-  IconButton,
 } from '@mui/material';
 import {
   ArrowLeft,
   ArrowRight,
-  Copy,
   Check,
+  Copy,
   Timer,
   Trophy,
   Users,
@@ -104,24 +103,23 @@ export default function GameShell({
     <Box
       sx={{
         flex: 1,
+        minWidth: 0,
         display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        p: { xs: 1.5, sm: 3 },
+        justifyContent: 'center',
         bgcolor: 'background.default',
         color: 'text.primary',
-        minWidth: 0,
+        px: { xs: 2, sm: 4 },
+        py: { xs: 2, sm: 3 },
       }}
     >
       <Box
         sx={{
-          maxWidth: 'md',
           width: '100%',
+          maxWidth: 'lg',
+          minWidth: 0,
           display: 'flex',
           flexDirection: 'column',
-          gap: 2,
-          textAlign: 'center',
-          minWidth: 0,
+          gap: { xs: 2, sm: 2.5 },
         }}
       >
         <Box
@@ -130,8 +128,8 @@ export default function GameShell({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: 1,
-            flexWrap: 'wrap',
+            gap: 1.5,
+            minWidth: 0,
           }}
         >
           <Button
@@ -140,13 +138,12 @@ export default function GameShell({
             onClick={onBack}
             startIcon={<BackIcon size={18} />}
             sx={{
+              flexShrink: 0,
               color: 'text.secondary',
-              '&:hover': { color: 'text.primary' },
               textTransform: 'none',
               fontWeight: 700,
-              minWidth: { xs: 'auto', sm: 72 },
               px: { xs: 1, sm: 2 },
-              fontSize: { xs: '0.8rem', sm: '0.875rem' },
+              '&:hover': { color: 'text.primary', bgcolor: alpha(theme.palette.text.primary, 0.04) },
               '& .MuiButton-startIcon': {
                 marginInlineEnd: { xs: 0.5, sm: 1 },
                 marginInlineStart: 0,
@@ -156,7 +153,16 @@ export default function GameShell({
             {messages.lobby}
           </Button>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1.5 }, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <Box
+            sx={{
+              minWidth: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: 1,
+              flexWrap: 'wrap',
+            }}
+          >
             {timerLabel && (
               <Chip
                 icon={<Timer size={14} />}
@@ -164,21 +170,23 @@ export default function GameShell({
                 size="small"
                 variant="outlined"
                 sx={{
-                  bgcolor: alpha(theme.palette.warning.main, 0.12),
+                  bgcolor: alpha(theme.palette.warning.main, 0.1),
                   color: theme.palette.warning.light,
-                  borderColor: alpha(theme.palette.warning.main, 0.35),
+                  borderColor: alpha(theme.palette.warning.main, 0.3),
                   fontWeight: 700,
-                  fontSize: { xs: '0.65rem', sm: '0.75rem' },
+                  '& .MuiChip-icon': { color: 'inherit' },
                 }}
               />
             )}
+
             {roomCode && (
               <Paper
                 elevation={0}
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 0.5,
+                  gap: 0.75,
+                  minWidth: 0,
                   borderRadius: 10,
                   bgcolor: alpha(theme.palette.background.paper, 0.72),
                   border: '1px solid',
@@ -189,11 +197,20 @@ export default function GameShell({
               >
                 <Typography
                   variant="caption"
-                  sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}
+                  sx={{
+                    display: { xs: 'none', sm: 'block' },
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: 'text.secondary',
+                  }}
                 >
                   {messages.room}
                 </Typography>
-                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 800, letterSpacing: '0.08em' }}>
+                <Typography
+                  variant="body2"
+                  sx={{ fontFamily: 'monospace', fontWeight: 800, letterSpacing: '0.08em', direction: 'ltr' }}
+                >
                   {roomCode}
                 </Typography>
                 <Tooltip title={copied ? messages.copied : messages.copyRoomCode}>
@@ -211,70 +228,81 @@ export default function GameShell({
           </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, flexWrap: 'wrap' }}>
-          {connStatus && (
-            <Chip
-              icon={<connChip.Icon size={14} />}
-              label={connChip.label}
-              size="small"
-              variant="outlined"
-              sx={{
-                bgcolor: connChip.bgcolor,
-                color: connChip.color,
-                borderColor: connChip.borderColor,
-                fontWeight: 700,
-                fontSize: '0.7rem',
-                '& .MuiChip-icon': { color: 'inherit' },
-              }}
-            />
-          )}
-          {turnText && (
-            <Chip
-              label={turnText}
-              size="small"
-              sx={{
-                fontSize: '0.72rem',
-                fontWeight: 800,
-                bgcolor: alpha(theme.palette.success.main, 0.12),
-                color: theme.palette.success.light,
-                border: '1px solid',
-                borderColor: alpha(theme.palette.success.main, 0.3),
-              }}
-            />
-          )}
-          {gameChip && (
-            <Chip
-              label={gameChip}
-              size="small"
-              sx={{
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                bgcolor: alpha(theme.palette.primary.main, 0.1),
-                color: 'primary.light',
-                border: '1px solid',
-                borderColor: alpha(theme.palette.primary.main, 0.25),
-              }}
-            />
-          )}
-          <Typography variant="h5" sx={{ color: 'text.primary', fontWeight: 800, marginInlineStart: 0.5 }}>
+        <Box sx={{ textAlign: 'center', minWidth: 0 }}>
+          <Typography
+            variant="h4"
+            sx={{
+              color: 'text.primary',
+              fontWeight: 900,
+              lineHeight: 1.25,
+              fontSize: { xs: '1.45rem', sm: '2rem' },
+            }}
+          >
             {title}
           </Typography>
-        </Box>
 
-        {(isMultiRound || roundNotice) && (
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Box
+            sx={{
+              mt: 1.25,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1,
+              flexWrap: 'wrap',
+            }}
+          >
+            {connStatus && (
+              <Chip
+                icon={<connChip.Icon size={14} />}
+                label={connChip.label}
+                size="small"
+                variant="outlined"
+                sx={{
+                  bgcolor: connChip.bgcolor,
+                  color: connChip.color,
+                  borderColor: connChip.borderColor,
+                  fontWeight: 700,
+                  '& .MuiChip-icon': { color: 'inherit' },
+                }}
+              />
+            )}
+            {turnText && (
+              <Chip
+                label={turnText}
+                size="small"
+                sx={{
+                  fontWeight: 800,
+                  bgcolor: alpha(theme.palette.success.main, 0.12),
+                  color: theme.palette.success.light,
+                  border: '1px solid',
+                  borderColor: alpha(theme.palette.success.main, 0.3),
+                }}
+              />
+            )}
+            {gameChip && (
+              <Chip
+                label={gameChip}
+                size="small"
+                variant="outlined"
+                sx={{
+                  fontWeight: 700,
+                  bgcolor: alpha(theme.palette.primary.main, 0.08),
+                  color: 'primary.light',
+                  borderColor: alpha(theme.palette.primary.main, 0.25),
+                }}
+              />
+            )}
             {isMultiRound && (
               <Chip
                 icon={<Trophy size={14} />}
                 label={messages.matchScore(scores.a, scores.b)}
                 size="small"
                 title={messages.bestOf(maxRounds, Math.ceil(maxRounds / 2))}
+                variant="outlined"
                 sx={{
-                  fontSize: '0.72rem',
                   fontWeight: 700,
-                  bgcolor: alpha(theme.palette.warning.main, 0.12),
+                  bgcolor: alpha(theme.palette.warning.main, 0.1),
                   color: theme.palette.warning.light,
-                  border: '1px solid',
                   borderColor: alpha(theme.palette.warning.main, 0.3),
                   '& .MuiChip-icon': { color: 'inherit' },
                 }}
@@ -284,66 +312,78 @@ export default function GameShell({
               <Chip
                 label={roundNotice}
                 size="small"
+                variant="outlined"
                 sx={{
-                  fontSize: '0.72rem',
                   fontWeight: 700,
-                  bgcolor: alpha(theme.palette.success.main, 0.15),
-                  color: 'success.light',
-                  border: '1px solid',
+                  bgcolor: alpha(theme.palette.success.main, 0.1),
+                  color: theme.palette.success.light,
                   borderColor: alpha(theme.palette.success.main, 0.3),
                 }}
               />
             )}
           </Box>
-        )}
+        </Box>
 
-        {settings && <Box sx={{ display: 'flex', justifyContent: 'center' }}>{settings}</Box>}
+        {settings && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', minWidth: 0 }}>
+            {settings}
+          </Box>
+        )}
 
         {winner ? (
           <Paper
-            elevation={8}
+            elevation={0}
+            role="status"
             sx={{
-              p: { xs: 3, sm: 3.5 },
-              bgcolor: 'primary.main',
-              color: 'secondary.main',
+              alignSelf: 'center',
+              width: '100%',
+              maxWidth: 680,
+              p: { xs: 3, sm: 4 },
+              bgcolor: alpha(theme.palette.primary.main, 0.12),
+              color: 'text.primary',
               borderRadius: 4,
-              boxShadow: `0 8px 32px 0 ${alpha(theme.palette.primary.main, 0.28)}`,
+              border: '1px solid',
+              borderColor: alpha(theme.palette.primary.main, 0.4),
+              boxShadow: `0 12px 36px ${alpha(theme.palette.primary.main, 0.12)}`,
               display: 'flex',
               flexDirection: 'column',
               gap: 1.5,
               alignItems: 'center',
+              textAlign: 'center',
             }}
           >
-            <Typography variant="h4" sx={{ fontWeight: 900 }}>
+            <Typography variant="h4" sx={{ fontWeight: 900, color: 'primary.light' }}>
               {winner.label}
             </Typography>
             {winner.sub && (
-              <Typography variant="body2" sx={{ fontWeight: 600, color: alpha(theme.palette.secondary.main, 0.78) }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
                 {winner.sub}
               </Typography>
             )}
             <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
               {winner.onRematch && (
-                <Button
-                  variant="contained"
-                  onClick={winner.onRematch}
-                  sx={{ bgcolor: 'secondary.main', color: 'text.primary', fontWeight: 800 }}
-                >
+                <Button variant="contained" onClick={winner.onRematch} sx={{ fontWeight: 800 }}>
                   {messages.rematch}
                 </Button>
               )}
-              <Button
-                component={Link}
-                href={backHref}
-                variant="outlined"
-                sx={{ borderColor: 'secondary.main', color: 'secondary.main', fontWeight: 800 }}
-              >
+              <Button component={Link} href={backHref} variant="outlined" sx={{ fontWeight: 800 }}>
                 {messages.backToLobby}
               </Button>
             </Box>
           </Paper>
         ) : (
-          children
+          <Box
+            component="main"
+            sx={{
+              width: '100%',
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+            }}
+          >
+            {children}
+          </Box>
         )}
 
         {roomCode && !children && (
