@@ -14,7 +14,7 @@ This document is the single working record for the platform-foundation refactor.
 | 0. Baseline & Governance Check | IN PROGRESS | Work is isolated from `main`; latest governance is being treated as the execution source. No deployment is authorized. |
 | 1. Persian / English Architecture | IN PROGRESS | Locale config, localized metadata/direction/font model, locale-aware theme factory, and typed shell messages introduced without changing current routes. |
 | 2. Platform Architecture Audit | IN PROGRESS | Initial frontend/platform coupling and duplication findings are recorded in the debt ledger. |
-| 3. Component Inventory | IN PROGRESS | Shared/layout/game component inventory started; no component deletion has been performed. |
+| 3. Component Inventory | IN PROGRESS | Shared/layout/game component inventory started; primary high-traffic pages inspected; no component deletion has been performed. |
 
 ## 1. Baseline
 
@@ -25,6 +25,7 @@ This document is the single working record for the platform-foundation refactor.
 - Shared business logic and modular game packages are already separate from the web application and must remain shared across locales.
 - Existing UI contains both Persian and English strings in the same pages, so language separation is currently incomplete.
 - Both local/bot game flow and multiplayer room flow reuse `GameShell`, but each page currently owns duplicate presentation metadata such as game titles/chips.
+- Primary pages frequently use raw MUI `Skeleton`, `Alert`, `Paper`, and other local state layouts even though shared feedback primitives exist. This is not automatically wrong, but it is evidence that the shared-component layer is not yet canonicalized.
 
 ### Foundation changes already made on this branch
 
@@ -101,29 +102,36 @@ This inventory is evidence-based and will be expanded before deletion/consolidat
 
 | Component | Path | Current assessment |
 |---|---|---|
-| `EmptyState` | `apps/web/src/components/shared/EmptyState.tsx` | Candidate canonical shared empty-state primitive |
-| `GameCard` | `apps/web/src/components/shared/GameCard.tsx` | **Debt candidate:** shared component exists while Lobby currently renders game-selection cards inline; consumer verification required before deletion or canonicalization |
-| `LoadingSkeleton` | `apps/web/src/components/shared/LoadingSkeleton.tsx` | Candidate canonical shared loading primitive |
-| `Modal` | `apps/web/src/components/shared/Modal.tsx` | Candidate canonical shared modal primitive |
+| `EmptyState` | `apps/web/src/components/shared/EmptyState.tsx` | `UNUSED_CANDIDATE` in inspected primary pages; concept is useful, but pages such as Lobby currently implement empty states inline. Verify all remaining consumers before canonicalizing/removing. |
+| `GameCard` | `apps/web/src/components/shared/GameCard.tsx` | `UNUSED_CANDIDATE / INLINE_DUPLICATE`: explicitly designed for Lobby game selection while Lobby currently implements its own card interaction/layout inline. Strong graveyard signal; needs canonical choice. |
+| `LoadingSkeleton` | `apps/web/src/components/shared/LoadingSkeleton.tsx` | `UNUSED_CANDIDATE` in inspected primary pages; Profile/Tournaments/Lobby use raw MUI `Skeleton` locally. Determine whether this abstraction is too narrow or should become canonical. |
+| `Modal` | `apps/web/src/components/shared/Modal.tsx` | Reusable candidate; usage still needs full consumer verification before classification. |
 
 ### Application layout
 
 | Component | Path | Current assessment |
 |---|---|---|
-| `Header` | `apps/web/src/components/layout/Header.tsx` | Canonical global shell candidate; copy is now locale-aware on this branch, locale-scoped href migration still pending |
-| `Footer` | `apps/web/src/components/layout/Footer.tsx` | Canonical global shell candidate; current remote footer content model is not locale-aware |
+| `Header` | `apps/web/src/components/layout/Header.tsx` | `CANONICAL` global shell candidate; copy is locale-aware on this branch, locale-scoped href migration still pending. |
+| `Footer` | `apps/web/src/components/layout/Footer.tsx` | `CANONICAL` global shell candidate; current remote footer content model is not locale-aware. |
 
 ### Game UI
 
 | Component | Path | Current assessment |
 |---|---|---|
-| `GameShell` | `apps/web/src/components/game/GameShell.tsx` | Confirmed shared by both `/game/[gameId]` and `/play/[roomId]`; strong canonical cross-game shell candidate |
-| `BackgammonBoard` | `apps/web/src/components/game/BackgammonBoard.tsx` | Game-specific |
-| `ChessBoard` | `apps/web/src/components/game/ChessBoard.tsx` | Game-specific |
-| `ChessInfo` | `apps/web/src/components/game/ChessInfo.tsx` | Game-specific/supporting UI |
-| `Dice3D` | `apps/web/src/components/game/Dice3D.tsx` | Reusable game primitive candidate; consumer verification still required |
-| `TicTacToeBoard` | `apps/web/src/components/game/TicTacToeBoard.tsx` | Game-specific |
-| `VegasBoard` | `apps/web/src/components/game/VegasBoard.tsx` | Game-specific |
+| `GameShell` | `apps/web/src/components/game/GameShell.tsx` | `CANONICAL`: confirmed shared by both `/game/[gameId]` and `/play/[roomId]`; future game UI should extend it rather than introduce a parallel shell. |
+| `BackgammonBoard` | `apps/web/src/components/game/BackgammonBoard.tsx` | `GAME_SPECIFIC` |
+| `ChessBoard` | `apps/web/src/components/game/ChessBoard.tsx` | `GAME_SPECIFIC` |
+| `ChessInfo` | `apps/web/src/components/game/ChessInfo.tsx` | `GAME_SPECIFIC` supporting UI |
+| `Dice3D` | `apps/web/src/components/game/Dice3D.tsx` | Reusable game primitive candidate; full consumer verification still required. |
+| `TicTacToeBoard` | `apps/web/src/components/game/TicTacToeBoard.tsx` | `GAME_SPECIFIC` |
+| `VegasBoard` | `apps/web/src/components/game/VegasBoard.tsx` | `GAME_SPECIFIC` |
+
+### Page-level findings
+
+- Lobby owns large inline implementations for game selection and Recently Played instead of composing the shared `GameCard` / `EmptyState` primitives.
+- Profile directly uses raw `Skeleton`, `Paper`, tables, and state layouts rather than a page-state abstraction.
+- Tournaments directly uses raw `Skeleton`, `Alert`, `Paper`, `Chip`, and progress components and also contains English-only status/fallback copy.
+- This does **not** mean every MUI usage should be wrapped. The cleanup goal is to canonicalize repeated product patterns, not create wrappers for all MUI components.
 
 ## 4. Component Graveyard Rules
 
@@ -216,12 +224,28 @@ This ledger records issues discovered during foundation work. Discovery does not
 - Impact: bilingual rollout requires a clear localization boundary in game shell/presentation code without touching engine state keys.
 - Planned task: inventory all user-facing game-shell copy before route rollout.
 
+### DEBT-009 — Shared feedback primitives are bypassed by local page implementations
+
+- Area: Shared UI / primary pages
+- Severity: Medium
+- Evidence: existing shared `EmptyState` / `LoadingSkeleton` coexist with repeated local empty/loading structures using raw MUI primitives in Lobby/Profile/Tournaments.
+- Impact: styling and behavior drift, duplicated fixes, and component-graveyard growth.
+- Planned task: decide canonical product-level loading/empty/error patterns; remove abstractions that are too narrow rather than wrapping every MUI primitive.
+
+### DEBT-010 — Tournaments contains English-only product copy inside Persian-first UI
+
+- Area: Tournaments
+- Severity: Medium
+- Evidence: fallback description and status labels such as `Registration Open`, `In Progress`, and `Completed` are embedded directly in the page.
+- Impact: confirms mixed-language debt extends beyond Lobby and should be solved through dictionaries rather than page-by-page ad hoc edits.
+- Planned task: locale dictionary migration.
+
 ## 6. Execution Order from This Baseline
 
 1. Finish consumer-level component inventory and verify `GameCard`, `EmptyState`, `LoadingSkeleton`, `Modal`, `Dice3D`, and `GameShell` usages.
 2. Inspect site-settings/Footer localization boundary before deciding whether content storage requires a backend contract change.
 3. Establish a language-neutral shared game metadata source to remove duplicate title/chip maps.
-4. Introduce locale dictionaries/content boundary for Lobby, game shell, auth/profile, and common feedback copy.
+4. Introduce locale dictionaries/content boundary for Lobby, game shell, auth/profile, tournaments, and common feedback copy.
 5. Migrate root/application routing to locale-scoped routes in one coherent pass, including Header/Footer links and redirects.
 6. Canonicalize shared components and only then standardize Lobby/GameShell.
 7. Record newly discovered bugs/debt in this ledger; fix immediately only when they block the current foundation task or are critical.
