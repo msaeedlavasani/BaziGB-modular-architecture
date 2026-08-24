@@ -41,9 +41,12 @@ export interface AppMessages {
     points: string;
     undo: string;
     undoLastMove: string;
+    you: string;
+    bot: string;
     youWon: string;
     botWon: string;
     draw: string;
+    finalScore: (you: number, bot: number) => string;
   };
   lobby: {
     waiting: string;
@@ -107,9 +110,12 @@ const MESSAGES: Record<Locale, AppMessages> = {
       points: 'امتیاز',
       undo: 'آندو',
       undoLastMove: 'بازگردانی آخرین حرکت',
+      you: 'شما',
+      bot: 'ربات',
       youWon: '🎉 شما برنده شدید!',
       botWon: 'ربات برنده شد',
       draw: 'مساوی!',
+      finalScore: (you, bot) => `امتیاز نهایی — شما ${you} : ${bot} ربات`,
     },
     lobby: {
       waiting: 'در انتظار',
@@ -171,9 +177,12 @@ const MESSAGES: Record<Locale, AppMessages> = {
       points: 'points',
       undo: 'Undo',
       undoLastMove: 'Undo last move',
+      you: 'You',
+      bot: 'Bot',
       youWon: '🎉 You won!',
       botWon: 'Bot won',
       draw: 'Draw!',
+      finalScore: (you, bot) => `Final score — You ${you} : ${bot} Bot`,
     },
     lobby: {
       waiting: 'Waiting',
