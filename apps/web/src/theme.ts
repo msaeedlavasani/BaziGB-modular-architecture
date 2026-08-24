@@ -56,6 +56,14 @@ export function createBaziGBTheme({
       divider: honeyBronze.border,
       success: { main: honeyBronze.success },
       error: { main: honeyBronze.danger },
+      // Keep warning states inside the approved Honey Bronze token family
+      // instead of inheriting MUI's unrelated default orange palette.
+      warning: {
+        main: honeyBronze.primary,
+        light: honeyBronze.goldLight,
+        dark: honeyBronze.goldDark,
+        contrastText: honeyBronze.secondary,
+      },
     },
     typography: {
       fontFamily,
@@ -95,11 +103,10 @@ export function createBaziGBTheme({
           root: {
             borderRadius: 10,
             padding: '8px 20px',
-            transition: `background-color ${motion}, border-color ${motion}, color ${motion}, transform ${motion}, box-shadow ${motion}`,
-            '&:hover': {
-              transform: 'translateY(-1px)',
-              boxShadow: `0 4px 16px ${alpha(honeyBronze.primary, 0.18)}`,
-            },
+            transition: `background-color ${motion}, border-color ${motion}, color ${motion}, transform ${motion}`,
+            // Global buttons should feel responsive, not glow by default.
+            // Meaningful glow remains available to game-specific interaction states.
+            '&:hover': { transform: 'translateY(-1px)' },
             '&:active': { transform: 'translateY(0)' },
             '&:focus-visible': {
               outline: `3px solid ${alpha(honeyBronze.primary, 0.32)}`,
