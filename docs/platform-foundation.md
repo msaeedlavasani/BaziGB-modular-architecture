@@ -12,8 +12,8 @@ This document is the single working record for the platform-foundation refactor.
 | Task | Status | Notes |
 |---|---|---|
 | 0. Baseline & Governance Check | IN PROGRESS | Work is isolated from `main`; latest governance is being treated as the execution source. No deployment is authorized. |
-| 1. Persian / English Architecture | IN PROGRESS | Locale config, localized metadata/direction/font model, locale-aware theme factory, and typed shell messages introduced without changing current routes. |
-| 2. Platform Architecture Audit | IN PROGRESS | Initial frontend/platform coupling and duplication findings are recorded in the debt ledger. |
+| 1. Persian / English Architecture | IN PROGRESS | Locale config, localized metadata/direction/font model, locale-aware theme factory, and typed shell messages introduced without changing current routes. Footer storage boundary is now inspected. |
+| 2. Platform Architecture Audit | IN PROGRESS | Initial frontend/platform coupling and duplication findings are recorded in the debt ledger. Footer settings are confirmed to be one untyped JSON object under a single `footer` key. |
 | 3. Component Inventory | IN PROGRESS | Shared/layout/game component inventory started; primary high-traffic pages inspected; no component deletion has been performed. |
 
 ## 1. Baseline
@@ -26,6 +26,7 @@ This document is the single working record for the platform-foundation refactor.
 - Existing UI contains both Persian and English strings in the same pages, so language separation is currently incomplete.
 - Both local/bot game flow and multiplayer room flow reuse `GameShell`, but each page currently owns duplicate presentation metadata such as game titles/chips.
 - Primary pages frequently use raw MUI `Skeleton`, `Alert`, `Paper`, and other local state layouts even though shared feedback primitives exist. This is not automatically wrong, but it is evidence that the shared-component layer is not yet canonicalized.
+- Site settings persistence is generic JSON-by-key. The current footer is stored as one object under key `footer`; therefore bilingual footer content can be introduced without a database schema migration if the JSON contract is versioned/extended compatibly.
 
 ### Foundation changes already made on this branch
 
@@ -94,6 +95,23 @@ UI copy, labels, metadata, validation/user-facing messages, navigation text, and
 
 Game rules, state keys, IDs, API payload fields, database fields, and internal enum values must remain language-neutral.
 
+### Managed content boundary (Footer / Site Settings)
+
+Verified current behavior:
+
+- Web `FooterContent` is `{ tagline, links, copyright }` and defaults are Persian.
+- `Footer` fetches one `footer` object and also hard-codes Persian Rules/Contact labels and locale-neutral links.
+- Admin edits exactly that one object.
+- Server persists arbitrary setting objects as JSON strings keyed by a max-50-character setting key.
+- Public endpoint merges server-side Persian defaults with `getSetting('footer')`.
+
+Target direction:
+
+- Keep the generic `SiteSetting` persistence mechanism; no database migration is justified at this stage.
+- Evolve the footer content contract to a locale-aware structure while preserving legacy `footer` compatibility during migration.
+- Locale-specific labels/managed links belong in locale content; route generation remains locale-aware in the web layer.
+- eNamad is a market-specific trust element and should not automatically be treated as universal English-shell content; its locale/market visibility should be handled as presentation policy, not duplicated into game/business logic.
+
 ## 3. Component Inventory — Initial Pass
 
 This inventory is evidence-based and will be expanded before deletion/consolidation work.
@@ -112,7 +130,7 @@ This inventory is evidence-based and will be expanded before deletion/consolidat
 | Component | Path | Current assessment |
 |---|---|---|
 | `Header` | `apps/web/src/components/layout/Header.tsx` | `CANONICAL` global shell candidate; copy is locale-aware on this branch, locale-scoped href migration still pending. |
-| `Footer` | `apps/web/src/components/layout/Footer.tsx` | `CANONICAL` global shell candidate; current remote footer content model is not locale-aware. |
+| `Footer` | `apps/web/src/components/layout/Footer.tsx` | `CANONICAL` global shell candidate; implementation is currently coupled to a single managed content object and Persian fallback/navigation labels. |
 
 ### Game UI
 
@@ -131,6 +149,7 @@ This inventory is evidence-based and will be expanded before deletion/consolidat
 - Lobby owns large inline implementations for game selection and Recently Played instead of composing the shared `GameCard` / `EmptyState` primitives.
 - Profile directly uses raw `Skeleton`, `Paper`, tables, and state layouts rather than a page-state abstraction.
 - Tournaments directly uses raw `Skeleton`, `Alert`, `Paper`, `Chip`, and progress components and also contains English-only status/fallback copy.
+- Admin is a large page with user management, room management, and Footer editor responsibilities in one file. This is a maintainability/decomposition candidate, but it is not part of Tasks 0–3 cleanup unless it blocks locale contract work.
 - This does **not** mean every MUI usage should be wrapped. The cleanup goal is to canonicalize repeated product patterns, not create wrappers for all MUI components.
 
 ## 4. Component Graveyard Rules
@@ -196,9 +215,10 @@ This ledger records issues discovered during foundation work. Discovery does not
 
 - Area: Footer / site settings
 - Severity: Medium
-- Evidence: `Footer` reads one `FooterContent` payload and uses Persian fallback tagline/rules/contact/copyright copy.
-- Impact: English shell cannot use independently localized managed footer content without extending the site-settings content model or defining a locale fallback strategy.
-- Planned task: inspect site-settings model before changing the backend contract.
+- Evidence: client, admin editor, and server public defaults all assume one `footer` object; Rules/Contact labels are separately hard-coded in Persian.
+- Impact: English shell cannot use independently localized managed footer content with the current contract.
+- Verified architecture finding: persistence is generic JSON-by-key, so this does **not** require a Prisma/database schema migration.
+- Planned task: introduce a backward-compatible locale-aware footer contract and admin editing model during i18n implementation.
 
 ### DEBT-006 — Duplicate game presentation metadata
 
@@ -240,10 +260,26 @@ This ledger records issues discovered during foundation work. Discovery does not
 - Impact: confirms mixed-language debt extends beyond Lobby and should be solved through dictionaries rather than page-by-page ad hoc edits.
 - Planned task: locale dictionary migration.
 
+### DEBT-011 — Footer localization spans Web + Admin + Server contract
+
+- Area: Site settings / Admin / Footer
+- Severity: Medium
+- Evidence: `Footer.tsx`, `site-settings.ts`, Admin footer editor, and `SiteSettingsController` all share the single-locale assumption.
+- Impact: changing only the visual Footer would create a false bilingual implementation while Admin writes and server defaults remain single-locale.
+- Planned task: migrate the contract coherently, preserving legacy stored data until new localized content is saved.
+
+### DEBT-012 — Admin page has multiple unrelated operational responsibilities
+
+- Area: Admin frontend
+- Severity: Low/Medium maintainability debt
+- Evidence: one large page contains stats, users, rooms, destructive actions, and Footer content editing.
+- Impact: future localized site-content management will increase coupling if added directly to the same monolith.
+- Planned task: record for later admin decomposition; do not expand current scope unless required for the bilingual footer editor.
+
 ## 6. Execution Order from This Baseline
 
 1. Finish consumer-level component inventory and verify `GameCard`, `EmptyState`, `LoadingSkeleton`, `Modal`, `Dice3D`, and `GameShell` usages.
-2. Inspect site-settings/Footer localization boundary before deciding whether content storage requires a backend contract change.
+2. Define the backward-compatible locale-aware Footer/Site Settings contract now that persistence constraints are known.
 3. Establish a language-neutral shared game metadata source to remove duplicate title/chip maps.
 4. Introduce locale dictionaries/content boundary for Lobby, game shell, auth/profile, tournaments, and common feedback copy.
 5. Migrate root/application routing to locale-scoped routes in one coherent pass, including Header/Footer links and redirects.
@@ -256,3 +292,4 @@ This ledger records issues discovered during foundation work. Discovery does not
 - No deployment is part of Tasks 0–3.
 - No repeated visual verification loop is required for the initial architecture/inventory phase.
 - Route migration must not be left in a half-broken state; locale-scoped routes should be introduced as a coherent change.
+- `docs/HANDOFF.md` must be synchronized after each meaningful stage so another agent can continue without relying on chat history.
