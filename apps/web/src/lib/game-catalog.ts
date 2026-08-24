@@ -1,19 +1,24 @@
 import type { GameId } from '@bazigb/engine';
 import type { Locale } from '@/i18n/config';
-import { getMessages } from '@/i18n/messages';
+import { getMessages, type AppMessages } from '@/i18n/messages';
+
+export type GameMessageKey = keyof AppMessages['games'];
 
 export interface GameCatalogEntry {
   id: GameId;
-  messageKey: keyof ReturnType<typeof getMessages>['games'];
+  messageKey: GameMessageKey;
   chipSymbol: string;
+  /** Presentation fallback only; authoritative runtime capability stays in GameAdapter. */
   maxPlayers: number;
 }
 
 /**
- * Language-neutral presentation metadata shared by game entry points.
- * Rules/state/adapter data stay in the engine/game packages; locale copy stays
- * in i18n messages. This catalog only connects stable game identity to UI
- * presentation properties that were previously duplicated across pages.
+ * Canonical web presentation catalog for stable game identities.
+ *
+ * Game rules, engine state and runtime capabilities stay in the engine/game
+ * packages. Localized names stay in i18n messages. This catalog only bridges
+ * those stable identities to web presentation metadata that was previously
+ * duplicated across Lobby and game entry pages.
  */
 export const GAME_CATALOG: Record<GameId, GameCatalogEntry> = {
   'tic-tac-toe': {
@@ -42,12 +47,22 @@ export const GAME_CATALOG: Record<GameId, GameCatalogEntry> = {
   },
 };
 
+export const WEB_GAME_IDS = Object.freeze(Object.keys(GAME_CATALOG) as GameId[]);
+
+export function isWebGameId(value: string): value is GameId {
+  return Object.prototype.hasOwnProperty.call(GAME_CATALOG, value);
+}
+
+export function getGameCatalogEntry(gameId: GameId): GameCatalogEntry {
+  return GAME_CATALOG[gameId];
+}
+
 export function getGameTitle(gameId: GameId, locale: Locale): string {
-  const entry = GAME_CATALOG[gameId];
+  const entry = getGameCatalogEntry(gameId);
   return getMessages(locale).games[entry.messageKey];
 }
 
 export function getGameChip(gameId: GameId, locale: Locale): string {
-  const entry = GAME_CATALOG[gameId];
+  const entry = getGameCatalogEntry(gameId);
   return `${entry.chipSymbol} ${getGameTitle(gameId, locale)}`;
 }
