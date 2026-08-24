@@ -17,6 +17,27 @@ export const honeyBronze = {
   danger: '#E26D5A',
 };
 
+/**
+ * Canonical shape scale.
+ *
+ * MUI numeric `sx={{ borderRadius: n }}` multiplies `n` by
+ * `theme.shape.borderRadius`. Keep the base small and predictable so common
+ * values map to intentional product radii instead of oversized pill-like
+ * surfaces.
+ *
+ * 2   -> 8px   compact controls/chips
+ * 2.5 -> 10px  buttons/inputs
+ * 3   -> 12px  icon containers/small surfaces
+ * 4   -> 16px  cards/panels/major surfaces
+ */
+export const shapeScale = {
+  base: 4,
+  control: 10,
+  compact: 8,
+  surface: 12,
+  panel: 16,
+} as const;
+
 export interface BaziGBThemeOptions {
   direction?: TextDirection;
   fontFamily?: string;
@@ -56,8 +77,6 @@ export function createBaziGBTheme({
       divider: honeyBronze.border,
       success: { main: honeyBronze.success },
       error: { main: honeyBronze.danger },
-      // Keep warning states inside the approved Honey Bronze token family
-      // instead of inheriting MUI's unrelated default orange palette.
       warning: {
         main: honeyBronze.primary,
         light: honeyBronze.goldLight,
@@ -81,7 +100,7 @@ export function createBaziGBTheme({
       caption: { fontSize: '0.75rem', fontWeight: 500 },
       overline: { fontWeight: 800, fontSize: '0.7rem', letterSpacing: '0.1em' },
     },
-    shape: { borderRadius: 12 },
+    shape: { borderRadius: shapeScale.base },
     components: {
       MuiCssBaseline: {
         styleOverrides: {
@@ -101,11 +120,9 @@ export function createBaziGBTheme({
         defaultProps: { disableElevation: true },
         styleOverrides: {
           root: {
-            borderRadius: 10,
+            borderRadius: shapeScale.control,
             padding: '8px 20px',
             transition: `background-color ${motion}, border-color ${motion}, color ${motion}, transform ${motion}`,
-            // Global buttons should feel responsive, not glow by default.
-            // Meaningful glow remains available to game-specific interaction states.
             '&:hover': { transform: 'translateY(-1px)' },
             '&:active': { transform: 'translateY(0)' },
             '&:focus-visible': {
@@ -164,7 +181,7 @@ export function createBaziGBTheme({
         styleOverrides: {
           root: {
             '& .MuiOutlinedInput-root': {
-              borderRadius: 10,
+              borderRadius: shapeScale.control,
               backgroundColor: 'rgba(0, 0, 0, 0.2)',
               transition: `border-color ${motion}, background-color ${motion}`,
               '& fieldset': { borderColor: honeyBronze.border },
@@ -178,7 +195,7 @@ export function createBaziGBTheme({
         defaultProps: { size: 'small' },
         styleOverrides: {
           root: {
-            borderRadius: 10,
+            borderRadius: shapeScale.control,
             backgroundColor: 'rgba(0, 0, 0, 0.2)',
             '& .MuiOutlinedInput-notchedOutline': { borderColor: honeyBronze.border },
             '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: alpha(honeyBronze.primary, 0.4) },
@@ -210,7 +227,7 @@ export function createBaziGBTheme({
       },
       MuiChip: {
         styleOverrides: {
-          root: { fontWeight: 700, borderRadius: 8 },
+          root: { fontWeight: 700, borderRadius: shapeScale.compact },
           sizeSmall: { fontSize: '0.7rem' },
         },
       },
