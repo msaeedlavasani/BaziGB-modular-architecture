@@ -17,6 +17,10 @@ export interface AppMessages {
     backgammon: string;
     vegas: string;
   };
+  footer: {
+    rules: string;
+    contact: string;
+  };
 }
 
 const MESSAGES: Record<Locale, AppMessages> = {
@@ -37,6 +41,10 @@ const MESSAGES: Record<Locale, AppMessages> = {
       backgammon: 'نرد',
       vegas: 'وگاس',
     },
+    footer: {
+      rules: 'قوانین بازی',
+      contact: 'تماس با ما',
+    },
   },
   en: {
     navigation: {
@@ -54,6 +62,10 @@ const MESSAGES: Record<Locale, AppMessages> = {
       chess: 'Chess',
       backgammon: 'Backgammon',
       vegas: 'Vegas',
+    },
+    footer: {
+      rules: 'Game rules',
+      contact: 'Contact us',
     },
   },
 };
