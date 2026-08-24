@@ -2,17 +2,20 @@ import type { Metadata } from 'next';
 import Providers from './Providers';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
+import { DEFAULT_LOCALE, getLocaleConfig } from '../i18n/config';
+
+const defaultLocale = getLocaleConfig(DEFAULT_LOCALE);
 
 export const metadata: Metadata = {
-  title: 'BaziGB — نرد، دوز، شطرنج و وگاس',
-  description: 'پلتفرم بازی‌های ایرانی با معماری مدولار',
+  title: defaultLocale.metadata.title,
+  description: defaultLocale.metadata.description,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fa" dir="rtl">
+    <html lang={defaultLocale.htmlLang} dir={defaultLocale.direction}>
       <head>
-        {/* فونت وزیرمتن — در صورت عدم دسترسی، فونت جایگزین Tahoma استفاده می‌شود */}
+        {/* Persian-first fallback until locale-scoped layouts are introduced. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
@@ -21,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <Providers>
+        <Providers direction={defaultLocale.direction} fontFamily={defaultLocale.fontFamily}>
           <Header />
           <main style={{ flex: 1, width: '100%', maxWidth: 1200, margin: '0 auto', padding: '16px' }}>
             {children}
