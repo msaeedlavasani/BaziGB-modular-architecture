@@ -15,6 +15,7 @@ import { soundService } from '@/lib/sound-service';
 import { honeyBronze } from '@/theme';
 import type { Locale } from '@/i18n/config';
 import { getMessages } from '@/i18n/messages';
+import { APP_ROUTES, stripLocale } from '@/i18n/routing';
 
 interface HeaderProps {
   locale?: Locale;
@@ -25,12 +26,13 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
   const pathname = usePathname();
   const [muted, setMuted] = useState(false);
   const messages = getMessages(locale);
+  const routePathname = stripLocale(pathname).pathname;
 
   const navLinks = useMemo(
     () => [
-      { href: '/lobby', label: messages.navigation.lobby, icon: Gamepad2 },
-      { href: '/leaderboard', label: messages.navigation.leaderboard, icon: Trophy },
-      { href: '/tournaments', label: messages.navigation.tournaments, icon: Swords },
+      { href: APP_ROUTES.lobby, label: messages.navigation.lobby, icon: Gamepad2 },
+      { href: APP_ROUTES.leaderboard, label: messages.navigation.leaderboard, icon: Trophy },
+      { href: APP_ROUTES.tournaments, label: messages.navigation.tournaments, icon: Swords },
     ],
     [messages],
   );
@@ -55,7 +57,7 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
       }}
     >
       <Toolbar sx={{ gap: 4, minHeight: 64, px: { xs: 4, sm: 6 } }}>
-        <Link href="/lobby" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: theme.spacing(3) }}>
+        <Link href={APP_ROUTES.lobby} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: theme.spacing(3) }}>
           <Box sx={{ position: 'relative', width: 36, height: 36, overflow: 'hidden', borderRadius: 2.5 }}>
             <Image src="/brand/logo-icon.png" alt="BaziGB Logo" fill sizes="36px" style={{ objectFit: 'contain' }} />
           </Box>
@@ -75,7 +77,7 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
 
         <Box sx={{ display: 'flex', gap: 2, flexGrow: 1, justifyContent: 'center', minWidth: 0 }}>
           {navLinks.map((link) => {
-            const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
+            const active = routePathname === link.href || routePathname.startsWith(`${link.href}/`);
             return (
               <Button
                 key={link.href}
@@ -121,10 +123,10 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
           </IconButton>
           <Button
             component={Link}
-            href="/profile"
+            href={APP_ROUTES.profile}
             startIcon={<User size={20} />}
             sx={{
-              color: pathname === '/profile' ? 'primary.main' : 'text.secondary',
+              color: routePathname === APP_ROUTES.profile ? 'primary.main' : 'text.secondary',
               px: 3,
               borderRadius: 3,
               fontWeight: 800,
