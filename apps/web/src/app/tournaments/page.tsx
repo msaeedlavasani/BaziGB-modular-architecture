@@ -16,7 +16,6 @@ import {
   Grid,
   alpha,
   useTheme,
-  IconButton,
 } from '@mui/material';
 import {
   CalendarDays,
@@ -29,6 +28,8 @@ import {
   Users,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useAppLocale } from '@/hooks/useAppLocale';
+import { getMessages } from '@/i18n/messages';
 import {
   fetchTournaments,
   joinTournament,
@@ -37,29 +38,16 @@ import {
   TournamentStatus,
 } from '../../lib/tournaments';
 
-const FALLBACK_DESCRIPTION =
-  'Single-elimination knockout. Winners advance, one player takes it all.';
-
-/* ------------------------------- helpers --------------------------------- */
-
-const STATUS_COLORS: Record<TournamentStatus, { color: 'success' | 'warning' | 'default'; label: string }> = {
-  registration: { color: 'success', label: 'Registration Open' },
-  in_progress: { color: 'warning', label: 'In Progress' },
-  completed: { color: 'default', label: 'Completed' },
+const STATUS_COLORS: Record<TournamentStatus, 'success' | 'warning' | 'default'> = {
+  registration: 'success',
+  in_progress: 'warning',
+  completed: 'default',
 };
 
 function GameIcon({ game, size = 20 }: { game: string; size?: number }) {
   if (game === 'chess') {
     return (
-      <Box
-        component="span"
-        sx={{
-          fontSize: size * 1.2,
-          lineHeight: 1,
-          userSelect: 'none',
-        }}
-        aria-hidden
-      >
+      <Box component="span" sx={{ fontSize: size * 1.2, lineHeight: 1, userSelect: 'none' }} aria-hidden>
         ♞
       </Box>
     );
@@ -68,14 +56,7 @@ function GameIcon({ game, size = 20 }: { game: string; size?: number }) {
     <Box
       component="svg"
       viewBox="0 0 24 24"
-      sx={{
-        width: size,
-        height: size,
-        fill: 'none',
-        stroke: 'currentColor',
-        strokeWidth: 2.2,
-        strokeLinecap: 'round',
-      }}
+      sx={{ width: size, height: size, fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round' }}
       aria-hidden
     >
       <path d="M3 8h18M3 16h18M8 3v18M16 3v18" />
@@ -83,10 +64,10 @@ function GameIcon({ game, size = 20 }: { game: string; size?: number }) {
   );
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, locale: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString(locale, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -96,24 +77,31 @@ function formatDate(iso: string): string {
 
 type Filter = 'all' | TournamentStatus;
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'registration', label: 'Open' },
-  { key: 'in_progress', label: 'In Progress' },
-  { key: 'completed', label: 'Completed' },
-];
-
-/* --------------------------------- page ---------------------------------- */
-
 export default function TournamentsPage() {
   const { user } = useAuth();
   const theme = useTheme();
+  const locale = useAppLocale();
+  const messages = getMessages(locale);
+  const dateLocale = locale === 'fa' ? 'fa-IR' : 'en-US';
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
   const [joined, setJoined] = useState<Record<string, JoinResult>>({});
   const [joining, setJoining] = useState<string | null>(null);
+
+  const filters: { key: Filter; label: string }[] = [
+    { key: 'all', label: messages.tournaments.filterAll },
+    { key: 'registration', label: messages.tournaments.filterOpen },
+    { key: 'in_progress', label: messages.tournaments.inProgress },
+    { key: 'completed', label: messages.tournaments.completed },
+  ];
+
+  const statusLabel = (status: TournamentStatus): string => {
+    if (status === 'registration') return messages.tournaments.registrationOpen;
+    if (status === 'in_progress') return messages.tournaments.inProgress;
+    return messages.tournaments.completed;
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -122,21 +110,18 @@ export default function TournamentsPage() {
       const data = await fetchTournaments();
       setTournaments(data);
     } catch (e: any) {
-      setError(e?.message || 'Could not load tournaments.');
+      setError(e?.message || messages.tournaments.loadError);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [messages.tournaments.loadError]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const visible = useMemo(
-    () =>
-      filter === 'all'
-        ? tournaments
-        : tournaments.filter((t) => t.status === filter),
+    () => (filter === 'all' ? tournaments : tournaments.filter((t) => t.status === filter)),
     [tournaments, filter],
   );
 
@@ -149,14 +134,12 @@ export default function TournamentsPage() {
       if (result.joined) {
         setTournaments((prev) =>
           prev.map((x) =>
-            x.id === t.id
-              ? { ...x, playersJoined: Math.min(x.maxPlayers, x.playersJoined + 1) }
-              : x,
+            x.id === t.id ? { ...x, playersJoined: Math.min(x.maxPlayers, x.playersJoined + 1) } : x,
           ),
         );
       }
     } catch (e: any) {
-      setError(e?.message || 'Could not join the tournament.');
+      setError(e?.message || messages.tournaments.joinError);
     } finally {
       setJoining(null);
     }
@@ -167,7 +150,6 @@ export default function TournamentsPage() {
   return (
     <Box sx={{ flex: 1, bgcolor: 'background.default' }}>
       <Container maxWidth="md" sx={{ py: 6 }}>
-        {/* Header */}
         <Box
           sx={{
             display: 'flex',
@@ -182,32 +164,20 @@ export default function TournamentsPage() {
             <Typography
               variant="h4"
               component="h1"
-              sx={{
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-              }}
+              sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1.5 }}
             >
               <Swords size={32} style={{ color: theme.palette.primary.light }} />
-              Tournaments
+              {messages.tournaments.title}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              {openCount > 0
-                ? `${openCount} tournament${openCount === 1 ? '' : 's'} open for registration right now.`
-                : 'Pick a tournament and claim your spot.'}
+              {openCount > 0 ? messages.tournaments.openSummary(openCount) : messages.tournaments.emptySummary}
             </Typography>
           </Box>
           <Button
             variant="outlined"
             onClick={() => void load()}
             disabled={loading}
-            startIcon={
-              <RefreshCw
-                size={16}
-                className={loading ? 'animate-spin' : ''}
-              />
-            }
+            startIcon={<RefreshCw size={16} className={loading ? 'animate-spin' : ''} />}
             sx={{
               borderColor: 'divider',
               color: 'text.secondary',
@@ -218,13 +188,12 @@ export default function TournamentsPage() {
               },
             }}
           >
-            Refresh
+            {messages.common.refresh}
           </Button>
         </Box>
 
-        {/* Filter tabs */}
         <Stack direction="row" spacing={1} useFlexGap sx={{ mb: 4, flexWrap: 'wrap' }}>
-          {FILTERS.map((f) => (
+          {filters.map((f) => (
             <Button
               key={f.key}
               size="small"
@@ -260,7 +229,6 @@ export default function TournamentsPage() {
           </Alert>
         )}
 
-        {/* Cards */}
         <Box component="section">
           {loading ? (
             <Grid container spacing={2}>
@@ -277,26 +245,19 @@ export default function TournamentsPage() {
           ) : visible.length === 0 ? (
             <Paper
               variant="outlined"
-              sx={{
-                p: 8,
-                textAlign: 'center',
-                borderRadius: 4,
-                borderStyle: 'dashed',
-                bgcolor: 'transparent',
-              }}
+              sx={{ p: 8, textAlign: 'center', borderRadius: 4, borderStyle: 'dashed', bgcolor: 'transparent' }}
             >
               <Trophy size={40} style={{ color: theme.palette.text.disabled, margin: '0 auto' }} />
               <Typography sx={{ mt: 2, fontWeight: 600, color: 'text.secondary' }}>
-                No tournaments here
+                {messages.tournaments.noTournaments}
               </Typography>
               <Typography variant="body2" color="text.disabled" sx={{ mt: 0.5 }}>
-                Check back soon — new tournaments are added regularly.
+                {messages.tournaments.noTournamentsHint}
               </Typography>
             </Paper>
           ) : (
             <Grid container spacing={2.5}>
               {visible.map((t) => {
-                const statusInfo = STATUS_COLORS[t.status];
                 const isJoined = Boolean(joined[t.id]?.joined);
                 const joinResult = joined[t.id];
                 const full = t.playersJoined >= t.maxPlayers;
@@ -322,7 +283,6 @@ export default function TournamentsPage() {
                         },
                       }}
                     >
-                      {/* Top row: icon + status */}
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                         <Box
                           sx={{
@@ -341,23 +301,22 @@ export default function TournamentsPage() {
                           <GameIcon game={t.gameType} size={t.gameType === 'chess' ? 28 : 24} />
                         </Box>
                         <Chip
-                          label={statusInfo.label}
+                          label={statusLabel(t.status)}
                           size="small"
-                          color={statusInfo.color}
+                          color={STATUS_COLORS[t.status]}
                           variant="outlined"
-                          icon={<Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'currentColor', ml: 1 }} />}
+                          icon={<Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'currentColor', ms: 1 }} />}
                           sx={{
                             height: 24,
                             fontWeight: 700,
                             fontSize: '11px',
                             textTransform: 'uppercase',
                             letterSpacing: '0.025em',
-                            '& .MuiChip-icon': { ml: 0.5, mr: 0 },
+                            '& .MuiChip-icon': { ms: 0.5, me: 0 },
                           }}
                         />
                       </Box>
 
-                      {/* Name + description */}
                       <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2, mb: 1 }}>
                         {t.name}
                       </Typography>
@@ -372,21 +331,20 @@ export default function TournamentsPage() {
                           overflow: 'hidden',
                         }}
                       >
-                        {t.description || FALLBACK_DESCRIPTION}
+                        {t.description || messages.tournaments.fallbackDescription}
                       </Typography>
 
-                      {/* Meta info */}
                       <Stack spacing={1} sx={{ mb: 2.5 }}>
                         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                           <CalendarDays size={16} style={{ color: theme.palette.text.disabled }} />
                           <Typography variant="body2" color="text.secondary">
-                            Starts {formatDate(t.startsAt)}
+                            {messages.tournaments.starts(formatDate(t.startsAt, dateLocale))}
                           </Typography>
                         </Stack>
                         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                           <Users size={16} style={{ color: theme.palette.text.disabled }} />
                           <Typography variant="body2" color="text.secondary">
-                            {t.playersJoined}/{t.maxPlayers} players
+                            {messages.tournaments.players(t.playersJoined, t.maxPlayers)}
                           </Typography>
                         </Stack>
                         {t.prize && (
@@ -399,7 +357,6 @@ export default function TournamentsPage() {
                         )}
                       </Stack>
 
-                      {/* Progress bar */}
                       <Box sx={{ mt: 'auto', mb: 3 }}>
                         <LinearProgress
                           variant="determinate"
@@ -408,15 +365,11 @@ export default function TournamentsPage() {
                             height: 6,
                             borderRadius: 3,
                             bgcolor: alpha(theme.palette.text.primary, 0.1),
-                            '& .MuiLinearProgress-bar': {
-                              borderRadius: 3,
-                              background: '#F5A306',
-                            },
+                            '& .MuiLinearProgress-bar': { borderRadius: 3, background: '#F5A306' },
                           }}
                         />
                       </Box>
 
-                      {/* Actions */}
                       <Box>
                         {t.status === 'registration' && isJoined ? (
                           <Box
@@ -434,7 +387,7 @@ export default function TournamentsPage() {
                           >
                             <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'center' }}>
                               <CheckCircle2 size={16} />
-                              <span>Joined</span>
+                              <span>{messages.tournaments.joined}</span>
                             </Stack>
                             {joinResult?.message && (
                               <Typography variant="caption" sx={{ display: 'block', mt: 0.25, fontWeight: 400, opacity: 0.8 }}>
@@ -456,7 +409,7 @@ export default function TournamentsPage() {
                                 boxShadow: `0 4px 14px 0 ${alpha('#B25D16', 0.4)}`,
                               }}
                             >
-                              Sign in to join
+                              {messages.tournaments.signInToJoin}
                             </Button>
                           ) : (
                             <Button
@@ -474,9 +427,9 @@ export default function TournamentsPage() {
                               {joining === t.id ? (
                                 <Loader2 size={18} className="animate-spin" />
                               ) : full ? (
-                                'Full'
+                                messages.tournaments.full
                               ) : (
-                                'Join'
+                                messages.tournaments.join
                               )}
                             </Button>
                           )
@@ -498,7 +451,9 @@ export default function TournamentsPage() {
                               },
                             }}
                           >
-                            {t.status === 'in_progress' ? 'View Bracket' : 'View Results'}
+                            {t.status === 'in_progress'
+                              ? messages.tournaments.viewBracket
+                              : messages.tournaments.viewResults}
                           </Button>
                         )}
                       </Box>
