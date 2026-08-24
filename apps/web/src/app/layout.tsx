@@ -29,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main style={{ flex: 1, width: '100%', maxWidth: 1200, margin: '0 auto', padding: '16px' }}>
             {children}
           </main>
-          <Footer />
+          <Footer locale={DEFAULT_LOCALE} />
         </Providers>
       </body>
     </html>
