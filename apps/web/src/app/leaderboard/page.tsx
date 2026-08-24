@@ -12,41 +12,21 @@ import {
   Stack,
   Avatar,
   Chip,
-  LinearProgress,
   Skeleton,
   Alert,
-  IconButton,
   alpha,
   useTheme,
 } from '@mui/material';
 import { Crown, Medal, RefreshCw, Search, Trophy } from 'lucide-react';
 import { fetchLeaderboard, LeaderboardEntry } from '../../lib/leaderboard';
 import { useAuth } from '@/hooks/useAuth';
+import { useAppLocale } from '@/hooks/useAppLocale';
+import { getLeaderboardMessages } from '@/i18n/leaderboard';
 
-/* ------------------------------- styling -------------------------------- */
-
-const RANK_META: Record<
-  number,
-  { ring: string; badge: string; color: string; label: string }
-> = {
-  1: {
-    ring: '#fbbf2499', // ring-amber-400/60
-    badge: '#EAB308',
-    color: '#EAB308',
-    label: 'Gold',
-  },
-  2: {
-    ring: '#BEBBAC99', // ring-slate-300/60
-    badge: '#BEBBAC',
-    color: '#BEBBAC',
-    label: 'Silver',
-  },
-  3: {
-    ring: '#d9770699', // ring-amber-600/60
-    badge: '#D97706',
-    color: '#D97706',
-    label: 'Bronze',
-  },
+const RANK_META: Record<number, { ring: string; badge: string; color: string }> = {
+  1: { ring: '#fbbf2499', badge: '#EAB308', color: '#EAB308' },
+  2: { ring: '#BEBBAC99', badge: '#BEBBAC', color: '#BEBBAC' },
+  3: { ring: '#d9770699', badge: '#D97706', color: '#D97706' },
 };
 
 const MEDAL_ICON: Record<number, React.ReactNode> = {
@@ -101,15 +81,21 @@ function SkeletonRows() {
   );
 }
 
-/* ------------------------------- page ------------------------------------ */
-
 export default function LeaderboardPage() {
   const { user } = useAuth();
   const theme = useTheme();
+  const locale = useAppLocale();
+  const messages = getLeaderboardMessages(locale);
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+
+  const rankLabel = (rank: number): string => {
+    if (rank === 1) return messages.gold;
+    if (rank === 2) return messages.silver;
+    return messages.bronze;
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -118,11 +104,11 @@ export default function LeaderboardPage() {
       const data = await fetchLeaderboard();
       setEntries(data);
     } catch (e: any) {
-      setError(e?.message || 'Could not load the leaderboard.');
+      setError(e?.message || messages.loadError);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [messages.loadError]);
 
   useEffect(() => {
     void load();
@@ -135,13 +121,11 @@ export default function LeaderboardPage() {
   }, [entries, query]);
 
   const top3 = filtered.slice(0, 3);
-  const rest = filtered.slice(3);
   const podiumOrder = [top3[1], top3[0], top3[2]].filter(Boolean) as LeaderboardEntry[];
 
   return (
     <Box sx={{ flex: 1, bgcolor: 'background.default' }}>
       <Container maxWidth="md" sx={{ py: 6 }}>
-        {/* Header */}
         <Box
           sx={{
             display: 'flex',
@@ -156,30 +140,20 @@ export default function LeaderboardPage() {
             <Typography
               variant="h4"
               component="h1"
-              sx={{
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-              }}
+              sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1.5 }}
             >
               <Trophy size={32} style={{ color: '#fbbf24' }} />
-              Leaderboard
+              {messages.title}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Top 50 players ranked by competitive rating.
+              {messages.subtitle}
             </Typography>
           </Box>
           <Button
             variant="outlined"
             onClick={() => void load()}
             disabled={loading}
-            startIcon={
-              <RefreshCw
-                size={16}
-                className={loading ? 'animate-spin' : ''}
-              />
-            }
+            startIcon={<RefreshCw size={16} className={loading ? 'animate-spin' : ''} />}
             sx={{
               borderColor: 'divider',
               color: 'text.secondary',
@@ -190,14 +164,13 @@ export default function LeaderboardPage() {
               },
             }}
           >
-            Refresh
+            {messages.refresh}
           </Button>
         </Box>
 
-        {/* Search */}
         <TextField
           fullWidth
-          placeholder="Search players by username…"
+          placeholder={messages.searchPlaceholder}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           variant="outlined"
@@ -225,11 +198,10 @@ export default function LeaderboardPage() {
           </Alert>
         )}
 
-        {/* Podium */}
         {!loading && top3.length > 0 && (
           <Box
             component="section"
-            aria-label="Top 3"
+            aria-label={messages.topThree}
             sx={{
               display: 'flex',
               flexDirection: { xs: 'column', sm: 'row' },
@@ -301,16 +273,11 @@ export default function LeaderboardPage() {
                         color: 'text.secondary',
                       }}
                     >
-                      #{entry.rank} • {meta.label}
+                      #{entry.rank} • {rankLabel(entry.rank)}
                     </Typography>
                     <Typography
                       variant="h5"
-                      sx={{
-                        fontWeight: 800,
-                        color: '#fcd34d',
-                        mt: 1.5,
-                        fontSize: isFirst ? '1.5rem' : '1.25rem',
-                      }}
+                      sx={{ fontWeight: 800, color: '#fcd34d', mt: 1.5, fontSize: isFirst ? '1.5rem' : '1.25rem' }}
                     >
                       {entry.rating}
                     </Typography>
@@ -324,7 +291,7 @@ export default function LeaderboardPage() {
                         fontSize: '10px',
                       }}
                     >
-                      rating
+                      {messages.rating}
                     </Typography>
                   </Box>
                 </Paper>
@@ -333,15 +300,14 @@ export default function LeaderboardPage() {
           </Box>
         )}
 
-        {/* Ranked list */}
         <Box component="section">
-          <Typography
-            variant="h6"
-            sx={{ fontWeight: 700, color: 'text.secondary', mb: 2 }}
-          >
-            Full Rankings
-            <Box component="span" sx={{ ml: 1, fontSize: '0.875rem', fontWeight: 500, color: 'text.disabled' }}>
-              {loading ? '…' : `${filtered.length} ${filtered.length === 1 ? 'player' : 'players'}`}
+          <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.secondary', mb: 2 }}>
+            {messages.fullRankings}
+            <Box
+              component="span"
+              sx={{ marginInlineStart: 1, fontSize: '0.875rem', fontWeight: 500, color: 'text.disabled' }}
+            >
+              {loading ? '…' : messages.playerCount(filtered.length)}
             </Box>
           </Typography>
 
@@ -350,20 +316,14 @@ export default function LeaderboardPage() {
           ) : filtered.length === 0 ? (
             <Paper
               variant="outlined"
-              sx={{
-                p: 6,
-                textAlign: 'center',
-                borderRadius: 4,
-                borderStyle: 'dashed',
-                bgcolor: 'transparent',
-              }}
+              sx={{ p: 6, textAlign: 'center', borderRadius: 4, borderStyle: 'dashed', bgcolor: 'transparent' }}
             >
               <Search size={32} style={{ color: theme.palette.text.disabled, margin: '0 auto' }} />
               <Typography sx={{ mt: 2, fontWeight: 600, color: 'text.secondary' }}>
-                No players found
+                {messages.noPlayers}
               </Typography>
               <Typography variant="body2" color="text.disabled" sx={{ mt: 0.5 }}>
-                Nobody matches “{query}” — try a different username.
+                {messages.noMatch(query)}
               </Typography>
             </Paper>
           ) : (
@@ -385,12 +345,9 @@ export default function LeaderboardPage() {
                       borderColor: isMe ? alpha(theme.palette.primary.main, 0.5) : 'divider',
                       bgcolor: isMe ? alpha(theme.palette.primary.main, 0.1) : alpha(theme.palette.background.paper, 0.6),
                       transition: 'all 0.2s',
-                      '&:hover': {
-                        borderColor: isMe ? alpha(theme.palette.primary.main, 0.7) : 'text.disabled',
-                      },
+                      '&:hover': { borderColor: isMe ? alpha(theme.palette.primary.main, 0.7) : 'text.disabled' },
                     }}
                   >
-                    {/* Rank badge */}
                     <Box sx={{ width: { xs: 30, sm: 40 }, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
                       {meta ? (
                         <Box
@@ -407,16 +364,12 @@ export default function LeaderboardPage() {
                           {MEDAL_ICON[entry.rank]}
                         </Box>
                       ) : (
-                        <Typography
-                          variant="body2"
-                          sx={{ fontWeight: 700, fontFamily: 'monospace', color: 'text.disabled' }}
-                        >
+                        <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'monospace', color: 'text.disabled' }}>
                           {entry.rank}
                         </Typography>
                       )}
                     </Box>
 
-                    {/* Avatar */}
                     <Avatar
                       sx={{
                         width: 40,
@@ -429,21 +382,14 @@ export default function LeaderboardPage() {
                       {entry.username.charAt(0).toUpperCase() || '?'}
                     </Avatar>
 
-                    {/* Identity + stats */}
                     <Box sx={{ minWidth: 0, flex: 1 }}>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
-                        <Typography
-                          sx={{
-                            fontWeight: 600,
-                            wordBreak: 'break-word',
-                            whiteSpace: 'normal',
-                          }}
-                        >
+                        <Typography sx={{ fontWeight: 600, wordBreak: 'break-word', whiteSpace: 'normal' }}>
                           {entry.username}
                         </Typography>
                         {isMe && (
                           <Chip
-                            label="You"
+                            label={messages.you}
                             size="small"
                             sx={{
                               height: 18,
@@ -456,20 +402,18 @@ export default function LeaderboardPage() {
                           />
                         )}
                       </Box>
-                      <Stack direction="row" spacing={1.5} sx={{ mt: 0.5, alignItems: 'center' }}>
+                      <Stack direction="row" spacing={1.5} sx={{ mt: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                           <Box component="span" sx={{ fontWeight: 700, color: '#10b981' }}>
-                            {entry.wins}W
+                            {messages.winsShort(entry.wins)}
                           </Box>
-                          <Box component="span" sx={{ mx: 0.5, color: 'text.disabled' }}>
-                            /
-                          </Box>
+                          <Box component="span" sx={{ mx: 0.5, color: 'text.disabled' }}>/</Box>
                           <Box component="span" sx={{ fontWeight: 700, color: '#f43f5e' }}>
-                            {entry.losses}L
+                            {messages.lossesShort(entry.losses)}
                           </Box>
                         </Typography>
                         <Typography variant="caption" color="text.disabled" sx={{ display: { xs: 'none', sm: 'block' } }}>
-                          {entry.gamesPlayed} games
+                          {messages.games(entry.gamesPlayed)}
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <WinRateBar value={entry.winRate} />
@@ -480,8 +424,7 @@ export default function LeaderboardPage() {
                       </Stack>
                     </Box>
 
-                    {/* Rating */}
-                    <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                    <Box sx={{ textAlign: 'end', flexShrink: 0 }}>
                       <Typography variant="h6" sx={{ fontWeight: 800, color: '#F5A306', lineHeight: 1 }}>
                         {entry.rating}
                       </Typography>
@@ -494,7 +437,7 @@ export default function LeaderboardPage() {
                           fontSize: '10px',
                         }}
                       >
-                        rating
+                        {messages.rating}
                       </Typography>
                     </Box>
                   </Paper>
