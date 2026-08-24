@@ -121,9 +121,53 @@ No static inspection is promoted to PASS.
 ### Remaining risks/boundaries
 
 - Some page-local neutral links still rely on middleware compatibility redirects and should be normalized to explicit localized helpers.
-- Tournament detail/bracket remains a high-traffic page with English client-owned copy.
-- eNamad visibility on English pages is preserved for now; whether it should be hidden is a product-policy decision, not silently assumed.
+- Tournament detail/bracket remained a high-traffic page with English client-owned copy at this checkpoint.
+
+---
+
+## 2026-08-24 — Tournament detail / bracket
+
+### Implemented
+
+- Added `apps/web/src/i18n/tournament-detail.ts` for detail/bracket-specific presentation copy.
+- Tournament detail now resolves locale through the canonical `useAppLocale()` hook.
+- Back/login links are explicitly locale-scoped rather than depending on compatibility redirects.
+- Status, errors, not-found state, join actions, player count, champion labels, bracket legend, empty states and round labels are localized.
+- Tournament game title uses the canonical game catalog when the API game id is recognized.
+- Date formatting is locale-aware (`fa-IR` / `en-US`).
+- API/data-owned `name`, `description`, `prize`, champion/player names and server join-result text remain verbatim by design.
+- Physical `marginLeft` placement in bracket player rows was replaced by logical `marginInlineStart`.
+- Bracket geometry itself is explicitly kept LTR so connector math and tournament progression remain deterministic across locales; labels surrounding the bracket remain localized.
+
+### Product decision resolved
+
+- eNamad must remain visible in **both Persian and English** shells for the current product stage. This is now the explicit policy; no locale-based hiding should be introduced unless the product policy changes later.
+
+### Debt movement
+
+- `DEBT-010` Tournament mixed-language presentation: **SUBSTANTIALLY RESOLVED** for list + detail client-owned copy.
+- `DEBT-007` locale-neutral internal links: reduced further in Tournament detail; remaining high-traffic neutral links still need targeted normalization.
+- `DEBT-015` server/data-owned localization boundary remains TRACKED and intentionally separate from client i18n.
+
+### Visual-change checkpoint
+
+This branch now contains **material visible changes suitable for local review**:
+- real `/fa/...` and `/en/...` public URLs,
+- LTR English shell vs RTL Persian shell,
+- localized Header/Footer/Lobby/Profile/Login/Leaderboard/Tournaments/game shells,
+- locale-specific typography/metadata,
+- Tournament detail/bracket localization.
+
+A local run would now produce a meaningful visual comparison. Executable validation still has not run in the current connector environment.
+
+### Validation
+
+- Build: NOT RUN
+- Typecheck: NOT RUN
+- Tests: NOT RUN
+- Browser QA: NOT RUN
+- Deploy: NOT RUN
 
 ### Next
 
-Continue automatically with tournament detail/bracket and remaining internal-link normalization, then Admin bilingual Footer editor and Component Graveyard Cleanup. Pause only when a genuine human decision becomes necessary.
+Continue automatically with remaining high-traffic locale-neutral link normalization, then Admin bilingual Footer editor, Component Graveyard Cleanup, shared feedback/UI foundation and known-bug pass. Pause only for a genuine human decision.
