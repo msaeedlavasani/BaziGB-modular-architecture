@@ -4,113 +4,98 @@ This is the stage-by-stage execution log for the foundation work. Architectural 
 
 ## 2026-08-24 — Consumer migration preparation
 
-### Scope
-
-Move from Tasks 0–3 audit/foundation into real bilingual consumer migration without activating `/fa/*` and `/en/*` routes prematurely.
-
-### Implemented
-
 - Added `apps/web/src/hooks/useAppLocale.ts`.
-- Client components/pages now have one canonical way to resolve the active locale from the pathname.
-- Locale-neutral routes intentionally resolve to `DEFAULT_LOCALE` (`fa`) during the migration period.
-- The hook reuses `resolveLocaleFromPathname` rather than duplicating locale parsing.
+- Locale-neutral routes resolve to Persian during migration.
+- Client consumers use one canonical locale resolver.
 
-### Validation
-
-Build/typecheck/tests/browser/deploy: NOT RUN in the connector environment.
+Validation: build/typecheck/tests/browser/deploy NOT RUN.
 
 ---
 
 ## 2026-08-24 — `/game/[gameId]` consumer migration
 
-### Implemented
+- Removed local game title/chip maps.
+- Uses canonical catalog + typed game-shell messages.
+- Guarded game route input with `isWebGameId()`.
+- Back navigation uses centralized routes.
 
-- `/game/[gameId]` resolves locale through `useAppLocale()`.
-- Removed page-local game title/chip maps.
-- Uses `getGameTitle()` / `getGameChip()` from the canonical game catalog.
-- Route input is guarded by `isWebGameId()`.
-- Game-shell copy moved to typed locale messages.
-- Back navigation uses `APP_ROUTES.lobby`.
+Debt: DEBT-006/008 partially resolved; DEBT-013 graveyard risk mitigated.
 
-### Debt movement
-
-- DEBT-006: partially resolved.
-- DEBT-008: partially resolved.
-- DEBT-013: graveyard risk mitigated by real consumer usage.
-
-### Validation
-
-Build/typecheck/tests/browser/deploy: NOT RUN.
+Validation: NOT RUN.
 
 ---
 
 ## 2026-08-24 — `/play/[roomId]` consumer migration
 
-### Implemented
+- Removed local title/chip maps and local game allowlist duplication.
+- Uses canonical catalog + multiplayer messages + `useAppLocale()`.
+- Localized waiting/spectator/turn/winner/chat/room-share copy.
+- Presentation capacity uses catalog fallback; runtime capacity remains server/GameAdapter-owned.
+- Chat alignment uses logical `start` for RTL/LTR.
+- Socket/gameplay behavior preserved.
 
-- Removed page-local game title/chip maps and page-local game-type allowlist duplication.
-- Uses canonical game catalog + `isWebGameId()` + `useAppLocale()`.
-- Multiplayer waiting/spectator/turn/winner/chat/room-share copy moved to typed messages.
-- Waiting-room player-capacity display uses catalog presentation fallback; runtime capacity remains server/GameAdapter-owned.
-- Chat alignment moved from physical `right` to logical `start` for RTL/LTR compatibility.
-- Socket protocol and gameplay behavior were preserved.
+Debt: DEBT-006 further resolved; DEBT-008 substantially resolved for entry pages; DEBT-013 resolved as graveyard risk.
 
-### Debt movement
+Boundary: server-originated system-message payload text remains server-owned.
 
-- DEBT-006: both game entry pages migrated; Lobby remained at this point.
-- DEBT-008: substantially resolved for game entry pages.
-- DEBT-013: resolved as a graveyard risk because the catalog has real high-traffic consumers.
-
-### Boundary note
-
-Server-originated system-message payload text remains server-owned and is not translated by the client.
-
-### Validation
-
-Build/typecheck/tests/browser/deploy: NOT RUN.
+Validation: NOT RUN.
 
 ---
 
 ## 2026-08-24 — Lobby consumer migration
 
+- Lobby uses `useAppLocale()` + typed Lobby messages.
+- Removed local `STATUS_LABEL`, `GAME_META`, `GAME_OPTIONS`, custom GameType duplication.
+- Game choices use `WEB_GAME_IDS`; names use `getGameTitle()`.
+- History/room game IDs use `isWebGameId()`.
+- Game/play navigation uses `gameRoute()` / `playRoute()`.
+- Room capacity display uses catalog presentation fallback.
+- Recent dates are locale-aware.
+- Directional hover movement changed to vertical movement for RTL/LTR neutrality.
+- Existing inline loading/empty/card UI intentionally preserved for later graveyard cleanup.
+
+Debt:
+- DEBT-002 substantially resolved.
+- DEBT-006 resolved for `/game`, `/play`, Lobby primary consumers.
+- DEBT-007 partially mitigated; locale routes remain.
+- DEBT-013 resolved.
+- DEBT-003/009 remain open by design.
+
+Validation: NOT RUN.
+
+---
+
+## 2026-08-24 — Tournaments consumer migration
+
 ### Scope
 
-Remove the largest remaining page-local game/status/copy duplication while preserving room creation, room listing, bot navigation, history loading and current visual structure.
+Remove the English-only tournament-page presentation layer without changing tournament API/data behavior.
 
 ### Implemented
 
-- Lobby now resolves locale through `useAppLocale()`.
-- Removed local `STATUS_LABEL`, `GAME_META`, `GAME_OPTIONS`, custom `GameType`, and metadata-based history normalization.
-- Game choices now come from `WEB_GAME_IDS`; displayed names come from `getGameTitle()`.
-- History game-name normalization uses the shared `isWebGameId()` boundary.
-- Room game identity is normalized through the same catalog guard.
-- Bot/game/play navigation uses `gameRoute()` / `playRoute()` instead of page-local string construction.
-- Active-room player capacity display uses catalog presentation fallback rather than `vegas ? 5 : 2` UI branching.
-- Lobby product copy moved into typed locale messages, including:
-  - title/subtitle
-  - room status
-  - recent-game states/results/actions
-  - match-point labels
-  - online/bot mode labels
-  - create/join room copy/errors
-  - active-room labels/actions
-- Recent-match date formatting now switches between `fa-IR` and `en-US` based on locale.
-- A directional hover transform on room rows was replaced with vertical movement so the same interaction is correct in RTL and LTR.
+- Tournaments now resolves locale via `useAppLocale()`.
+- Removed page-local English fallback description/status-label/filter-label constants as presentation sources.
+- Added typed tournament messages only for real page consumers:
+  - title/header summary
+  - status/filter labels
+  - load/join errors
+  - empty state
+  - start date/player count formatting
+  - joined/sign-in/full/join actions
+  - bracket/results actions
+- Tournament date formatting now uses `fa-IR` or `en-US` from the active locale.
+- Existing API-provided `t.name`, `t.description`, `t.prize`, and `joinResult.message` remain data/server-owned and are not silently translated in the client.
+- Existing tournament links remain locale-neutral until the atomic route migration.
 
 ### Debt movement
 
-- `DEBT-002` mixed-language Lobby copy: **SUBSTANTIALLY RESOLVED** at page-owned-copy level.
-- `DEBT-006` duplicate game presentation metadata: **RESOLVED FOR PRIMARY GAME ENTRY/Lobby CONSUMERS**. Catalog is now consumed by `/game`, `/play`, and Lobby.
-- `DEBT-007` route literal dispersion: **PARTIALLY MITIGATED**; dynamic game/play route construction is centralized, but locale-scoped routes are still pending.
-- `DEBT-013` catalog graveyard risk: **RESOLVED**.
-- `DEBT-003` GameCard canonicality mismatch remains intentionally open; this migration did not mix in component-graveyard cleanup.
-- `DEBT-009` feedback-pattern duplication remains open; existing Skeleton/Alert/Paper states were preserved rather than refactored during localization.
+- `DEBT-010` English-only Tournament page copy: **SUBSTANTIALLY RESOLVED** for client-owned copy.
+- A new content boundary is explicit: tournament records returned by the API may themselves contain language-specific managed/user content. That must be handled as a data/content localization problem, not by client string substitution.
 
-### Bug / risk notes
+### Risk / bug notes
 
-- No runtime bug is claimed resolved because executable validation has not run.
-- Unknown room/history game IDs now fall back through the shared web-game boundary rather than indexing arbitrary local metadata.
-- `GAME_CATALOG.maxPlayers` remains presentation fallback only.
+- No runtime bug confirmed; executable validation has not run.
+- Tournament dynamic/data fields are intentionally preserved verbatim.
 
 ### Validation
 
@@ -124,9 +109,8 @@ Remove the largest remaining page-local game/status/copy duplication while prese
 
 - `main` untouched.
 - governance branch untouched.
-- no merge.
-- no deployment.
+- no merge/deploy.
 
 ### Next
 
-Continue automatically with Tournaments/Profile/auth copy migration, then prepare the atomic locale route-tree stage. Pause only for a genuine human product/architecture decision.
+Continue automatically with Profile/common-feedback migration, then Auth pages. Pause only for a genuine human decision.
