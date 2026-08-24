@@ -11,6 +11,7 @@ import {
 } from '@/lib/site-settings';
 import type { Locale } from '@/i18n/config';
 import { getMessages } from '@/i18n/messages';
+import { APP_ROUTES } from '@/i18n/routing';
 
 interface FooterProps {
   locale?: Locale;
@@ -57,7 +58,7 @@ export default function Footer({ locale = 'fa' }: FooterProps) {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Typography
                 component={Link}
-                href="/lobby"
+                href={APP_ROUTES.lobby}
                 sx={{ fontSize: '1.5rem', fontWeight: 900, color: 'primary.main', textDecoration: 'none' }}
               >
                 BaziGB
@@ -81,10 +82,10 @@ export default function Footer({ locale = 'fa' }: FooterProps) {
                 {link.label}
               </Typography>
             ))}
-            <Typography component={Link} href="/rules" variant="subtitle2" sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}>
+            <Typography component={Link} href={APP_ROUTES.rules} variant="subtitle2" sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}>
               {messages.footer.rules}
             </Typography>
-            <Typography component={Link} href="/contact" variant="subtitle2" sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}>
+            <Typography component={Link} href={APP_ROUTES.contact} variant="subtitle2" sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}>
               {messages.footer.contact}
             </Typography>
           </Box>
