@@ -73,103 +73,76 @@ This is the stage-by-stage execution log. Architecture/debt lives in `docs/platf
 ---
 
 ## 2026-08-24 — Locale route activation
-
-### Architecture
-
-Activated bilingual public URLs without duplicating the App Router page tree.
-
-- Added `apps/web/src/middleware.ts`.
-- `/fa/*` and `/en/*` remain visible public URLs while middleware rewrites internally to the existing shared pages.
-- Public locale roots include Lobby, Leaderboard, Tournaments, Profile, Login, Game, Play, Rules and Contact.
-- `/` redirects to the preferred locale Lobby.
-- Locale-neutral public URLs redirect to the preferred locale, defaulting to Persian.
-- Middleware persists `bazigb-locale` as a compatibility cookie so remaining neutral links do not unexpectedly switch an English user back to Persian during migration.
-- Admin remains locale-neutral until its bilingual content-editor stage.
-
-### Root shell
-
-- Root layout now reads the middleware request locale from `x-bazigb-locale`.
-- Active request locale drives HTML `lang`, `dir`, localized metadata, MUI direction and locale font stack.
-- Header/Footer receive the active locale.
-- Header primary navigation now emits locale-prefixed links.
-- Footer brand/rules/contact and internal managed links emit locale-prefixed links while external URLs remain unchanged.
-
-### Route helpers
-
-`i18n/routing.ts` now includes localized builders for app/game/play/tournament routes. Route literals remain language-neutral at the source.
-
-### Graveyard prevention discovered during this stage
-
-Two copies of `useAppLocale` existed after the foundation work:
-- `hooks/useAppLocale.ts`
-- `i18n/useAppLocale.ts`
-
-Targeted consumer search confirmed the latter had no consumers. It was deleted immediately; `hooks/useAppLocale.ts` is canonical. Logged as `DEBT-014` and resolved.
-
-### Validation attempt
-
-A GitHub Actions lookup was performed for the branch commit available at that checkpoint. No workflow runs were associated with it. Therefore CI/build/typecheck/tests/browser/deploy remain NOT RUN.
+- Activated `/fa/*` and `/en/*` through middleware rewrites to one shared page tree.
+- Root layout now receives active locale for `lang`, `dir`, metadata, font and MUI direction.
+- Header/Footer emit localized routes.
+- Removed duplicate unused `i18n/useAppLocale.ts`; `hooks/useAppLocale.ts` is canonical.
+- GitHub Actions lookup found no workflow run; validation remains NOT RUN.
 
 ---
 
 ## 2026-08-24 — Tournament detail / bracket
-
-### Implemented
-
-- Added `apps/web/src/i18n/tournament-detail.ts` for detail/bracket-specific presentation copy.
-- Tournament detail resolves locale through `useAppLocale()`.
-- Back/login links are explicitly locale-scoped.
-- Status, errors, not-found state, join actions, player count, champion labels, bracket legend, empty states and round labels are localized.
-- Tournament game title uses the canonical game catalog when the API game id is recognized.
-- Date formatting is locale-aware (`fa-IR` / `en-US`).
-- API/data-owned `name`, `description`, `prize`, champion/player names and server join-result text remain verbatim by design.
-- Physical `marginLeft` placement in bracket player rows was replaced by logical `marginInlineStart`.
-- Bracket geometry is explicitly kept LTR so connector math and tournament progression remain deterministic across locales; surrounding copy remains localized.
-
-### Product decision resolved
-
-- eNamad remains visible in **both Persian and English** shells for the current product stage. No locale-based hiding should be introduced unless product policy changes later.
-
-### Debt movement
-
-- `DEBT-010` Tournament mixed-language presentation: **SUBSTANTIALLY RESOLVED** for list + detail client-owned copy.
-- `DEBT-007` locale-neutral internal links: reduced further.
-- `DEBT-015` server/data-owned localization boundary remains TRACKED.
-
-### Visual-change checkpoint
-
-This branch now contains material visible changes suitable for local review: real `/fa/...` and `/en/...` URLs, LTR English vs RTL Persian shell, localized primary pages and game shells, locale-specific typography/metadata, and localized Tournament detail/bracket.
-
-Validation remains NOT RUN.
+- Added localized detail/bracket messages and locale-aware date/status/action/round presentation.
+- Kept bracket geometry intentionally LTR while surrounding presentation remains locale-aware.
+- eNamad product policy resolved: visible in both `fa` and `en` for now.
+- Validation: NOT RUN.
 
 ---
 
 ## 2026-08-24 — Admin bilingual Footer editor
+- Added focused `/admin/footer` editor for independent `footer.fa` / `footer.en` content.
+- Existing `/admin` still contains dead legacy Footer editor logic with no rendered editor UI (`DEBT-016`).
+- Destructive cleanup remains deferred until executable validation.
+- Validation: NOT RUN.
 
-### Implemented
+---
 
-- Added a focused admin content route at `/admin/footer` instead of expanding the existing Admin monolith further.
-- The editor loads Persian and English Footer content independently from the shared Site Settings contract.
-- Persian and English have separate editable tagline, copyright and links JSON while sharing the same `FooterContent` schema.
-- Saves use `footer.fa` / `footer.en` through `saveLocalizedFooterSettings()`.
-- Dirty state is tracked per locale and the editor provides locale-specific success/error feedback.
-- The editor preserves the existing admin authorization boundary.
-- eNamad is not editable/hideable here because current product policy requires it in both languages.
+## 2026-08-24 — Shared UI / visual foundation cleanup
 
-### New debt finding — DEBT-016
+### Design-system alignment
 
-The existing `/admin` page contains Footer editor **state, loading and save logic but no rendered Footer editor UI in the current page body**. This is dead page-local logic and a concrete component/graveyard-style debt signal.
+A targeted shared-UI pass was performed against `DESIGN_SYSTEM.md` before asking for local visual review.
 
-Action:
-- do not duplicate that editor UI inside the monolith,
-- use `/admin/footer` as the focused canonical editor,
-- remove the old dead Footer state/functions from `/admin` during Component Graveyard/Admin cleanup after executable validation is available,
-- add discoverability/navigation to the focused editor as part of Admin cleanup rather than expanding unrelated code now.
+Implemented:
+- `GameCard` was redesigned from an unused generic Card into the canonical **selectable game tile** shape that matches BaziGB's actual Lobby interaction language: selected state, visible border/state, tactile surface, focus-visible state, reduced-motion support and semantic `aria-pressed`.
+- `EmptyState` was upgraded into a reusable product-level empty-state panel with explanatory hierarchy, optional icon/CTA, responsive spacing and Honey Bronze/theme-token surfaces.
+- `LoadingSkeleton` was generalized into a configurable structural grid instead of a single arbitrary page-shaped skeleton.
+- These primitives are now architecture-ready for consumer migration; they are **not yet considered canonical-by-use until Lobby/other consumers adopt them**.
 
-### Validation
+### GameShell audit and fix
 
-Build/typecheck/tests/browser/deploy: NOT RUN.
+A hidden bilingual/UI debt was found inside canonical `GameShell`: despite localized `/game` and `/play` pages, the shared shell still hard-coded Persian labels for connection status, room, Lobby/back actions, match score, rematch and waiting state.
 
-### Next
+Implemented:
+- Added `i18n/game-shell.ts`.
+- `GameShell` now resolves locale itself through the canonical locale hook.
+- Connection/room/copy/match/rematch/back/waiting labels are bilingual.
+- Back arrow direction now follows locale (`→`-direction intent for RTL, left-arrow for LTR).
+- Physical spacing touched in the shell was replaced by logical spacing.
+- Winner surface now uses theme semantic colors rather than white-on-Honey-Bronze hard-coding.
+- Focus/accessibility and responsive behavior were preserved.
 
-Continue with targeted component-graveyard cleanup preparation and remaining high-traffic neutral-link inventory. Because executable validation is unavailable, destructive deletion remains deferred until a safe validation environment is available.
+This closes a real gap where the English game routes could still show Persian shared-shell text.
+
+### Language discoverability
+
+A missing product interaction was identified: bilingual routes existed, but there was no visible way for a user to switch languages.
+
+Implemented:
+- Added `i18n/language-switcher.ts`.
+- Header now includes a compact FA/EN switcher that preserves the current logical pathname while changing locale.
+- The switcher is responsive and hidden on locale-neutral Admin routes.
+- Header spacing was tightened on mobile and active/navigation styles now use theme tokens instead of repeated raw color literals where touched.
+
+### Visual review policy
+
+The user explicitly prefers to delay local review until more UI/component cleanup is complete. Therefore the previous visual-review checkpoint is intentionally deferred.
+
+Do **not** request a local run yet. Continue with:
+1. migrate Lobby selection/empty/loading consumers onto the revised shared primitives,
+2. normalize remaining shared feedback patterns,
+3. clean Admin dead Footer logic when executable validation becomes available or when a safe isolated rewrite is possible,
+4. inspect major GameShell/Lobby responsive hierarchy and remaining physical RTL/LTR assumptions,
+5. then declare a new local visual-review checkpoint.
+
+Validation: build/typecheck/tests/browser/deploy NOT RUN.
