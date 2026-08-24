@@ -12,7 +12,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Gamepad2, Languages, Swords, Trophy, User, Volume2, VolumeX } from 'lucide-react';
+import { Gamepad2, Swords, Trophy, User, Volume2, VolumeX } from 'lucide-react';
 import { soundService } from '@/lib/sound-service';
 import type { Locale } from '@/i18n/config';
 import { getMessages } from '@/i18n/messages';
@@ -48,6 +48,19 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
     return soundService.subscribe(() => setMuted(soundService.isMuted()));
   }, []);
 
+  const circleControlSx = {
+    width: { xs: 36, sm: 40 },
+    height: { xs: 36, sm: 40 },
+    minWidth: { xs: 36, sm: 40 },
+    minHeight: { xs: 36, sm: 40 },
+    p: 0,
+    borderRadius: '50%',
+    border: '1px solid',
+    borderColor: alpha(theme.palette.primary.main, 0.2),
+    color: 'text.secondary',
+    flexShrink: 0,
+  } as const;
+
   return (
     <AppBar
       position="sticky"
@@ -64,27 +77,36 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
       <Toolbar
         sx={{
           width: '100%',
-          gap: { xs: 0.5, sm: 2, md: 4 },
-          minHeight: { xs: 58, sm: 64 },
-          px: { xs: 1, sm: 3, md: 6 },
+          minHeight: { xs: 64, sm: 64 },
+          px: { xs: 1.25, sm: 3, md: 6 },
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr auto 1fr', sm: 'auto minmax(0, 1fr) auto' },
+          alignItems: 'center',
+          columnGap: { xs: 1, sm: 2, md: 4 },
         }}
       >
         <Link
           href={localizedAppRoute(locale, 'lobby')}
           aria-label="BaziGB"
-          style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}
+          style={{
+            textDecoration: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifySelf: 'center',
+            gridColumn: '2',
+          }}
         >
           <Box
             sx={{
               position: 'relative',
-              width: { xs: 30, sm: 36 },
-              height: { xs: 30, sm: 36 },
+              width: { xs: 38, sm: 36 },
+              height: { xs: 38, sm: 36 },
               overflow: 'hidden',
               borderRadius: 2.5,
               flexShrink: 0,
             }}
           >
-            <Image src="/brand/logo-icon.png" alt="BaziGB" fill sizes="36px" style={{ objectFit: 'contain' }} />
+            <Image src="/brand/logo-icon.png" alt="BaziGB" fill sizes="38px" style={{ objectFit: 'contain' }} />
           </Box>
           <Typography
             variant="h5"
@@ -105,17 +127,19 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
           component="nav"
           aria-label={messages.navigation.lobby}
           sx={{
+            gridColumn: { xs: '3', sm: '2' },
+            gridRow: 1,
             display: 'flex',
-            gap: { xs: 0.25, sm: 0.75, md: 2 },
-            flexGrow: 1,
-            justifyContent: 'center',
+            alignItems: 'center',
+            gap: { xs: 0.25, sm: 0.75, md: 1.5 },
+            justifySelf: { xs: 'end', sm: 'center' },
             minWidth: 0,
           }}
         >
           {navLinks.map((link) => {
             const active = routePathname === link.href || routePathname.startsWith(`${link.href}/`);
             return (
-              <Tooltip key={link.route} title={link.label} disableHoverListener={false}>
+              <Tooltip key={link.route} title={link.label}>
                 <Button
                   component={Link}
                   href={localizedAppRoute(locale, link.route)}
@@ -124,15 +148,16 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
                   color={active ? 'primary' : 'inherit'}
                   aria-current={active ? 'page' : undefined}
                   sx={{
-                    minWidth: { xs: 34, sm: 40, md: 'auto' },
-                    minHeight: { xs: 34, sm: 40 },
-                    px: { xs: 0.75, sm: 1.25, md: 3 },
-                    py: { xs: 0.75, sm: 1 },
-                    borderRadius: 2.5,
+                    minWidth: { xs: 36, md: 'auto' },
+                    width: { xs: 36, md: 'auto' },
+                    height: { xs: 36, md: 40 },
+                    px: { xs: 0, md: 2.25 },
+                    py: { xs: 0, md: 1 },
+                    borderRadius: { xs: '50%', md: 2.5 },
                     color: active ? 'secondary.main' : 'text.secondary',
+                    columnGap: { xs: 0, md: 1.25 },
                     '& .MuiButton-startIcon': {
-                      marginInlineEnd: { xs: 0, md: 1.5 },
-                      marginInlineStart: 0,
+                      margin: 0,
                     },
                     '&:hover': {
                       color: active ? 'secondary.main' : 'primary.main',
@@ -149,29 +174,33 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
           })}
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.25, sm: 0.75, md: 1.5 }, flexShrink: 0 }}>
+        <Box
+          sx={{
+            gridColumn: { xs: '1', sm: '3' },
+            gridRow: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifySelf: { xs: 'start', sm: 'end' },
+            gap: { xs: 0.35, sm: 0.75, md: 1 },
+            flexShrink: 0,
+          }}
+        >
           {!isAdmin && (
             <Tooltip title={languageMessages.label}>
               <Button
-                component={Link}
+                component="a"
                 href={alternateHref}
                 aria-label={languageMessages.label}
-                startIcon={<Languages size={17} />}
-                variant="outlined"
                 sx={{
-                  minWidth: { xs: 34, sm: 66 },
-                  minHeight: { xs: 34, sm: 40 },
-                  px: { xs: 0.75, sm: 1.5 },
-                  py: { xs: 0.5, sm: 1 },
-                  borderColor: alpha(theme.palette.primary.main, 0.22),
-                  color: 'text.secondary',
+                  ...circleControlSx,
                   fontWeight: 900,
-                  letterSpacing: '0.03em',
-                  fontSize: { xs: '0.65rem', sm: '0.75rem' },
-                  '& .MuiButton-startIcon': {
-                    display: { xs: 'none', sm: 'inherit' },
-                    marginInlineEnd: 0.75,
-                    marginInlineStart: 0,
+                  letterSpacing: '0.02em',
+                  fontSize: { xs: '0.67rem', sm: '0.72rem' },
+                  lineHeight: 1,
+                  '&:hover': {
+                    borderColor: alpha(theme.palette.primary.main, 0.5),
+                    bgcolor: alpha(theme.palette.primary.main, 0.08),
+                    color: 'primary.main',
                   },
                 }}
               >
@@ -185,11 +214,8 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
               onClick={() => soundService.toggleMute()}
               aria-label={muted ? messages.sound.enable : messages.sound.disable}
               sx={{
-                width: { xs: 34, sm: 40 },
-                height: { xs: 34, sm: 40 },
+                ...circleControlSx,
                 color: muted ? 'text.disabled' : 'primary.main',
-                border: '1px solid',
-                borderColor: alpha(theme.palette.primary.main, 0.15),
               }}
             >
               {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
@@ -197,29 +223,18 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
           </Tooltip>
 
           <Tooltip title={messages.navigation.profile}>
-            <Button
+            <IconButton
               component={Link}
               href={localizedAppRoute(locale, 'profile')}
-              startIcon={<User size={19} />}
               aria-current={routePathname === APP_ROUTES.profile ? 'page' : undefined}
+              aria-label={messages.navigation.profile}
               sx={{
-                minWidth: { xs: 34, sm: 'auto' },
-                minHeight: { xs: 34, sm: 40 },
+                ...circleControlSx,
                 color: routePathname === APP_ROUTES.profile ? 'primary.main' : 'text.secondary',
-                px: { xs: 0.75, sm: 1.5, md: 2.5 },
-                py: { xs: 0.75, sm: 1 },
-                borderRadius: 2.5,
-                fontWeight: 800,
-                '& .MuiButton-startIcon': {
-                  marginInlineEnd: { xs: 0, sm: 1.5 },
-                  marginInlineStart: 0,
-                },
               }}
             >
-              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
-                {messages.navigation.profile}
-              </Box>
-            </Button>
+              <User size={19} />
+            </IconButton>
           </Tooltip>
         </Box>
       </Toolbar>
