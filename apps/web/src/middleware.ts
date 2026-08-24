@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DEFAULT_LOCALE, isLocale } from './i18n/config';
+import { DEFAULT_LOCALE, isLocale, type Locale } from './i18n/config';
 
 const LOCALE_HEADER = 'x-bazigb-locale';
+const LOCALE_COOKIE = 'bazigb-locale';
 
 /**
- * Public application paths that are exposed under /fa and /en.
- * Admin remains an internal locale-neutral route for now; its bilingual content
- * editor is a separate migration stage.
+ * Public application paths exposed under /fa and /en. Admin stays an internal
+ * locale-neutral route until its bilingual editor migration is complete.
  */
 const LOCALIZED_ROOTS = new Set([
   'lobby',
@@ -20,17 +20,32 @@ const LOCALIZED_ROOTS = new Set([
   'contact',
 ]);
 
-function withLocaleHeader(request: NextRequest, locale: string) {
+function withLocaleHeader(request: NextRequest, locale: Locale) {
   const headers = new Headers(request.headers);
   headers.set(LOCALE_HEADER, locale);
   return headers;
 }
 
+function preferredLocale(request: NextRequest): Locale {
+  const cookieLocale = request.cookies.get(LOCALE_COOKIE)?.value;
+  return cookieLocale && isLocale(cookieLocale) ? cookieLocale : DEFAULT_LOCALE;
+}
+
+function rememberLocale(response: NextResponse, locale: Locale): NextResponse {
+  response.cookies.set(LOCALE_COOKIE, locale, {
+    path: '/',
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 365,
+  });
+  return response;
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const fallbackLocale = preferredLocale(request);
 
   if (pathname === '/') {
-    return NextResponse.redirect(new URL(`/${DEFAULT_LOCALE}/lobby`, request.url));
+    return NextResponse.redirect(new URL(`/${fallbackLocale}/lobby`, request.url));
   }
 
   const segments = pathname.split('/').filter(Boolean);
@@ -40,38 +55,44 @@ export function middleware(request: NextRequest) {
     const locale = first;
     const routeRoot = segments[1];
 
-    // Locale root itself resolves to the locale's Lobby.
     if (!routeRoot) {
-      return NextResponse.redirect(new URL(`/${locale}/lobby`, request.url));
+      return rememberLocale(
+        NextResponse.redirect(new URL(`/${locale}/lobby`, request.url)),
+        locale,
+      );
     }
 
-    // Admin is deliberately not part of the public bilingual route tree yet.
     if (routeRoot === 'admin') {
-      return NextResponse.redirect(new URL('/admin', request.url));
+      return rememberLocale(NextResponse.redirect(new URL('/admin', request.url)), locale);
     }
 
     if (!LOCALIZED_ROOTS.has(routeRoot)) {
-      return NextResponse.next({ request: { headers: withLocaleHeader(request, locale) } });
+      return rememberLocale(
+        NextResponse.next({ request: { headers: withLocaleHeader(request, locale) } }),
+        locale,
+      );
     }
 
-    // Keep the localized URL visible while reusing the existing single page tree.
     const internalPath = `/${segments.slice(1).join('/')}`;
     const rewriteUrl = request.nextUrl.clone();
     rewriteUrl.pathname = internalPath;
 
-    return NextResponse.rewrite(rewriteUrl, {
-      request: { headers: withLocaleHeader(request, locale) },
-    });
+    return rememberLocale(
+      NextResponse.rewrite(rewriteUrl, {
+        request: { headers: withLocaleHeader(request, locale) },
+      }),
+      locale,
+    );
   }
 
   if (first && LOCALIZED_ROOTS.has(first)) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = `/${DEFAULT_LOCALE}${pathname}`;
+    redirectUrl.pathname = `/${fallbackLocale}${pathname}`;
     return NextResponse.redirect(redirectUrl);
   }
 
   return NextResponse.next({
-    request: { headers: withLocaleHeader(request, DEFAULT_LOCALE) },
+    request: { headers: withLocaleHeader(request, fallbackLocale) },
   });
 }
 
