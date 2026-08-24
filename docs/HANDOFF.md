@@ -99,8 +99,6 @@ Canonical base is now `4px`:
 
 Theme exports `shapeScale`. Circles, avatars, game pieces and specialized board geometry are intentional exceptions.
 
-This is a broad visual change and must be checked during the eventual local visual pass, but no local run is requested yet per current user preference.
-
 ## Major UI cleanup completed in code
 
 ### Lobby
@@ -136,12 +134,13 @@ This is a broad visual change and must be checked during the eventual local visu
 - root no longer imposes duplicate 1200px/padding constraints on every page/game,
 - Persian font stylesheet only loads for Persian requests.
 
-### Tournaments list
-- canonical loading/empty states,
+### Tournaments
+- list uses canonical loading/empty states,
 - theme-token CTA/progress treatment,
 - localized login/detail links,
 - retry action,
-- restrained card interaction.
+- restrained card interaction,
+- detail/bracket narrow-screen hierarchy hardened while bracket geometry remains intentionally LTR.
 
 ### Profile
 `UI-001` resolved in code:
@@ -162,32 +161,40 @@ This is a broad visual change and must be checked during the eventual local visu
 - narrow-screen chat composer stacks,
 - realtime/gameplay protocol behavior preserved.
 
-### Tic-Tac-Toe board
-Game-specific UI audit found that the board itself still bypassed the bilingual/theme work.
+## Game-specific UI cleanup
 
-Fixed in code:
-- removed hard-coded Persian turn/winner copy from the board presentation,
-- uses active locale game-shell labels,
-- replaced unrelated hard-coded blue player styling with semantic theme colors while X/O symbols preserve non-color distinction,
-- cells are semantic keyboard-focusable buttons rather than clickable generic boxes,
-- board surface derives from theme colors,
-- radius now follows canonical shape scale,
-- reduced-motion/focus-visible behavior added.
-
-## Game-specific static audit findings
+### Tic-Tac-Toe
+- removed hard-coded Persian turn/winner copy from board presentation,
+- active locale game-shell labels,
+- semantic theme colors,
+- keyboard-focusable cells,
+- reduced-motion/focus-visible handling.
 
 ### Chess
-- board is intentionally `direction: ltr`, which is correct game geometry rather than an RTL bug,
-- fixed wood/square colors are classified as game-art/specialized-board styling, not generic application palette leakage,
-- responsive width is already `width: 100%; maxWidth: 560`.
+- `ChessInfo` now uses locale-aware labels instead of Persian-only captured/history copy,
+- board geometry remains intentionally `direction: ltr`,
+- fixed board wood/square colors are classified as game-art styling rather than generic app-palette leakage.
+
+### Vegas
+- board chrome and state labels were migrated away from Persian-only presentation,
+- semantic theme treatment replaces several unrelated dashboard-style colors where appropriate,
+- game-art/player identity colors remain game-specific,
+- game engine/rules were not changed.
 
 ### Backgammon
-- board geometry intentionally uses LTR and some physical `left/right/top/bottom` positioning inside the board; this is allowed specialized geometry, not application-direction debt,
-- outer board is width-constrained responsively (`width: 100%; maxWidth: 960`).
+Backgammon board chrome is now locale-aware while board geometry remains intentionally LTR.
 
-`BUG-003` discovered during static inspection:
-- Backgammon SVG `<defs>` currently declares `id="bgPtLight"` twice.
-- This is duplicate SVG ID/dead-definition debt. It is not currently proven to break rendering but should be removed in the next safe Backgammon edit/validation pass.
+Implemented:
+- `apps/web/src/i18n/backgammon-board.ts` is the presentation dictionary,
+- Off/roll/waiting/double/end-turn/doubling-dialog copy is bilingual,
+- double dialog direction follows active locale instead of fixed RTL,
+- dice separator follows locale,
+- CTA controls use semantic theme colors instead of unrelated hard-coded orange/gray application styling,
+- introduced animation respects reduced-motion,
+- physical board coordinate placement remains fixed LTR by design,
+- duplicate `bgPtLight` SVG gradient definition removed.
+
+`BUG-003` duplicate Backgammon SVG gradient ID: **RESOLVED IN CODE / executable validation pending.**
 
 ## Admin Footer
 
@@ -214,7 +221,7 @@ Do not add dependency/lockfile changes blindly in connector-only mode. Verify MU
 - `DEBT-021` oversized/inconsistent radius baseline — RESOLVED IN CODE / visual validation pending.
 - `BUG-001` overall runtime/compile validation — outstanding.
 - `BUG-002` stale deleted locale-hook import in `/play` — RESOLVED IN CODE.
-- `BUG-003` duplicate Backgammon SVG gradient id — OPEN / non-blocking static cleanup target.
+- `BUG-003` duplicate Backgammon SVG gradient id — RESOLVED IN CODE / validation pending.
 
 ## Validation infrastructure
 
@@ -225,17 +232,17 @@ Branch-only `.github/workflows/foundation-web-check.yml` exists and is intended 
 - web typecheck,
 - web build.
 
-A completed current status has not yet been confirmed. This is not PASS.
+No completed run is currently associated with the latest branch commit. This is not PASS.
 
 ## Current next action
 
 Continue automatically:
-1. finish Tournament detail + local game-entry narrow-screen/logical-route audit,
-2. continue game-specific surrounding UI scan (Vegas/Backgammon controls) without redesigning game art,
-3. normalize only proven recurring feedback patterns,
-4. prepare safe Admin dead Footer cleanup,
-5. perform static known-bug/compile-risk pass including `BUG-003`,
-6. then declare a new local visual-review checkpoint.
+1. finish remaining high-traffic locale-neutral route scan,
+2. static compile-risk scan around newly migrated game-specific UI,
+3. review recurring feedback patterns without speculative abstraction,
+4. prepare safe Admin dead Footer cleanup without expanding the monolith,
+5. perform final known-bug/UI pass,
+6. then declare a local visual-review checkpoint.
 
 Do not request local run before that checkpoint unless a runtime-only blocker makes static progress impossible.
 
