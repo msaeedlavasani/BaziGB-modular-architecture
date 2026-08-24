@@ -72,12 +72,40 @@ export interface AppMessages {
     send: string;
   };
   lobby: {
+    title: string;
+    subtitle: string;
     waiting: string;
     inProgress: string;
+    finished: string;
     recentlyPlayed: string;
-    activeRooms: string;
+    refreshRecent: string;
     noRecentGames: string;
+    recentLoadError: string;
+    win: string;
+    loss: string;
+    draw: string;
+    playAgain: string;
+    chooseGame: string;
+    matchPoints: string;
+    singleGame: string;
+    bestOf3: string;
+    bestOf5: string;
+    onlineOpponent: string;
+    practiceBot: string;
+    startSolo: string;
+    createRoom: string;
+    joinWithCode: string;
+    joinDescription: string;
+    enterRoomCode: string;
+    createError: string;
+    loadRoomsError: string;
+    activeRooms: string;
+    refreshList: string;
     noActiveRooms: string;
+    copied: string;
+    copyCode: string;
+    enter: string;
+    playersShort: (current: number, max: number) => string;
   };
   tournaments: {
     registrationOpen: string;
@@ -164,12 +192,40 @@ const MESSAGES: Record<Locale, AppMessages> = {
       send: 'ارسال',
     },
     lobby: {
+      title: 'لابی BaziGB',
+      subtitle: 'یک اتاق آنلاین بسازید یا با ربات هوشمند تمرین کنید',
       waiting: 'در انتظار',
       inProgress: 'در حال بازی',
+      finished: 'پایان‌یافته',
       recentlyPlayed: 'بازی‌های اخیر',
+      refreshRecent: 'به‌روزرسانی بازی‌های اخیر',
+      noRecentGames: 'هنوز بازی انجام نداده‌اید — از بخش ایجاد اتاق اولین بازی را شروع کنید!',
+      recentLoadError: 'دریافت بازی‌های اخیر ممکن نشد',
+      win: 'برد',
+      loss: 'باخت',
+      draw: 'تساوی',
+      playAgain: 'بازی دوباره',
+      chooseGame: '۱. انتخاب بازی و تنظیمات',
+      matchPoints: 'امتیاز نهایی مسابقه',
+      singleGame: 'تک‌بازی (۱ امتیاز)',
+      bestOf3: 'بهترین از ۳ — اولین نفر با ۲ برد',
+      bestOf5: 'بهترین از ۵ — اولین نفر با ۳ برد',
+      onlineOpponent: 'با حریف آنلاین',
+      practiceBot: 'تمرین با ربات',
+      startSolo: 'شروع بازی انفرادی',
+      createRoom: 'ایجاد اتاق جدید',
+      joinWithCode: '۲. ورود با کد دعوت',
+      joinDescription: 'اگر دوستتان قبلاً اتاق ساخته است، کد ۵ رقمی آن را در اینجا وارد کنید.',
+      enterRoomCode: 'ابتدا کد اتاق را وارد کنید',
+      createError: 'ایجاد اتاق ممکن نشد',
+      loadRoomsError: 'دریافت اتاق‌ها ممکن نشد. اتصال سرور را بررسی کنید.',
       activeRooms: 'اتاق‌های فعال',
-      noRecentGames: 'هنوز بازی‌ای در تاریخچه شما ثبت نشده است.',
-      noActiveRooms: 'در حال حاضر اتاق فعالی وجود ندارد.',
+      refreshList: 'به‌روزرسانی لیست',
+      noActiveRooms: 'هنوز اتاقی وجود ندارد — اولین اتاق را بسازید!',
+      copied: 'کپی شد!',
+      copyCode: 'کپی کد',
+      enter: 'ورود',
+      playersShort: (current, max) => `${current}/${max}`,
     },
     tournaments: {
       registrationOpen: 'ثبت‌نام باز',
@@ -254,12 +310,40 @@ const MESSAGES: Record<Locale, AppMessages> = {
       send: 'Send',
     },
     lobby: {
+      title: 'BaziGB Lobby',
+      subtitle: 'Create an online room or practice against the bot',
       waiting: 'Waiting',
       inProgress: 'In progress',
+      finished: 'Finished',
       recentlyPlayed: 'Recently played',
+      refreshRecent: 'Refresh recent games',
+      noRecentGames: 'You have not played yet — start your first game from the create-room section!',
+      recentLoadError: 'Could not load recent games',
+      win: 'Win',
+      loss: 'Loss',
+      draw: 'Draw',
+      playAgain: 'Play again',
+      chooseGame: '1. Choose game and settings',
+      matchPoints: 'Match points',
+      singleGame: 'Single game (1 point)',
+      bestOf3: 'Best of 3 — first to 2',
+      bestOf5: 'Best of 5 — first to 3',
+      onlineOpponent: 'Online opponent',
+      practiceBot: 'Practice with bot',
+      startSolo: 'Start solo game',
+      createRoom: 'Create new room',
+      joinWithCode: '2. Join with invite code',
+      joinDescription: 'If your friend already created a room, enter its 5-character code here.',
+      enterRoomCode: 'Enter a room code first',
+      createError: 'Could not create a room',
+      loadRoomsError: 'Could not load rooms. Check the server connection.',
       activeRooms: 'Active rooms',
-      noRecentGames: 'You do not have any recorded games yet.',
-      noActiveRooms: 'There are no active rooms right now.',
+      refreshList: 'Refresh list',
+      noActiveRooms: 'There are no rooms yet — create the first one!',
+      copied: 'Copied!',
+      copyCode: 'Copy code',
+      enter: 'Join',
+      playersShort: (current, max) => `${current}/${max}`,
     },
     tournaments: {
       registrationOpen: 'Registration open',
