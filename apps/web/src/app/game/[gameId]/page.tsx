@@ -1,6 +1,6 @@
 'use client';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -37,7 +37,7 @@ import ChessInfo from '@/components/game/ChessInfo';
 import VegasBoard from '@/components/game/VegasBoard';
 import { useAppLocale } from '@/hooks/useAppLocale';
 import { getMessages } from '@/i18n/messages';
-import { APP_ROUTES } from '@/i18n/routing';
+import { localizedAppRoute } from '@/i18n/routing';
 import { api } from '@/lib/api';
 import { getGameChip, getGameTitle, isWebGameId } from '@/lib/game-catalog';
 
@@ -64,7 +64,6 @@ const AI_FNS: Record<GameId, (state: unknown, d: AIDifficulty) => unknown> = {
 
 function GameInner() {
   const params = useParams<{ gameId: string }>();
-  const router = useRouter();
   const locale = useAppLocale();
   const messages = getMessages(locale);
   const rawGameId = params.gameId ?? 'tic-tac-toe';
@@ -380,7 +379,7 @@ function GameInner() {
     <GameShell
       title={getGameTitle(gameId, locale)}
       gameChip={getGameChip(gameId, locale)}
-      onBack={() => router.push(APP_ROUTES.lobby)}
+      backHref={localizedAppRoute(locale, 'lobby')}
       turnText={state && state.phase === 'playing' ? (humanTurn ? messages.gameShell.yourTurn : messages.gameShell.botTurn) : null}
       scores={scores}
       maxRounds={match.matchPoint ? match.targetScore : 1}
