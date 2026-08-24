@@ -3,26 +3,61 @@
 ## وضعیت فعلی
 
 - **Baseline تولید:** `main`
-- **Working branch فعال برای اصلاح Foundation:** `refactor/platform-foundation-i18n-v3`
+- **Working branch:** `refactor/platform-foundation-i18n-v3`
 - **Governance source:** آخرین نسخه تاییدشده روی `ai/autonomous-development-system-v1`
 - **Production:** این branch هنوز merge یا deploy نشده است.
-- **هدف جاری:** تثبیت Platform Foundation پیش از ادامه باگ‌فیکس‌های عمومی و اضافه‌کردن بازی‌های پیچیده مانند Catan.
+- **هدف جاری:** تثبیت Platform Foundation، معماری دو زبان، حذف component/metadata graveyard و آماده‌سازی پلتفرم برای توسعه کم‌رفت‌وبرگشت.
 
-> نکته: توضیح قدیمی «توسعه و تولید فقط روی main» دیگر مدل کاری این refactor نیست. `main` باید در طول کار پایدار بماند و اصلاحات ابتدا روی branch مستقل انجام و اعتبارسنجی شوند.
+## آخرین مرحله انجام‌شده
 
-## Taskهای جاری
+این مرحله سه محور داشت:
+
+1. تکمیل بخشی از consumer-level Component Inventory.
+2. تبدیل Footer/Site Settings به foundation سازگار با دو زبان بدون migration دیتابیس.
+3. ایجاد canonical game presentation catalog برای حذف metadata duplication در مراحل بعد.
+
+### تغییرات واقعی
+
+- `apps/web/src/lib/site-settings.ts`
+  - defaults مستقل `fa` و `en`.
+  - `fetchSiteSettings(locale)`.
+  - legacy Persian footer همچنان backward-compatible است.
+  - API نوشتن locale-specific تحت `footer.fa` / `footer.en` اضافه شده، در حالی که `saveFooterSettings` فعلی برای Admin قدیمی حفظ شده است.
+
+- `apps/server/src/site-settings/site-settings.controller.ts`
+  - public response اکنون هم `footer` قدیمی و هم `footers.fa` / `footers.en` را برمی‌گرداند.
+  - داده فعلی `footer` فقط Persian محسوب می‌شود و به English نشت نمی‌کند.
+  - persistence همان generic JSON-by-key باقی مانده؛ Prisma migration لازم نیست.
+
+- `apps/web/src/i18n/messages.ts`
+  - Footer Rules/Contact labels برای هر دو زبان اضافه شد.
+
+- `apps/web/src/components/layout/Footer.tsx`
+  - locale-aware managed content و labels.
+  - prop اختیاری `locale` با default فارسی.
+  - routeها فعلاً locale-neutral باقی مانده‌اند تا migration مسیرها یکپارچه انجام شود.
+
+- `apps/web/src/app/layout.tsx`
+  - default locale به Footer نیز پاس داده می‌شود.
+
+- `apps/web/src/lib/game-catalog.ts` (جدید)
+  - source واحد وب برای اتصال `GameId` به message key، chip symbol و presentation capacity.
+  - titleها از i18n خوانده می‌شوند و در catalog duplicate نمی‌شوند.
+  - هنوز consumer migration انجام نشده؛ `/game`, `/play`, Lobby نباید برای همیشه local mapهای قدیمی را کنار این catalog نگه دارند.
+
+## Task 0–3
 
 ### Task 0 — Baseline & Governance Check
-**Status: IN PROGRESS**
+**Status: COMPLETE FOR THIS BRANCH**
 
-- کار از `main` جدا شده است.
-- هیچ deployای مجاز یا انجام‌شده نیست.
-- governance جاری باید قبل از تصمیم‌های اجرایی مرجع باشد، نه حافظه سشن‌های قبلی.
+- کار از `main` جداست.
+- deploy مجاز یا انجام‌شده نیست.
+- validation اجرایی در این connector environment قابل اجرا نیست و PASS اعلام نشده است.
 
 ### Task 1 — Persian / English Architecture
 **Status: IN PROGRESS**
 
-مدل هدف:
+مدل هدف ثابت است:
 
 ```text
 shared components
@@ -37,85 +72,69 @@ localized metadata
 localized routes
 ```
 
-تغییرات Foundation انجام‌شده روی branch:
+انجام‌شده:
+- locale config
+- locale-aware theme/providers
+- Header/Footer shell copy
+- locale-aware Footer read/storage contract
 
-- locale config تایپ‌شده برای `fa` و `en` اضافه شده است.
-- theme از RTL/font ثابت به `createBaziGBTheme({ direction, fontFamily })` تبدیل شده، با حفظ رفتار پیش‌فرض فارسی.
-- Providers قابلیت دریافت direction/font فعال را دارد.
-- root layout زبان، direction، metadata و theme input را از locale configuration می‌گیرد.
-- Header دارای shell messageهای locale-aware شده است.
-- routeهای فعلی هنوز locale-neutral هستند؛ `/fa/...` و `/en/...` عمداً تا زمان migration اتمیک فعال نشده‌اند.
+باقی‌مانده:
+- dictionaries گسترده‌تر
+- `/fa/...` و `/en/...` route structure
+- localized link generation
+- Admin bilingual Footer editor
 
 ### Task 2 — Platform Architecture Audit
 **Status: IN PROGRESS**
 
-یافته‌های مهم تا این مرحله:
-
-- Lobby و بخش‌هایی از UI متن فارسی/انگلیسی مخلوط دارند.
-- Footer/Site Settings هنوز مدل محتوای locale-aware تاییدشده ندارد.
-- metadata نمایشی بازی‌ها بین مسیر bot/local و multiplayer تکرار شده است.
-- user-facing copy در game pages هنوز page-local و فارسی‌محور است.
+یافته‌های مهم:
+- mixed-language copy در Lobby/Tournaments و game pages.
+- Footer localization یک مسئله cross-layer بود؛ Web + Admin + Server.
+- game presentation metadata در چند entry point duplicate است.
+- Admin page مسئولیت‌های زیادی را در یک فایل نگه می‌دارد.
 
 ### Task 3 — Component Inventory
 **Status: IN PROGRESS**
 
-وضعیت اولیه:
+وضعیت فعلی:
 
-- `GameShell` مصرف واقعی در هر دو مسیر local/bot و multiplayer دارد و canonical candidate قوی است.
-- `GameCard` وجود دارد ولی Lobby کارت انتخاب بازی را inline رندر می‌کند؛ canonicality باید تعیین شود.
-- `EmptyState`، `LoadingSkeleton`، `Modal` و `Dice3D` هنوز نیازمند consumer-level verification هستند.
-- هیچ shared component صرفاً به دلیل unused به‌نظررسیدن حذف نمی‌شود.
+- `GameShell`: `CANONICAL` — مصرف واقعی در local/bot و multiplayer.
+- `Dice3D`: `CANONICAL REUSABLE GAME PRIMITIVE` — مصرف واقعی در BackgammonBoard تایید شد.
+- `GameCard`: `UNUSED_CANDIDATE / INLINE_DUPLICATE` — با Lobby duplication دارد.
+- `EmptyState`: `UNUSED_CANDIDATE` در صفحات بررسی‌شده.
+- `LoadingSkeleton`: `UNUSED_CANDIDATE / TOO_NARROW?` در صفحات بررسی‌شده.
+- `Modal`: `UNUSED_CANDIDATE` در targeted inspection؛ قبل از حذف validation مصرف نهایی لازم است.
 
-## Component Graveyard Policy
-
-قبل از حذف یا ساخت abstraction جدید:
-
-1. وجود component بررسی شود.
-2. implementation خوانده شود.
-3. تمام consumerهای جاری بررسی شوند.
-4. inline/duplicate implementationها مقایسه شوند.
-5. یک canonical implementation انتخاب شود.
-6. consumerها migrate شوند.
-7. duplicate/dead code فقط بعد از validation حذف شود.
-
-Classification:
-
-- `CANONICAL`
-- `DUPLICATE`
-- `INLINE_DUPLICATE`
-- `UNUSED_CANDIDATE`
-- `GAME_SPECIFIC`
-- `NEEDS_SPLIT`
-- `NEEDS_MERGE`
+هیچ‌کدام از unused candidateها هنوز حذف نشده‌اند.
 
 ## Bug / Debt Ledger Summary
 
-جزئیات کامل در `docs/platform-foundation.md` نگهداری می‌شود.
+جزئیات کامل: `docs/platform-foundation.md`
 
-موارد فعال مهم:
+موارد مهم جدید/به‌روز:
 
-- `DEBT-001` — locale قبلاً global/hard-coded بود؛ partially mitigated.
-- `DEBT-002` — mixed-language Lobby copy.
-- `DEBT-003` — `GameCard` canonicality mismatch / component graveyard risk.
-- `DEBT-004` — direction/font coupling به singleton theme؛ foundation mitigated.
-- `DEBT-005` — Footer content model locale-aware نیست.
-- `DEBT-006` — duplicate game presentation metadata.
-- `DEBT-007` — locale-aware labels قبل از locale-aware route links؛ English نباید زودتر expose شود.
-- `DEBT-008` — hard-coded user-facing Persian copy در game pages.
+- `DEBT-005` Footer single-locale → **PARTIALLY MITIGATED**.
+- `DEBT-006` duplicate game metadata → canonical catalog ساخته شد، consumer migration هنوز باقی است.
+- `DEBT-011` Footer cross-layer localization → Server/Web contract اصلاح شد؛ Admin editor باقی است.
+- `DEBT-013` canonical game catalog قبل از migration consumerها → باید سریعاً مصرف‌کنندگان migrate شوند تا خود catalog به registry مرده جدید تبدیل نشود.
 
-Bug/debtهای جدید در طول کار باید همان مرحله در ledger ثبت شوند. فقط blocker/critical issue اجازه دارد focus تسک جاری را بشکند.
+## Component Graveyard Rule
 
-## مستندات جاری
+وجود یک shared component یا registry به‌تنهایی موفقیت نیست. هر abstraction باید consumer واقعی داشته باشد.
 
-- `docs/platform-foundation.md` — working record اصلی برای Task status، معماری زبان، component inventory و Bug/Debt Ledger.
-- `docs/HANDOFF.md` — این فایل؛ باید بعد از هر مرحله معنادار با وضعیت واقعی ادامه کار sync شود.
-- Governance docs — منبع قوانین اجرا هستند و نباید این فایل آن‌ها را duplicate یا override کند.
+قبل از حذف/ساخت:
+
+1. inspect implementation
+2. verify consumers
+3. compare inline duplicates
+4. choose canonical implementation
+5. migrate consumers
+6. validate
+7. remove dead duplicate
 
 ## Validation State
 
-در محیط فعلی GitHub connector امکان اجرای واقعی local build/test/browser وجود ندارد.
-
-بنابراین تا این لحظه:
+در محیط فعلی GitHub connector اجرای محلی واقعی در دسترس نیست:
 
 - Build: **NOT RUN**
 - Typecheck: **NOT RUN**
@@ -123,44 +142,22 @@ Bug/debtهای جدید در طول کار باید همان مرحله در led
 - Browser visual verification: **NOT RUN**
 - Deployment: **NOT RUN**
 
-هیچ‌کدام نباید بدون اجرای واقعی PASS گزارش شوند.
+هیچ PASS حدسی ثبت نشده است.
 
-## قدم بعدی
+## قدم بعدی دقیق
 
-1. تکمیل consumer-level Component Inventory.
-2. بررسی دقیق Footer/Site Settings localization boundary.
-3. تعیین مدل canonical و language-neutral برای game metadata + locale presentation.
-4. ثبت یافته‌ها در `docs/platform-foundation.md` و sync همین HANDOFF.
-5. سپس بستن Tasks 0–3 و ورود کنترل‌شده به Component Graveyard Cleanup / Shared UI Foundation.
+1. migrate کردن `/game/[gameId]`, `/play/[roomId]` و Lobby از metadata mapهای محلی به `game-catalog.ts`.
+2. گسترش locale dictionaries برای Lobby/game pages/Profile/Tournaments/common feedback.
+3. طراحی و اجرای locale-scoped route migration به‌صورت اتمیک.
+4. افزودن Admin editor واقعی برای `footer.fa` / `footer.en`.
+5. سپس ورود به Component Graveyard Cleanup و Shared UI Foundation.
 
-## اجرای محلی فعلی پروژه
+## Safety / Release
 
-```bash
-npm install
-npm run build
-npm test
-npm run dev
-```
+- `main` تغییر نمی‌کند.
+- Governance branch تغییر نمی‌کند.
+- merge به `main`: انجام نشده.
+- deploy: انجام نشده.
+- production verification: انجام نشده.
 
-## Release Safety
-
-- `main` در این refactor مستقیماً تغییر نمی‌کند.
-- merge به `main` فقط بعد از validation و تصمیم صریح انجام می‌شود.
-- deploy فقط با مجوز صریح انجام می‌شود.
-- production verification فقط پس از deploy واقعی قابل PASS است.
-
-## عملیات Production فعلی
-
-روش deployment موجود پروژه همچنان Zero Build است:
-
-```bash
-./scripts/deploy.sh
-```
-
-اما اجرای آن بخشی از Tasks 0–3 نیست.
-
-محافظت‌های عملیاتی production همچنان معتبرند:
-
-1. قبل از deployment وجود `/opt/bazigb/.env` بررسی شود.
-2. پس از deployment وضعیت `bazigb-server` و `bazigb-web` و health API بررسی شود.
-3. backup database در `/opt/bazigb/backups/` نگهداری می‌شود.
+روش deployment موجود پروژه همچنان Zero Build است، اما در این مرحله نباید اجرا شود.
