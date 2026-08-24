@@ -17,19 +17,6 @@ export const honeyBronze = {
   danger: '#E26D5A',
 };
 
-/**
- * Canonical shape scale.
- *
- * MUI numeric `sx={{ borderRadius: n }}` multiplies `n` by
- * `theme.shape.borderRadius`. Keep the base small and predictable so common
- * values map to intentional product radii instead of oversized pill-like
- * surfaces.
- *
- * 2   -> 8px   compact controls/chips
- * 2.5 -> 10px  buttons/inputs
- * 3   -> 12px  icon containers/small surfaces
- * 4   -> 16px  cards/panels/major surfaces
- */
 export const shapeScale = {
   base: 4,
   control: 10,
@@ -122,7 +109,15 @@ export function createBaziGBTheme({
           root: {
             borderRadius: shapeScale.control,
             padding: '8px 20px',
+            gap: 8,
             transition: `background-color ${motion}, border-color ${motion}, color ${motion}, transform ${motion}`,
+            '& .MuiButton-startIcon, & .MuiButton-endIcon': {
+              margin: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            },
             '&:hover': { transform: 'translateY(-1px)' },
             '&:active': { transform: 'translateY(0)' },
             '&:focus-visible': {
@@ -235,5 +230,4 @@ export function createBaziGBTheme({
   });
 }
 
-/** Backward-compatible Persian default theme for non-request-aware consumers. */
 export const theme = createBaziGBTheme();
