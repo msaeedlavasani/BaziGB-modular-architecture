@@ -110,26 +110,18 @@ Boundary:
 - `Dice3D`
 - `Header`
 - `Footer`
+- `GameCard` — canonical Lobby selectable game tile
+- `EmptyState` — canonical product-level section/panel empty state for current Lobby use
+- `LoadingSkeleton` — canonical repeated-section structural skeleton for current Lobby use
 - focused `/admin/footer` managed-content editor
 - game-specific boards remain game-specific
 
-### Refactored candidates awaiting consumer migration
-
-`GameCard`
-- Previously an unused generic Lobby card while Lobby had its own inline selector.
-- Now redesigned specifically as BaziGB's selectable game tile with selected/focus/reduced-motion states.
-- **Status:** `READY_FOR_CANONICAL_MIGRATION`; not canonical-by-use until Lobby consumes it.
-
-`EmptyState`
-- Upgraded to a product-level empty state with explanatory hierarchy, optional icon/CTA and theme-token surface.
-- **Status:** `READY_FOR_CANONICAL_MIGRATION`.
-
-`LoadingSkeleton`
-- Generalized to a configurable structural grid rather than one arbitrary page skeleton.
-- **Status:** `READY_FOR_CANONICAL_MIGRATION`; page-specific skeletons remain valid when geometry differs.
+### Remaining candidate
 
 `Modal`
-- Still `UNUSED_CANDIDATE`; do not delete until executable consumer verification.
+- Now locale-neutral and design-token aligned.
+- Still has no verified product consumer in the targeted pass.
+- **Status:** `UNUSED_CANDIDATE`; do not force adoption merely to justify its existence and do not delete before executable verification.
 
 ### Graveyard policy
 
@@ -145,25 +137,42 @@ Do not wrap every MUI primitive merely to increase component count.
 
 ## 7. GameShell Standardization
 
-A real shared-shell gap was found after page-level localization: `GameShell` still contained Persian hard-coded labels.
+The shared shell now serves as the visual hierarchy for both local/bot and multiplayer game routes.
 
-Now:
-- connection status is localized,
-- room/copy labels are localized,
-- match/rematch/back/waiting labels are localized,
-- back-arrow direction follows locale,
+Current behavior:
+- connection/room/copy/match/rematch/back/waiting labels are localized,
+- back arrow follows locale,
+- room code is always LTR,
 - touched spacing uses logical CSS,
-- winner surface uses semantic theme colors,
-- canonical shell continues to serve both local/bot and multiplayer routes.
+- shell max width is `lg` so board-heavy games are not constrained by an arbitrary narrow container,
+- utility controls are separated from the primary game title,
+- state/match chips form a secondary hierarchy,
+- board/content lives inside an explicit centered `main` region,
+- winner state uses a restrained semantic panel instead of a high-elevation full-primary block.
 
-This prevents English game routes from rendering a partially Persian shared shell.
+The game board remains the intended visual center, consistent with `DESIGN_SYSTEM.md`.
 
-## 8. Consumer Migration Status
+## 8. Lobby UI Standardization
+
+Lobby is now a real consumer of the shared primitives rather than a parallel inline UI system.
+
+Implemented:
+- game selection uses `GameCard`,
+- recent/room loading uses `LoadingSkeleton`,
+- recent/room empty states use `EmptyState`,
+- retryable errors expose retry actions,
+- room/game navigation is explicitly locale-aware,
+- code input is direction-independent LTR,
+- mode controls expose selected state semantically,
+- mobile layout adapts hierarchy for 360px+ rather than merely reducing desktop spacing,
+- hover motion respects reduced-motion preference where introduced.
+
+## 9. Consumer Migration Status
 
 Substantially migrated client-owned presentation:
 - `/game/[gameId]`
 - `/play/[roomId]`
-- Lobby copy/metadata (shared visual primitives still pending)
+- Lobby copy/metadata + shared visual primitives
 - Tournaments list
 - Tournament detail/bracket
 - Profile
@@ -174,17 +183,17 @@ Substantially migrated client-owned presentation:
 
 Data/server-owned text remains verbatim by design, including tournament managed fields and server chat/system payloads.
 
-## 9. Bug / Debt Ledger
+## 10. Bug / Debt Ledger
 
 - **DEBT-001 — global locale/direction assumptions:** SUBSTANTIALLY MITIGATED; runtime validation pending.
 - **DEBT-002 — mixed-language Lobby copy:** SUBSTANTIALLY RESOLVED.
-- **DEBT-003 — GameCard canonicality mismatch:** IMPLEMENTATION PREPARED; Lobby consumer migration pending.
+- **DEBT-003 — GameCard canonicality mismatch:** RESOLVED IN CODE; Lobby is now the canonical consumer.
 - **DEBT-004 — singleton RTL theme coupling:** MITIGATED; runtime validation pending.
 - **DEBT-005 — Footer single-locale:** SUBSTANTIALLY MITIGATED; bilingual read/write/editor exists.
 - **DEBT-006 — duplicate game presentation metadata:** RESOLVED for primary consumers.
 - **DEBT-007 — locale routing/link dispersion:** SUBSTANTIALLY MITIGATED; remaining neutral links still need targeted normalization.
 - **DEBT-008 — hard-coded game-entry copy:** SUBSTANTIALLY RESOLVED.
-- **DEBT-009 — shared feedback primitives bypassed:** IMPLEMENTATION PREPARED; consumer migration pending.
+- **DEBT-009 — shared feedback primitives bypassed:** SUBSTANTIALLY MITIGATED in Lobby; review other repeated product-level states before declaring fully resolved.
 - **DEBT-010 — Tournament mixed-language presentation:** SUBSTANTIALLY RESOLVED for list + detail client-owned copy.
 - **DEBT-011 — Footer Web/Admin/Server coupling:** SUBSTANTIALLY MITIGATED.
 - **DEBT-012 — Admin operational monolith:** OPEN / NON-BLOCKING.
@@ -193,23 +202,22 @@ Data/server-owned text remains verbatim by design, including tournament managed 
 - **DEBT-015 — server/data-owned localization boundary:** TRACKED.
 - **DEBT-016 — dead Footer editor state/functions in `/admin`:** OPEN; focused `/admin/footer` is canonical; dead logic removal pending safe executable validation.
 - **DEBT-017 — shared GameShell retained Persian hard-coded shell labels after page localization:** RESOLVED IN CODE; executable validation pending.
-- **DEBT-018 — bilingual routes had no visible language switcher:** RESOLVED IN CODE; Header now exposes FA/EN switching.
+- **DEBT-018 — bilingual routes had no visible language switcher:** RESOLVED IN CODE; Header exposes FA/EN switching.
 - **BUG-001 — runtime/compile state:** VALIDATION PENDING; no PASS claimed.
 
-## 10. Current UI Cleanup Order
+## 11. Current UI Cleanup Order
 
 User preference: **do not request local visual review yet**. First reduce known visual/UI debt.
 
 Continue in this order:
-1. migrate Lobby game selection to revised `GameCard`,
-2. migrate appropriate Lobby empty/loading states to `EmptyState` / `LoadingSkeleton`,
-3. normalize recurring shared feedback patterns without wrapping arbitrary MUI primitives,
-4. audit remaining GameShell/Lobby mobile + RTL/LTR physical assumptions,
-5. clean Admin legacy Footer logic when safe,
-6. known-bug pass,
-7. then declare a new local visual-review checkpoint.
+1. targeted high-traffic state/feedback consistency outside Lobby,
+2. audit Profile/Tournaments/game-entry pages for 360px hierarchy and physical RTL/LTR assumptions,
+3. normalize remaining explicit neutral internal links,
+4. prepare safe Admin dead-logic cleanup without expanding the monolith,
+5. known-bug/UI pass,
+6. then declare a new local visual-review checkpoint.
 
-## 11. Safety / Validation
+## 12. Safety / Validation
 
 - `main`: untouched.
 - Governance branch: untouched.
