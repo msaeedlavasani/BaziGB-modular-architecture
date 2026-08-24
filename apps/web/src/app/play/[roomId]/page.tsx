@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -13,6 +13,15 @@ import { Play, Share2, Undo2, Users } from 'lucide-react';
 
 import { connectSocket, socket, rejoinRoom } from '@/lib/socket';
 import { fetchRoom } from '@/lib/rooms';
+import { APP_ROUTES } from '@/i18n/routing';
+import { getMessages } from '@/i18n/messages';
+import { useAppLocale } from '@/i18n/useAppLocale';
+import {
+  getGameCatalogEntry,
+  getGameChip,
+  getGameTitle,
+  isWebGameId,
+} from '@/lib/game-catalog';
 
 import GameShell from '@/components/game/GameShell';
 import TicTacToeBoard from '@/components/game/TicTacToeBoard';
@@ -23,30 +32,18 @@ import VegasBoard from '@/components/game/VegasBoard';
 import type { BackgammonMove } from '@bazigb/game-backgammon';
 import type { GameId } from '@bazigb/engine';
 
-const GAME_TITLES: Record<string, string> = {
-  'tic-tac-toe': 'دوز',
-  backgammon: 'نرد',
-  chess: 'شطرنج',
-  vegas: 'وگاس',
-};
-
-const GAME_CHIPS: Record<string, string> = {
-  'tic-tac-toe': '✕ دوز',
-  backgammon: '🎲 نرد',
-  chess: '♞ شطرنج',
-  vegas: '💵 وگاس',
-};
-
 type ChatMessage = { type: string; message: string; username?: string; ts: number };
 
 /**
- * صفحه بازی چندنفره (Room-based) — بازسازی UI قبلی روی معماری مدولار جدید.
- * پروتکل Socket.IO: joinRoom → startGame → makeMove {roomCode, move} /
- * rollDice / gameAction → gameState / matchScore / gameOver / turnStarted.
+ * Room-based multiplayer game page using the shared BaziGB realtime protocol.
+ * Game presentation metadata and user-facing shell copy are resolved from the
+ * canonical web catalog/i18n layer rather than page-local maps.
  */
 export default function PlayPage() {
   const params = useParams<{ roomId: string }>();
   const router = useRouter();
+  const locale = useAppLocale();
+  const messages = getMessages(locale);
   const roomCode = (params.roomId ?? '').toUpperCase();
 
   const [room, setRoom] = useState<{
@@ -58,7 +55,7 @@ export default function PlayPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [state, setState] = useState<any>(null);
   const [scores, setScores] = useState<Record<string, number>>({});
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chat, setChat] = useState('');
   const [turnInfo, setTurnInfo] = useState<{ player: string; endsAt: number } | null>(null);
   const [turnWarned, setTurnWarned] = useState(false);
@@ -72,7 +69,9 @@ export default function PlayPage() {
 
   const myId = socket.id ?? '';
 
-  // تیک ثانیه‌ای برای شمارش معکوس نوبت
+  const normalizeGameId = (value: unknown): GameId =>
+    typeof value === 'string' && isWebGameId(value) ? value : 'tic-tac-toe';
+
   useEffect(() => {
     if (!turnInfo) return;
     const interval = setInterval(() => setNowMs(Date.now()), 1000);
@@ -88,14 +87,10 @@ export default function PlayPage() {
         setRoom({
           status: r.status,
           players: r.players,
-          gameType: (['tic-tac-toe', 'backgammon', 'chess', 'vegas'].includes(r.gameType)
-            ? r.gameType
-            : 'tic-tac-toe') as GameId,
+          gameType: normalizeGameId(r.gameType),
           maxRounds: r.maxRounds,
         });
-        if (r.status === 'playing' && r.currentState) {
-          setState(r.currentState);
-        }
+        if (r.status === 'playing' && r.currentState) setState(r.currentState);
       },
       matchScore: ({ scores: sc }) => setScores(sc ?? {}),
       gameOver: ({ winner, scores: sc }) => {
@@ -103,7 +98,7 @@ export default function PlayPage() {
         setState((prev: any) => (prev ? { ...prev, phase: 'finished', winner } : prev));
       },
       systemMessage: (m) =>
-        setMessages((prev) => [
+        setChatMessages((prev) => [
           ...prev.slice(-49),
           { type: m.type, message: m.message, username: m.username, ts: Date.now() },
         ]),
@@ -145,9 +140,7 @@ export default function PlayPage() {
         setRoom({
           status: r.status,
           players: r.players,
-          gameType: (['tic-tac-toe', 'backgammon', 'chess', 'vegas'].includes(r.gameType)
-            ? r.gameType
-            : 'tic-tac-toe') as GameId,
+          gameType: normalizeGameId(r.gameType),
           maxRounds: r.maxRounds,
         }),
       )
@@ -160,10 +153,9 @@ export default function PlayPage() {
     };
   }, [roomCode]);
 
-  // اسکرول خودکار چت
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+  }, [chatMessages.length]);
 
   const startGame = useCallback(() => {
     socket.emit('startGame', { roomCode });
@@ -181,13 +173,13 @@ export default function PlayPage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // ignore
+      // Clipboard unavailable; no gameplay impact.
     }
   };
 
   const gameId = room?.gameType ?? 'tic-tac-toe';
+  const gameCatalog = getGameCatalogEntry(gameId);
   const isOwner = room?.players[0] === myId;
-  // تماشاچی: اتاق پر است و من جزو بازیکنها نیستم (یا سرور spectate فرستاده)
   const isSpectator =
     spectating || (!!room && room.players.length > 0 && !!myId && !room.players.includes(myId));
   const humanTurn = !!state && state.phase === 'playing' && state.turn === myId && !isSpectator;
@@ -203,7 +195,13 @@ export default function PlayPage() {
     const disabled = !humanTurn;
     switch (gameId) {
       case 'tic-tac-toe':
-        return <TicTacToeBoard state={state} onMove={(m) => socket.emit('makeMove', { roomCode, move: m })} disabled={disabled} />;
+        return (
+          <TicTacToeBoard
+            state={state}
+            onMove={(m) => socket.emit('makeMove', { roomCode, move: m })}
+            disabled={disabled}
+          />
+        );
       case 'backgammon':
         return (
           <BackgammonBoard
@@ -241,7 +239,6 @@ export default function PlayPage() {
     }
   })();
 
-  // اسکوربورد مسابقه در ترتیب نشستن (بازیکن ۰ و ۱)
   const [p0, p1] = state?.players ?? [];
   const scoreA = p0 ? (scores[p0.id] ?? 0) : 0;
   const scoreB = p1 ? (scores[p1.id] ?? 0) : 0;
@@ -251,17 +248,17 @@ export default function PlayPage() {
     ? {
         label: state.winner
           ? state.winner === myId
-            ? '🎉 شما برنده شدید!'
-            : 'حریف برنده شد'
-          : 'مساوی!',
-        sub: maxRounds > 1 ? `مسابقه ${scoreA} - ${scoreB}` : undefined,
+            ? messages.gameShell.youWon
+            : messages.multiplayer.opponentWon
+          : messages.gameShell.draw,
+        sub: maxRounds > 1 ? messages.multiplayer.matchScore(scoreA, scoreB) : undefined,
         onRematch: () => socket.emit('newGame', { roomCode }),
       }
     : null;
 
   const waiting = room?.status === 'waiting' && !isSpectator;
   const timerLabel = turnExpired
-    ? 'نوبت منقضی شد'
+    ? messages.multiplayer.turnExpired
     : turnWarned && turnRemainingSec !== null
       ? `${turnRemainingSec}s ⚠️`
       : turnRemainingSec !== null
@@ -270,20 +267,20 @@ export default function PlayPage() {
 
   return (
     <GameShell
-      title={GAME_TITLES[gameId] ?? 'بازی'}
-      gameChip={GAME_CHIPS[gameId]}
-      onBack={() => router.push('/lobby')}
+      title={getGameTitle(gameId, locale) || messages.multiplayer.gameFallback}
+      gameChip={getGameChip(gameId, locale)}
+      onBack={() => router.push(APP_ROUTES.lobby)}
       connStatus={connected ? 'connected' : 'reconnecting'}
       roomCode={roomCode}
       onCopyRoom={handleCopy}
       copied={copied}
       turnText={
         isSpectator
-          ? 'تماشای زنده'
+          ? messages.multiplayer.liveSpectating
           : state && state.phase === 'playing'
             ? humanTurn
-              ? 'نوبت شما'
-              : 'نوبت حریف'
+              ? messages.gameShell.yourTurn
+              : messages.multiplayer.opponentTurn
             : null
       }
       timerLabel={timerLabel}
@@ -292,7 +289,6 @@ export default function PlayPage() {
       winner={winner}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0 }}>
-        {/* دکمه آندو — بازگردانی آخرین حرکت خود (سرور اعتبارسنجی می‌کند) */}
         {!waiting && !isSpectator && state && state.phase === 'playing' && (
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
             <Button
@@ -302,17 +298,16 @@ export default function PlayPage() {
               onClick={() => socket.emit('undo', { room: roomCode })}
               startIcon={<Undo2 size={14} />}
               sx={{ borderRadius: 3, fontWeight: 700, textTransform: 'none' }}
-              title="بازگردانی آخرین حرکت خودتان"
+              title={messages.multiplayer.undoOwnMove}
             >
-              آندو
+              {messages.gameShell.undo}
             </Button>
           </Box>
         )}
 
-        {/* نشان تماشاچی */}
         {isSpectator && !waiting && (
           <Chip
-            label="👁 شما تماشاچی هستید — بازی را زنده میبینید"
+            label={messages.multiplayer.spectatorNotice}
             variant="outlined"
             sx={{
               alignSelf: 'center',
@@ -326,7 +321,6 @@ export default function PlayPage() {
           />
         )}
 
-        {/* منتظر حریف */}
         {waiting && (
           <Paper
             elevation={0}
@@ -344,19 +338,15 @@ export default function PlayPage() {
             }}
           >
             <Typography variant="h5" sx={{ fontWeight: 900, color: 'primary.light' }}>
-              در انتظار حریف…
+              {messages.multiplayer.waitingForOpponent}
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              کد اتاق{' '}
-              <Typography component="span" sx={{ fontFamily: 'monospace', fontWeight: 700, color: 'text.primary' }}>
-                {roomCode}
-              </Typography>{' '}
-              را برای دوستتان بفرستید
+              {messages.multiplayer.shareRoomCode(roomCode)}
             </Typography>
             {room && (
               <Chip
                 icon={<Users size={15} />}
-                label={`${room.players.length}/${room.gameType === 'vegas' ? 5 : 2} بازیکن`}
+                label={messages.multiplayer.players(room.players.length, gameCatalog.maxPlayers)}
                 variant="outlined"
                 sx={{ borderRadius: 10, borderColor: 'divider', bgcolor: 'background.paper' }}
               />
@@ -375,7 +365,7 @@ export default function PlayPage() {
                   fontWeight: 700,
                 }}
               >
-                {copied ? 'کپی شد!' : 'کپی کد'}
+                {copied ? messages.multiplayer.copied : messages.multiplayer.copyCode}
               </Button>
               {room && room.players.length >= 2 && isOwner && (
                 <Button
@@ -384,19 +374,18 @@ export default function PlayPage() {
                   startIcon={<Play size={16} />}
                   sx={{ borderRadius: 3, px: 3, fontWeight: 800 }}
                 >
-                  شروع بازی
+                  {messages.multiplayer.startGame}
                 </Button>
               )}
             </Box>
             {room && room.players.length >= 2 && !isOwner && (
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                صاحب اتاق بازی را شروع میکند…
+                {messages.multiplayer.ownerStarting}
               </Typography>
             )}
           </Paper>
         )}
 
-        {/* برد */}
         {state && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0 }}>
             {board}
@@ -404,7 +393,6 @@ export default function PlayPage() {
           </Box>
         )}
 
-        {/* چت */}
         <Paper
           elevation={0}
           sx={{
@@ -418,22 +406,27 @@ export default function PlayPage() {
             overflow: 'hidden',
           }}
         >
-          <Box sx={{ px: 2, py: 1, borderBottom: '1px solid', borderColor: 'divider', textAlign: 'right' }}>
+          <Box sx={{ px: 2, py: 1, borderBottom: '1px solid', borderColor: 'divider', textAlign: 'start' }}>
             <Typography variant="caption" sx={{ fontWeight: 800, letterSpacing: '0.08em', color: 'text.secondary' }}>
-              گفتگو
+              {messages.multiplayer.chat}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, px: 2, py: 1.5, maxHeight: 180, overflowY: 'auto' }}>
-            {messages.length === 0 && (
+            {chatMessages.length === 0 && (
               <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-                هنوز پیامی نیست…
+                {messages.multiplayer.noMessages}
               </Typography>
             )}
-            {messages.map((m, i) => (
-              <Box key={i} sx={{ textAlign: 'right' }}>
+            {chatMessages.map((m, i) => (
+              <Box key={i} sx={{ textAlign: 'start' }}>
                 <Typography variant="caption" sx={{ color: 'text.secondary', wordBreak: 'break-word' }}>
-                  <b style={{ color: m.type === 'success' ? '#EEAC2F' : m.type === 'chat' ? '#7FA8D9' : 'text.secondary' }}>
-                    {m.type === 'chat' ? m.username ?? 'مهمان' : m.type === 'success' ? 'سیستم' : m.username ?? 'سیستم'}:
+                  <b style={{ color: m.type === 'success' ? '#EEAC2F' : m.type === 'chat' ? '#7FA8D9' : 'inherit' }}>
+                    {m.type === 'chat'
+                      ? m.username ?? messages.multiplayer.guest
+                      : m.type === 'success'
+                        ? messages.multiplayer.system
+                        : m.username ?? messages.multiplayer.system}
+                    :
                   </b>{' '}
                   {m.message}
                 </Typography>
@@ -445,14 +438,14 @@ export default function PlayPage() {
             <TextField
               size="small"
               fullWidth
-              placeholder="پیام…"
+              placeholder={messages.multiplayer.messagePlaceholder}
               value={chat}
               onChange={(e) => setChat(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && sendChat()}
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: 'rgba(0,0,0,0.2)' } }}
             />
             <Button variant="outlined" color="primary" onClick={sendChat} sx={{ borderRadius: 2, fontWeight: 700 }}>
-              ارسال
+              {messages.multiplayer.send}
             </Button>
           </Box>
         </Paper>
