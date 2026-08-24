@@ -22,7 +22,7 @@ After every meaningful stage:
 4. update `docs/platform-foundation.md` when architecture/debt status materially changes,
 5. report bugs/debt honestly,
 6. never claim unexecuted validation as PASS,
-7. explicitly tell the user when the branch has accumulated visual changes substantial enough to justify a local run/review.
+7. explicitly tell the user when accumulated visual changes justify a local run/review.
 
 ## Bilingual architecture
 
@@ -51,6 +51,7 @@ Locales: `fa` (RTL) and `en` (LTR).
 - locale-aware theme factory + Providers.
 - bilingual Footer Web/Server Site Settings contract.
 - canonical `lib/game-catalog.ts` with real `/game`, `/play`, Lobby/Profile/Tournament consumers.
+- focused bilingual Admin Footer editor at `/admin/footer`.
 
 ## Public locale routing is ACTIVE on this branch
 
@@ -69,10 +70,10 @@ Locales: `fa` (RTL) and `en` (LTR).
 Behavior:
 - `/` → preferred locale Lobby (default `fa`).
 - Neutral public routes redirect to the preferred locale.
-- `bazigb-locale` cookie preserves locale across compatibility redirects during migration.
+- `bazigb-locale` cookie preserves locale across compatibility redirects.
 - Middleware sets `x-bazigb-locale`; root layout uses it for HTML language/direction, metadata, theme and font.
 - Header/Footer emit localized public navigation links.
-- Admin remains locale-neutral until bilingual Admin/Footer-content work.
+- Admin remains locale-neutral; its content editor writes locale-specific managed content.
 
 ## Completed/substantially migrated consumers
 
@@ -101,6 +102,27 @@ Client-owned copy is localized. Data/server-owned strings remain verbatim by des
 
 Do not add locale-based hiding. Revisit only if the product later separates Iranian and international market policies.
 
+## Admin Footer editor
+
+Canonical bilingual editor: `/admin/footer`.
+
+- Loads `fa` and `en` Footer content independently.
+- Writes `footer.fa` / `footer.en` through `saveLocalizedFooterSettings()`.
+- Uses one shared `FooterContent` schema with locale-specific managed values.
+- Persian/English tabs track dirty state independently.
+- eNamad remains outside editable content because visibility is currently fixed for both locales.
+
+### DEBT-016 — dead Footer editor logic in `/admin`
+
+The existing `/admin` monolith still contains Footer editor state/load/save functions but no rendered Footer editor UI in the current page body. Treat that as dead page-local logic.
+
+Do not recreate the editor inside the monolith. During Admin/Component Graveyard cleanup:
+- add discoverability/navigation to `/admin/footer`,
+- remove the legacy dead Footer state/functions,
+- preserve existing unrelated admin behavior.
+
+Destructive cleanup waits for executable validation.
+
 ## Important content boundaries
 
 Do not client-search/replace these:
@@ -117,15 +139,17 @@ Canonical:
 - GameShell
 - Dice3D
 - Header/Footer
+- focused `/admin/footer` managed-content editor
 - game-specific boards remain game-specific
 
-Candidates:
+Candidates/debt:
 - GameCard — UNUSED_CANDIDATE / INLINE_DUPLICATE
 - EmptyState — UNUSED_CANDIDATE
 - LoadingSkeleton — UNUSED_CANDIDATE / TOO_NARROW?
 - Modal — UNUSED_CANDIDATE
+- legacy Footer editor state/functions inside `/admin` — DEAD PAGE-LOCAL LOGIC (`DEBT-016`)
 
-A duplicate locale hook created during this refactor was already found and removed after confirming no consumers. Do not allow the refactor itself to create a new graveyard.
+A duplicate locale hook created during this refactor was already found and removed after confirming no consumers.
 
 ## Debt status
 
@@ -133,41 +157,44 @@ A duplicate locale hook created during this refactor was already found and remov
 - DEBT-002 Lobby mixed language: SUBSTANTIALLY RESOLVED.
 - DEBT-003 GameCard mismatch: OPEN.
 - DEBT-004 singleton RTL theme: MITIGATED; runtime validation needed.
-- DEBT-005 Footer single-locale: PARTIAL; Admin editor remains. eNamad policy is resolved: visible in both locales.
+- DEBT-005 Footer single-locale: SUBSTANTIALLY MITIGATED; bilingual read/write path exists. Admin discoverability/legacy cleanup remains.
 - DEBT-006 duplicate game metadata: RESOLVED for primary consumers.
 - DEBT-007 locale-aware routes: SUBSTANTIALLY MITIGATED; normalize remaining neutral links.
 - DEBT-008 hard-coded game-entry copy: SUBSTANTIALLY RESOLVED.
 - DEBT-009 feedback primitive bypass: OPEN.
 - DEBT-010 Tournament mixed language: SUBSTANTIALLY RESOLVED for list + detail client-owned copy.
-- DEBT-011 Footer Web/Admin/Server: PARTIAL; Admin remains.
+- DEBT-011 Footer Web/Admin/Server: SUBSTANTIALLY MITIGATED; focused bilingual editor exists.
 - DEBT-012 Admin monolith: OPEN / non-blocking.
 - DEBT-013 catalog graveyard risk: RESOLVED.
 - DEBT-014 duplicate locale hook: RESOLVED.
 - DEBT-015 server/data-owned localization boundary: TRACKED.
+- DEBT-016 dead Footer editor logic in `/admin`: OPEN; safe cleanup pending validation.
 
 ## Visual review checkpoint
 
-**A local run is now useful.** The branch contains large visible changes:
+**A local run is now useful and should show major visual/product differences.**
+
+Visible changes now include:
 - actual `/fa/*` and `/en/*` URLs,
 - RTL Persian vs LTR English shell,
 - locale-specific typography and metadata,
 - localized Header/Footer/Lobby/Profile/Login/Leaderboard/Tournaments/GameShells,
-- localized Tournament detail/bracket.
+- localized Tournament detail/bracket,
+- bilingual managed Footer content path (visible once locale-specific Footer values are saved).
 
-This does not mean validation is PASS; it only means local visual review would now show meaningful differences.
+This is not validation PASS; it is only the point where a local visual review has meaningful value.
 
 ## Current next action
 
 Proceed automatically:
 
-1. Normalize remaining high-traffic internal links to explicit localized route helpers; middleware redirects remain compatibility safety only.
-2. Implement Admin bilingual Footer editor for `footer.fa` / `footer.en` while preserving legacy Persian compatibility.
-3. Component Graveyard Cleanup.
-4. Shared feedback pattern decision + Lobby/GameShell standardization.
-5. Known-bug pass.
-6. Executable validation in a suitable environment; one targeted visual check only if justified.
+1. targeted inventory/normalization of remaining high-traffic locale-neutral links,
+2. Component Graveyard Cleanup preparation (consumer proof first),
+3. shared feedback pattern decision + Lobby/GameShell standardization,
+4. known-bug pass,
+5. executable validation in a suitable environment; one targeted visual check only if justified.
 
-Pause only if a human decision is genuinely required.
+Do not destructively delete graveyard candidates until executable validation is available.
 
 ## Validation
 
