@@ -1,69 +1,15 @@
 # BaziGB Platform Foundation
 
-**Status:** Foundation audit baseline complete; implementation cleanup next
+**Status:** Foundation audit complete; bilingual implementation migration active
 **Working branch:** `refactor/platform-foundation-i18n-v3`
-**Base:** `main` at branch creation; branch currently remains ahead only
-**Governance source:** `ai/autonomous-development-system-v1` (latest verified rules)
+**Production baseline:** `main` (untouched)
+**Governance source:** latest verified governance on `ai/autonomous-development-system-v1`
 
-This document is the working record for the platform-foundation refactor. It records the bilingual architecture, component inventory, cross-layer debt, and execution boundary without duplicating governance documents.
+This document is the canonical architecture/debt record for the platform-foundation refactor. Stage history lives in `docs/platform-foundation-progress.md`; continuation state lives in `docs/HANDOFF.md`.
 
-## 0. Task 0–3 Progress
+## 1. Bilingual Architecture
 
-| Task | Status | Notes |
-|---|---|---|
-| 0. Baseline & Governance Check | COMPLETE FOR THIS BRANCH | Work is isolated from `main`; no deployment is authorized; runtime validation is NOT RUN in the current connector-only environment. |
-| 1. Persian / English Architecture | COMPLETE AS FOUNDATION / MIGRATION PENDING | Shared-code + locale-content architecture is established; typed locale/theme/messages/routing primitives and bilingual Footer contract exist. Locale route-tree/page migration is the next implementation phase, not an unresolved architecture question. |
-| 2. Platform Architecture Audit | COMPLETE FOR FOUNDATION SCOPE | Cross-layer localization, metadata duplication, mixed-language pages, shared-component bypass, and Admin coupling are recorded in the debt ledger. |
-| 3. Component Inventory | COMPLETE FOR INITIAL HIGH-TRAFFIC SCOPE | Canonical vs graveyard candidates are classified for shared/layout/game primitives. Deletion/consolidation intentionally waits for consumer migration + executable validation. |
-
-## 1. Baseline
-
-### Verified platform facts
-
-- Frontend: Next.js 14 / React 18 / MUI 5 / Emotion 11.
-- `main` is Persian-first and public routes are currently locale-neutral (`/lobby`, `/profile`, `/play/...`, `/game/...`, etc.).
-- Shared business logic and modular game packages are separate from the web application and remain shared across locales.
-- Existing UI contains Persian and English strings in the same pages.
-- Local/bot and multiplayer game flows both reuse `GameShell`.
-- Site settings persistence is generic JSON-by-key, so bilingual Footer storage does not require a Prisma/database schema migration.
-- The refactor branch is ahead of `main` and has not been merged or deployed.
-
-### Foundation code introduced on this branch
-
-- `apps/web/src/i18n/config.ts`
-  - typed `fa` / `en` configuration
-  - `rtl` / `ltr`
-  - locale font stacks
-  - locale metadata
-- `apps/web/src/i18n/messages.ts`
-  - typed shared messages for navigation, common feedback, game shell, Lobby, Tournaments, games and Footer
-- `apps/web/src/i18n/routing.ts`
-  - language-neutral route identities
-  - locale prefix/strip helpers
-  - path-locale resolution
-  - dynamic game/play route builders
-- `createBaziGBTheme({ direction, fontFamily })`
-  - locale-aware theme construction with Persian default compatibility
-- `Providers`
-  - direction/font inputs instead of permanent RTL assumptions
-- Root layout
-  - derives default language/direction/metadata/theme inputs from locale configuration
-- Header/Footer
-  - consume typed locale messages
-  - route identities are centralized through `APP_ROUTES`
-  - Header active-state logic tolerates both current locale-neutral and future locale-prefixed paths via `stripLocale`
-- Footer/Site Settings
-  - locale-specific defaults and read contract
-  - backward-compatible legacy Persian footer
-  - server returns `footer` plus `footers.fa` / `footers.en`
-  - locale-specific storage keys `footer.fa` / `footer.en`
-- `apps/web/src/lib/game-catalog.ts`
-  - canonical web presentation bridge for stable `GameId`
-  - localized names remain in i18n messages
-  - chip symbols and presentation fallback capacity have one source
-  - safe `isWebGameId` / catalog lookup helpers
-
-## 2. Bilingual Target Architecture
+The approved model is one shared product/codebase:
 
 ```text
 shared components
@@ -78,246 +24,205 @@ localized metadata
 localized routes
 ```
 
-### Supported locales
+Supported locales:
+- `fa` — Persian / RTL / Vazirmatn-first
+- `en` — English / LTR / Latin system stack
 
-- `fa` — Persian / RTL / Vazirmatn-first.
-- `en` — English / LTR / Latin system stack until Design System specifies otherwise.
+Language-neutral boundaries remain:
+- game rules/state/IDs
+- API/database/internal enum fields
+- realtime/game-engine contracts
 
-### Target routing
-
-```text
-/fa/lobby
-/en/lobby
-/fa/profile
-/en/profile
-/fa/play/[roomId]
-/en/play/[roomId]
-/fa/game/[gameId]
-/en/game/[gameId]
-```
-
-Root may redirect to the default locale (`fa`). Route migration must be atomic rather than partially exposing English routes.
-
-### Routing rule
-
-`APP_ROUTES` stores language-neutral route identities. `localePath` / `localizedAppRoute` add locale scope only when the locale route tree is actually introduced.
-
-Do not scatter hard-coded `/fa` and `/en` strings through components.
-
-### Translation boundary
-
-Localized:
-- UI copy and labels
+Localized boundaries include:
+- user-facing copy
+- navigation/accessibility labels
 - metadata
-- validation/user-facing messages
-- navigation text
-- accessibility labels
-- managed presentation content such as footer copy
+- date/number presentation
+- managed presentation content such as Footer copy
 
-Language-neutral:
-- game rules and state keys
-- IDs / API payload fields / database fields
-- engine enums and business contracts
+## 2. Locale Routing Architecture
 
-### Managed Footer contract
+Locale routing is implemented without duplicating pages.
 
-Migration-compatible contract:
+Public URLs:
 
 ```text
-legacy response/storage: footer
-new response:             footers.fa / footers.en
-new storage keys:         footer.fa / footer.en
+/fa/lobby           /en/lobby
+/fa/profile         /en/profile
+/fa/leaderboard     /en/leaderboard
+/fa/tournaments     /en/tournaments
+/fa/game/[gameId]   /en/game/[gameId]
+/fa/play/[roomId]   /en/play/[roomId]
+/fa/login           /en/login
 ```
 
-Rules:
-- Legacy `footer` is treated as Persian only.
-- English never silently inherits Persian managed content.
-- Server retains `footer` so old clients/Admin behavior remains compatible during migration.
-- New web reads request locale-specific footer content.
-- Admin bilingual editing remains pending; current editor still writes the legacy Persian footer.
-- eNamad visibility in a future English shell is a presentation/product policy question and has not been silently changed.
+Implementation:
+- `apps/web/src/middleware.ts` keeps locale-prefixed URLs visible and rewrites internally to the existing single App Router page tree.
+- Middleware sets `x-bazigb-locale` for the server shell and persists `bazigb-locale` as a compatibility preference cookie.
+- Locale-neutral public URLs redirect to the preferred locale, defaulting to `fa`.
+- `/` redirects to the preferred locale Lobby.
+- Root layout reads the request locale and activates localized `lang`, `dir`, metadata, theme direction and font.
+- Header/Footer emit locale-prefixed public navigation links.
+- Admin intentionally remains locale-neutral until the bilingual Footer editor/admin-content stage.
 
-## 3. Component Inventory
+`apps/web/src/i18n/routing.ts` is the canonical route helper layer. Do not scatter `/fa` or `/en` literals across components.
 
-### Shared UI
+## 3. Foundation Implemented
 
-| Component | Assessment | Evidence / action |
-|---|---|---|
-| `EmptyState` | `UNUSED_CANDIDATE` | No consumer found in inspected primary pages/targeted search; Lobby implements its own empty-state presentation. Keep until cleanup validation confirms consumer status. |
-| `GameCard` | `UNUSED_CANDIDATE / INLINE_DUPLICATE` | Explicitly represents Lobby game selection while Lobby currently owns a separate inline implementation. Strongest component-graveyard signal. |
-| `LoadingSkeleton` | `UNUSED_CANDIDATE / TOO_NARROW?` | Lobby/Profile/Tournaments use local MUI Skeleton structures. Either earn a canonical product pattern or remove after migration/validation. |
-| `Modal` | `UNUSED_CANDIDATE` | Primary inspected pages use direct MUI Dialog patterns; no indexed consumer found in the targeted pass. Do not delete before executable cleanup validation. |
+- `apps/web/src/i18n/config.ts` — locale/direction/font/metadata configuration.
+- `apps/web/src/i18n/messages.ts` — shared shell/game/multiplayer/Lobby/Tournament messages.
+- `apps/web/src/i18n/profile.ts` — Profile messages.
+- `apps/web/src/i18n/auth.ts` — OTP/Login messages.
+- `apps/web/src/i18n/leaderboard.ts` — Leaderboard messages.
+- `apps/web/src/i18n/routing.ts` — canonical route identities/builders.
+- `apps/web/src/hooks/useAppLocale.ts` — canonical client locale resolver.
+- `createBaziGBTheme({ direction, fontFamily })` + locale-aware Providers.
+- Locale-aware root layout/Header/Footer.
+- Locale-aware Footer/Site Settings Web+Server contract with legacy Persian compatibility.
+- `apps/web/src/lib/game-catalog.ts` — canonical web presentation bridge for stable `GameId` values.
 
-### Application layout
+A duplicate `apps/web/src/i18n/useAppLocale.ts` was discovered and removed after confirming no consumer. This is recorded as a concrete example of preventing the same graveyard problem during the refactor itself.
 
-| Component | Assessment | Evidence / action |
-|---|---|---|
-| `Header` | `CANONICAL` | Global shell; locale-aware labels; language-neutral route identities centralized; active detection prepared for locale-prefixed paths. |
-| `Footer` | `CANONICAL` | Global shell; locale-aware managed copy and labels; bilingual Admin editing + locale route generation still pending. |
+## 4. Managed Footer Contract
 
-### Game UI
+Storage/read migration remains backward compatible:
 
-| Component | Assessment | Evidence / action |
-|---|---|---|
-| `GameShell` | `CANONICAL` | Shared by local/bot and multiplayer entry pages. New games should extend it rather than introduce a parallel shell. |
-| `Dice3D` | `CANONICAL REUSABLE GAME PRIMITIVE` | Confirmed consumer in `BackgammonBoard`; supports normal die and doubling-cube display. |
-| `BackgammonBoard` | `GAME_SPECIFIC` | Uses shared Dice3D and game-specific interaction logic. |
-| `ChessBoard` | `GAME_SPECIFIC` | Game-specific board. |
-| `ChessInfo` | `GAME_SPECIFIC` | Supporting game UI. |
-| `TicTacToeBoard` | `GAME_SPECIFIC` | Game-specific board. |
-| `VegasBoard` | `GAME_SPECIFIC` | Game-specific board. |
+```text
+legacy: footer          # treated as Persian
+new:    footer.fa
+new:    footer.en
+response: footer + footers.fa + footers.en
+```
 
-### Page-level findings
+No Prisma/database migration is required because Site Settings are generic JSON-by-key.
 
-- Lobby owns inline game-selection and Recently Played presentation rather than composing shared candidates.
-- Profile and Tournaments use local loading/state patterns.
-- Tournaments contains English-only product copy inside Persian-first UI.
-- Game entry pages contain hard-coded Persian game-shell copy and duplicate game title/chip maps.
-- Admin combines stats, users, rooms, destructive actions and Footer editing in one large page.
-- Raw MUI usage is not itself debt; only repeated product patterns should become shared abstractions.
-
-## 4. Component Graveyard Rules
-
-Before deletion or new abstraction:
-
-1. verify component exists,
-2. inspect implementation,
-3. find current consumers,
-4. compare inline/duplicate implementations,
-5. choose one canonical implementation,
-6. migrate consumers,
-7. run justified validation,
-8. remove dead duplicates only after evidence is sufficient.
-
-Classification:
-`CANONICAL`, `DUPLICATE`, `INLINE_DUPLICATE`, `UNUSED_CANDIDATE`, `GAME_SPECIFIC`, `NEEDS_SPLIT`, `NEEDS_MERGE`.
-
-The goal is not to wrap every MUI primitive. The goal is to prevent product-level patterns and registries from multiplying without real consumers.
+Remaining:
+- Admin editor must support Persian and English managed Footer content.
+- eNamad visibility in the English shell remains an explicit product-policy question; current behavior is preserved until that decision is needed.
 
 ## 5. Canonical Game Presentation Metadata
 
-Source: `apps/web/src/lib/game-catalog.ts`.
+`apps/web/src/lib/game-catalog.ts` now has real consumers in:
+- `/game/[gameId]`
+- `/play/[roomId]`
+- Lobby
+- Profile history where recognized game IDs are displayed
 
-Purpose:
-- Stable game identity remains `GameId` from the engine.
-- Localized game names remain in i18n messages.
-- Presentation-only symbols and fallback capacity metadata have one web source.
-- `isWebGameId` provides one validation boundary for route/UI inputs.
+It owns web presentation identity such as localized-name mapping/chip symbol and presentation fallback capacity.
 
-Current catalog:
-- Tic-Tac-Toe
-- Backgammon
-- Chess
-- Vegas
+Important boundary: runtime/canonical max-player capability remains GameAdapter/server-owned. The catalog must never become the rules/capability source.
 
-Important boundary:
-`maxPlayers` in this web catalog is presentation fallback only. Runtime/canonical player capability belongs to `GameAdapter`, not the web registry.
+## 6. Component Inventory / Graveyard
 
-Migration remains mandatory: `/game/[gameId]`, `/play/[roomId]`, and Lobby still own local presentation maps. The catalog must gain real consumers before DEBT-006/013 can be resolved.
+### Canonical
+- `GameShell`
+- `Dice3D` reusable game primitive
+- `Header`
+- `Footer`
+- game boards remain `GAME_SPECIFIC`
 
-## 6. Bug / Debt Ledger
+### Cleanup candidates
+- `GameCard` — `UNUSED_CANDIDATE / INLINE_DUPLICATE`; strongest graveyard signal because Lobby owns an inline equivalent.
+- `EmptyState` — `UNUSED_CANDIDATE` in inspected high-traffic consumers.
+- `LoadingSkeleton` — `UNUSED_CANDIDATE / TOO_NARROW?`.
+- `Modal` — `UNUSED_CANDIDATE` in targeted consumer search.
+
+Policy:
+1. inspect implementation,
+2. verify all consumers,
+3. compare duplicates,
+4. choose canonical pattern,
+5. migrate consumers,
+6. run executable validation,
+7. remove proven dead code.
+
+Do not wrap every MUI primitive merely to create abstractions.
+
+## 7. Consumer Migration Status
+
+Completed/substantially migrated client-owned presentation:
+- local/bot `/game/[gameId]`
+- multiplayer `/play/[roomId]`
+- Lobby
+- Tournaments list
+- Profile
+- OTP/Login
+- Leaderboard
+
+Data/server-owned text is not silently translated in the client. Known examples:
+- server chat/system-message payload text
+- tournament record `name`, `description`, `prize`, join-result message
+
+Tournament detail/bracket page remains a known high-traffic bilingual migration target.
+
+## 8. Bug / Debt Ledger
 
 ### DEBT-001 — Global locale/direction assumptions
-- Severity: High for bilingual rollout
-- Status: PARTIALLY MITIGATED
-- Remaining: locale-scoped layouts/routes must activate the correct locale rather than default Persian only.
+**Status: SUBSTANTIALLY MITIGATED**
+Middleware + request-aware root shell now activate locale-specific language/direction/theme/metadata. Runtime validation remains required.
 
 ### DEBT-002 — Mixed-language Lobby copy
-- Severity: Medium
-- Status: PREPARED / CONSUMER MIGRATION PENDING
-- Shared Lobby message keys now exist; page migration remains.
+**Status: SUBSTANTIALLY RESOLVED** for page-owned copy.
 
 ### DEBT-003 — GameCard canonicality mismatch
-- Severity: Medium
-- Status: OPEN
-- Action: choose canonical Lobby card during component cleanup.
+**Status: OPEN** — resolve during Component Graveyard Cleanup.
 
 ### DEBT-004 — Singleton RTL theme coupling
-- Severity: High
-- Status: MITIGATED AT FOUNDATION LEVEL
-- Remaining: locale-scoped layouts must provide the active locale values.
+**Status: MITIGATED** at architecture/code level; validate at runtime.
 
-### DEBT-005 — Footer was single-locale
-- Severity: Medium
-- Status: PARTIALLY MITIGATED
-- Implemented: locale-aware read/storage contract, English defaults, localized shell labels.
-- Remaining: bilingual Admin editor + active locale routing.
+### DEBT-005 — Footer single-locale
+**Status: PARTIALLY MITIGATED** — Web/Server done; Admin editor + eNamad product policy remain.
 
 ### DEBT-006 — Duplicate game presentation metadata
-- Severity: Medium
-- Status: PARTIALLY MITIGATED
-- Implemented: canonical game catalog + safe helpers.
-- Remaining: migrate Lobby/local game/multiplayer consumers and remove page-local maps.
+**Status: RESOLVED FOR PRIMARY CONSUMERS** — `/game`, `/play`, Lobby use the catalog.
 
-### DEBT-007 — Locale-aware copy before locale-aware links
-- Severity: High if English exposed early
-- Status: PARTIALLY MITIGATED / CONTAINED
-- Implemented: central `APP_ROUTES`, prefix/strip helpers, shell links no longer repeat route literals.
-- Remaining: atomic locale route-tree migration; do not expose English early.
+### DEBT-007 — Locale-aware copy vs locale-neutral routes
+**Status: SUBSTANTIALLY MITIGATED** — middleware/root shell/Header/Footer locale routing activated. Compatibility redirects protect remaining neutral links while page links are progressively normalized.
 
-### DEBT-008 — Hard-coded Persian game-page copy
-- Severity: Medium
-- Status: PREPARED / CONSUMER MIGRATION PENDING
-- Shared game-shell message keys now exist; game pages still need migration.
+### DEBT-008 — Hard-coded game-entry copy
+**Status: SUBSTANTIALLY RESOLVED** for shared entry pages. Game-specific boards may still contain presentation copy requiring later targeted review.
 
 ### DEBT-009 — Shared feedback primitives bypassed
-- Severity: Medium
-- Status: OPEN
-- Action: canonicalize real product-level loading/empty/error patterns or delete abstractions that do not earn their existence.
+**Status: OPEN** — do not mix into localization migration.
 
-### DEBT-010 — English-only Tournament copy inside Persian-first UI
-- Severity: Medium
-- Status: PREPARED / CONSUMER MIGRATION PENDING
-- Localized tournament status/fallback message keys now exist; page migration remains.
+### DEBT-010 — Tournament mixed-language list copy
+**Status: SUBSTANTIALLY RESOLVED** for the list page. Tournament detail/bracket remains.
 
-### DEBT-011 — Footer localization spans Web + Admin + Server
-- Severity: Medium
-- Status: PARTIALLY MITIGATED
-- Server/Web contract is coherent; Admin bilingual editing remains.
+### DEBT-011 — Footer localization spans Web/Admin/Server
+**Status: PARTIALLY MITIGATED** — Admin remains.
 
-### DEBT-012 — Admin page operational monolith
-- Severity: Low/Medium
-- Status: OPEN / NON-BLOCKING
-- Action: later decomposition; do not expand scope solely for aesthetics.
+### DEBT-012 — Admin operational monolith
+**Status: OPEN / NON-BLOCKING**.
 
-### DEBT-013 — Canonical game catalog exists before consumer migration
-- Severity: Low while branch-only; Medium if left unfinished
-- Status: TRACKED
-- Required resolution: migrate all game presentation consumers before calling DEBT-006 resolved.
+### DEBT-013 — Canonical catalog without consumers
+**Status: RESOLVED** — catalog has multiple real consumers.
 
-### BUG-001 — No new runtime bug confirmed during this stage
-- Status: NONE CONFIRMED
-- Note: executable validation is unavailable here, so compile/runtime regressions cannot be ruled out until local validation runs.
+### DEBT-014 — Duplicate locale hook created during refactor
+**Status: RESOLVED** — duplicate `i18n/useAppLocale.ts` removed after confirming no consumers; `hooks/useAppLocale.ts` is canonical.
 
-## 7. Next Execution Phase
+### DEBT-015 — Server/data-owned localized content boundary
+**Status: TRACKED** — chat/system payloads and managed tournament fields may be language-specific. Treat as protocol/content modeling, not client search/replace.
 
-Task 0–3 audit/foundation baseline is closed. Next work moves into implementation cleanup:
+### BUG-001 — Runtime/compile state not yet verified
+**Status: VALIDATION PENDING** — no runtime bug is claimed resolved or absent until executable validation runs.
 
-1. **Component/metadata consumer migration**
-   - `/game/[gameId]` → game catalog + shared game-shell messages
-   - `/play/[roomId]` → game catalog + shared messages
-   - Lobby → game catalog + Lobby dictionary
-2. **Bilingual content migration**
-   - Tournaments
-   - Profile/common feedback
-   - auth and remaining shell copy
-3. **Atomic locale route-tree migration**
-   - `/fa/...` and `/en/...`
-   - active locale layout/theme/metadata
-   - localized link helper adoption
-4. **Admin bilingual Footer editor**
-   - edit `footer.fa` and `footer.en`
-   - preserve legacy read compatibility during rollout
-5. **Component Graveyard Cleanup**
-   - canonicalize GameCard/feedback patterns
-   - delete only proven dead abstractions after executable validation
-6. **Lobby + GameShell standardization**
+## 9. Remaining Execution Order
 
-## 8. Safety / Validation
+1. Tournament detail/bracket bilingual migration and remaining high-traffic copy scan.
+2. Normalize remaining internal links to explicit localized route helpers; middleware compatibility redirects remain temporary safety.
+3. Admin bilingual Footer editor (`footer.fa` / `footer.en`).
+4. Component Graveyard Cleanup and shared feedback-pattern decision.
+5. Lobby/GameShell standardization.
+6. Known-bug pass.
+7. Executable build/typecheck/tests and one justified targeted visual check in a suitable environment.
+8. Only after review: merge/release decision. No automatic production deployment.
 
-- `main` remains untouched.
-- Governance branch remains untouched.
-- No deployment is authorized in this phase.
-- Runtime build/typecheck/tests/browser verification are **NOT RUN** in the current connector-only environment and must not be reported as PASS.
-- No repeated visual verification loop is justified for this foundation stage.
-- `docs/HANDOFF.md` must be synchronized after each meaningful stage.
+## 10. Safety / Validation
+
+- `main`: untouched.
+- Governance branch: untouched.
+- Merge: not performed.
+- Deployment: not performed.
+- GitHub Actions check on the latest branch commit returned no workflow runs; this does not count as validation.
+- Build/typecheck/tests/browser QA remain `NOT RUN` until actually executed.
+- Never report PASS from static inspection alone.
