@@ -98,90 +98,78 @@ This is the stage-by-stage execution log. Architecture/debt lives in `docs/platf
 ---
 
 ## 2026-08-24 — Shared UI / visual foundation cleanup
-
-### Design-system alignment
-
-A targeted shared-UI pass was performed against `DESIGN_SYSTEM.md` before asking for local visual review.
-
-Implemented:
-- `GameCard` was redesigned from an unused generic Card into the canonical selectable game tile shape: selected state, visible state border, tactile surface, focus-visible state, reduced-motion support and semantic `aria-pressed`.
-- `EmptyState` became a reusable product-level empty-state panel with optional icon/CTA and responsive theme-token styling.
-- `LoadingSkeleton` became a configurable structural grid instead of one arbitrary page-shaped skeleton.
-- `Modal` was made locale-neutral: user-facing close/confirm copy is supplied by the consumer, and the dialog surface now follows BaziGB tokens instead of owning Persian copy.
-
-### GameShell bilingual defect
-
-A hidden bilingual/UI debt was found inside canonical `GameShell`: despite localized `/game` and `/play` pages, the shared shell still hard-coded Persian labels.
-
-Implemented:
-- Added `i18n/game-shell.ts`.
-- `GameShell` resolves locale through the canonical locale hook.
-- Connection/room/copy/match/rematch/back/waiting labels are bilingual.
-- Back arrow direction follows locale.
-- Physical spacing touched in the shell was replaced by logical spacing.
-- Winner surface uses semantic theme colors.
-
-### Language discoverability
-
-Bilingual routes existed but had no visible language control.
-
-Implemented:
-- Added `i18n/language-switcher.ts`.
-- Header exposes a compact FA/EN switcher preserving the current logical pathname.
-- The switcher is responsive and hidden on locale-neutral Admin routes.
-
-Validation: NOT RUN.
+- `GameCard` redesigned as canonical selectable game tile with selected/focus/reduced-motion states.
+- `EmptyState` upgraded to reusable product-level empty-state panel.
+- `LoadingSkeleton` generalized into a configurable structural grid.
+- `Modal` made locale-neutral and theme-token aligned; still an unused candidate until a real consumer is proven.
+- `GameShell` localized and corrected for RTL/LTR back direction and logical spacing.
+- Added visible FA/EN Header switcher while preserving the current logical path.
+- Validation: NOT RUN.
 
 ---
 
 ## 2026-08-24 — Lobby canonical UI migration
 
-### Implemented
-
 Lobby was rewritten around the shared visual primitives instead of keeping parallel page-local versions.
 
-- Game selection now consumes canonical `GameCard` for all `WEB_GAME_IDS`.
-- Recent-games loading uses canonical `LoadingSkeleton`.
-- Active-room loading uses structural `LoadingSkeleton` rows rather than a generic spinner.
-- Recent-games and active-rooms empty states use canonical `EmptyState`.
-- Error states now expose an immediate retry action where a retry is meaningful.
-- Game/room navigation now uses explicit locale-aware `localizedGameRoute()` / `localizedPlayRoute()` rather than relying on compatibility redirects.
-- Room-code input is explicitly LTR while the surrounding page remains locale-directed.
-- Join-arrow direction follows locale.
-- Game mode controls expose `aria-pressed` and keyboard focus state.
-- Recent-game cards and active-room rows use semantic theme surfaces/borders and reduced-motion-safe hover behavior.
-- Mobile layout adapts selection tiles, mode choices and room rows rather than only shrinking desktop spacing.
+Implemented:
+- game selection consumes `GameCard` for all `WEB_GAME_IDS`,
+- recent/room loading consumes `LoadingSkeleton`,
+- recent/room empty states consume `EmptyState`,
+- retryable errors expose retry actions,
+- game/room navigation uses explicit localized route builders,
+- room-code input remains LTR and join arrow follows locale,
+- mode controls expose semantic pressed/focus states,
+- recent cards and room rows use semantic theme surfaces/borders,
+- mobile layout adapts selection/mode/room hierarchy,
+- introduced hover motion respects reduced motion.
 
-### Debt movement
+Debt movement:
+- `DEBT-003`: RESOLVED IN CODE.
+- `DEBT-009`: SUBSTANTIALLY MITIGATED in Lobby.
+- `DEBT-007`: reduced by explicit localized Lobby navigation.
 
-- `DEBT-003` GameCard mismatch: **RESOLVED IN CODE** — Lobby now has a real canonical consumer.
-- `DEBT-009` shared feedback primitive bypass: **SUBSTANTIALLY MITIGATED** in the highest-traffic Lobby states.
-- `DEBT-007` neutral-link dispersion: reduced further by explicit localized Lobby navigation.
+Validation: NOT RUN.
 
-### GameShell hierarchy pass
+---
 
-The canonical GameShell received a second visual-hierarchy pass:
-- shell width expanded to `lg` so larger boards are not unnecessarily constrained,
-- utility controls live in a compact header row,
-- game title becomes the primary centered hierarchy,
-- status/match chips form a secondary state row,
-- game content is placed in an explicit centered `main` region,
-- winner state is now a restrained BaziGB panel rather than a large high-elevation primary-color block,
-- room code is forced LTR for stable readability in both locales,
-- mobile utility labels compact without removing the underlying action.
+## 2026-08-24 — GameShell visual hierarchy pass
+
+- Expanded shell content width from `md` to `lg` for board-heavy games.
+- Separated utility header from primary game title.
+- Moved connection/turn/game/match state into a secondary chip hierarchy.
+- Added an explicit centered `main` game-content region.
+- Winner state is now a restrained semantic panel instead of a high-elevation full-primary block.
+- Room code is explicitly LTR for stable readability.
+- Mobile room-label presentation compacts without removing the copy/copy-code action.
+
+Validation: NOT RUN.
+
+---
+
+## 2026-08-24 — Theme interaction cleanup
+
+A design-system inconsistency was found in the global theme:
+- `warning` was not defined, so MUI default orange could leak into BaziGB despite the rule against unrelated default MUI colors,
+- every MUI Button received a bronze hover glow globally, conflicting with the Design System rule that glow should communicate meaningful interaction rather than appear everywhere.
+
+Implemented:
+- defined `palette.warning` from the existing Honey Bronze token family,
+- removed the global Button hover box-shadow/glow while keeping subtle tactile movement and focus-visible treatment,
+- meaningful game-specific glow remains available where interaction/state warrants it.
+
+Tracked as `DEBT-019` and resolved in code pending executable validation.
 
 ### Visual review policy
 
 User preference remains to delay local review until the broader UI cleanup and known visual issues are reduced further. Do not request a local run yet.
 
-Validation: build/typecheck/tests/browser/deploy NOT RUN.
-
 ### Next
 
 Continue automatically with:
 1. high-traffic feedback/state consistency outside Lobby,
-2. targeted 360px + RTL/LTR audit of Profile/Tournaments/Game entry shells,
-3. neutral-link cleanup where explicit locale routing is still missing,
+2. targeted 360px + RTL/LTR audit of Profile/Tournaments/game entry screens,
+3. remaining neutral-link cleanup,
 4. safe Admin cleanup preparation,
 5. known-bug/UI pass,
 6. only then declare the next local visual-review checkpoint.
