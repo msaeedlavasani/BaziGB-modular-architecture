@@ -1,0 +1,19 @@
+# Permanent Reports Registry
+
+This directory is the version-controlled home for high-value reports that must not be lost in chat history or temporary tool storage.
+
+## Rules
+
+- Every material audit, architecture decision, evaluation, incident review, or migration report receives a stable file here.
+- Reports record their date, scope, source revision, validation status, limitations, and supersession relationship.
+- Reports are immutable evidence snapshots. Later corrections create a new version and link back to the superseded report.
+- Chat output and temporary tool artifacts are not canonical until registered here.
+- Product code changes and report publication remain separate approvals.
+
+## Registry
+
+| Date | Area | Report | Status | Source revision |
+| --- | --- | --- | --- | --- |
+| 2026-08-26 | Security | [Repository security audit](./security/2026-08-26-repository-security-audit.md) | Validated static audit; runtime follow-ups remain | `17049d2704f755a1df85190580027001c0bb6856` |
+| 2026-08-26 | AIPDE | [System capability audit](./aipde/2026-08-26-system-capability-audit.md) | Analysis complete; implementation not approved | `17049d2704f755a1df85190580027001c0bb6856` |
+| 2026-08-26 | AIPDE | [Control Plane Pilot](./aipde/2026-08-26-control-plane-pilot.md) | Dry-run contract passed; live product Pilot remains | working tree after `17049d2704f755a1df85190580027001c0bb6856` |

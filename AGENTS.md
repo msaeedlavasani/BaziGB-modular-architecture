@@ -1,23 +1,58 @@
 # BaziGB — AI Engineering & Workflow Standard
 
-**Version:** 5.0.0
+**Version:** 7.0.0
 
 This document defines how AI agents must inspect, reason about, plan, modify, validate, and document work in the BaziGB repository.
 
-It is an engineering governance document. It is NOT a duplicate of the project's architecture, product strategy, or visual design documentation.
+It is the mandatory AI entry and engineering-governance document. Product-lifecycle governance lives in `docs/aipde/system-governance.md`; operational routing and gates live in `AI_CONTEXT_MAP.md` and `ai/`.
 
-## 1. SOURCE OF TRUTH
+## 0. MANDATORY AI ENTRY
 
-When information conflicts, use this priority:
+At the beginning of every task:
+
+1. verify the active repository and branch,
+2. read `AGENTS.md` and `AI_CONTEXT_MAP.md` from that working context,
+3. route the task to the relevant AIPDE capabilities,
+4. read only the canonical sources required by that route,
+5. classify lifecycle stage, risk, reversibility, human gate, and resource class,
+6. inspect the closest existing implementation and validation evidence,
+7. plan before changing anything outside an already approved routine scope.
+
+If the branch or working context changes, repeat the entry protocol. Cached governance is not evidence.
+
+Canonical operating sequence:
+
+`DIRECT → ROUTE → DISCOVER → CLASSIFY → PLAN → APPROVE WHEN REQUIRED → IMPLEMENT → EVALUATE → RECORD → LEARN`
+
+Do not use screenshot recency, implementation convenience, or chat order as the product backlog priority.
+
+## 1. AUTHORITY AND SOURCE OF TRUTH
+
+Decision authority and factual truth are different.
+
+For permission and intent, use this priority:
+
+1. current explicit human direction and approvals
+2. current approved scope and plan
+3. `AGENTS.md` and `docs/aipde/system-governance.md`
+4. routed operational contracts under `ai/`
+5. active task and handoff documents
+6. historical documents and AI assumptions
+
+A lower-authority handoff cannot override a newer explicit human approval boundary.
+
+For facts about the current implementation, use this priority:
 
 1. Actual repository code and configuration
 2. `package.json` and workspace/package manifests
 3. `AGENTS.md`
-4. `DESIGN_SYSTEM.md`
-5. Current architecture and operational documentation
-6. Active task documentation
-7. Historical reports, audits, handoffs, and migration documents
-8. AI assumptions or general knowledge
+4. current architecture and operational documentation
+5. `DESIGN_SYSTEM.md` for visual and interaction contracts
+6. `docs/aipde/system-governance.md` for lifecycle governance
+7. routed operational contracts under `ai/`
+8. active task documentation
+9. historical reports, audits, handoffs, and migration documents
+10. AI assumptions or general knowledge
 
 Never invent project facts. If a required fact cannot be verified from the repository, explicitly state that it is unknown.
 
@@ -73,7 +108,7 @@ Before creating a component, hook, utility, service, type, abstraction, or API, 
 Prefer:
 
 ```text
-reuse → extend → compose → create
+reuse → compose → extend → create
 ```
 
 Do not create duplicate abstractions merely because an existing implementation is inconvenient. Do not refactor unrelated code during a feature or bug fix.
@@ -227,10 +262,14 @@ Documentation must explain durable knowledge and decisions. It must not duplicat
 Use:
 
 ```text
-AGENTS.md       → AI behavior and engineering workflow
+AGENTS.md        → mandatory AI entry, authority, and engineering governance
+AI_CONTEXT_MAP.md → task routing and minimum required context
+ai/              → executable operational contracts and gates
+docs/aipde/      → canonical product-lifecycle system governance
 DESIGN_SYSTEM.md → visual/UI rules
-README.md       → human-facing project overview and onboarding
-docs/           → durable architecture, operations, strategy, and history
+README.md        → human-facing project overview and onboarding
+docs/            → durable architecture, operations, strategy, decisions, and history
+docs/reports/    → immutable registered evidence snapshots
 GitHub Issues / task backlog → active implementation work
 ```
 
@@ -271,12 +310,13 @@ Do not mix these responsibilities.
 ## 20. HANDOFF PROTOCOL
 
 At the beginning of a new AI session:
-1. Read `AGENTS.md`.
-2. Read `DESIGN_SYSTEM.md` for frontend tasks.
-3. Inspect root/package manifests.
-4. Inspect relevant source files.
-5. Read only documentation relevant to the task.
-6. Determine CURRENT / TARGET / DEBT / UNKNOWN.
+1. verify the active repository and branch,
+2. read `AGENTS.md` and `AI_CONTEXT_MAP.md`,
+3. route the task and identify required AIPDE capabilities,
+4. read `DESIGN_SYSTEM.md` for frontend tasks,
+5. inspect only relevant manifests, source, analogues, and validation,
+6. classify CURRENT / TARGET / CONSTRAINT / DEBT / UNKNOWN,
+7. classify Routine / Material / Critical and Standard / Elevated / Intensive.
 
 At the end of a task report:
 - **Changed** — files and changes
@@ -286,14 +326,52 @@ At the end of a task report:
 
 Do not generate generic handoff documents after every task.
 
-## 21. ABSOLUTE RULE
+## 21. SYSTEM-FIRST CORRECTION
 
-> Inspect first.
+Before patching a visible defect, classify whether it comes from an isolated implementation error or a missing reusable pattern, design-system contract, architecture invariant, evaluation, workflow gate, ownership rule, or source-of-truth rule.
+
+When a shared control is missing, fixing and testing that control is the primary task. The visible defect becomes an acceptance case. Immediate containment remains valid when user harm or security risk requires it.
+
+## 22. HUMAN AND RESOURCE GATES
+
+Routine, reversible implementation inside established rules may proceed within an approved scope.
+
+Material changes to product behavior, shared systems, design-system contracts, security, privacy, data, protocols, architecture, operations, recurring cost, or Governance require an explicit plan and human approval.
+
+Critical or externally consequential actions require approval immediately before execution and a rollback or recovery plan.
+
+Resource use follows `docs/aipde/system-governance.md` and `ai/CONTROL_PLANE.md`. Standard work is covered by normal task approval. Elevated or Intensive work requires a Resource Approval Request explaining why normal analysis is insufficient, expected risk reduction, cheaper alternatives, relative cost, stopping condition, and artifact produced.
+
+Token minimization is not absolute. Use the lowest responsible cost for the decision's risk and value.
+
+## 23. EVIDENCE, REPORTS, AND RESILIENCE
+
+Important reports must be registered in `docs/reports/README.md` and record scope, status, revision or working-tree provenance, validation, limitations, and supersession when applicable.
+
+Local files are a working layer, not a backup. Git history requires a commit. Off-device protection requires a verified push or independent backup. Never claim a report is remotely protected until that state is verified.
+
+Implementation, validation, commit, push, merge, deployment, and production verification are separate states. Never infer authority for a later state from approval of an earlier one.
+
+## 24. CONTROL-PLANE VALIDATION
+
+Changes to Governance or the AIPDE operating system must run `npm run check:governance` and pass a scope review. The check proves structural wiring only; it does not prove that an AI followed the rules in a real task.
+
+A material Control Plane change also requires a Pilot using `ai/CONTROL_PLANE.md`: route a representative request, classify its root system layer, identify approval and resource gates, and show that symptom-level implementation is blocked until the governing control is addressed.
+
+## 25. ABSOLUTE RULE
+
+> Route before broad inspection.
 >
 > Reuse before creating.
 >
 > Plan before changing.
 >
-> Verify before claiming.
+> Approve material scope before execution.
+>
+> Evaluate before claiming.
+>
+> Record durable evidence.
+>
+> Correct the system before repeating symptom patches.
 >
 > Never invent project facts.

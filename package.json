@@ -21,6 +21,8 @@
     "dev:web": "npm run dev -w @bazigb/web",
     "dev:server": "npm run dev -w @bazigb/server",
     "check:boundaries": "node scripts/check-boundaries.mjs",
+    "check:governance": "node scripts/check-governance.mjs",
+    "test:governance": "node scripts/check-governance.test.mjs",
     "typecheck": "npm run check:boundaries && npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:games": "npm run test -w @bazigb/engine -w @bazigb/game-tic-tac-toe -w @bazigb/game-backgammon -w @bazigb/game-chess -w @bazigb/game-vegas",

@@ -1,0 +1,27 @@
+{
+  "id": "control-plane-v1-responsive-system-route",
+  "input": "A newly created game page has inconsistent spacing and poor landscape behavior.",
+  "lifecycleStage": "Design",
+  "capabilities": [
+    "Product Design",
+    "Design System",
+    "Engineering",
+    "Evaluation and Quality",
+    "Governance and Versioning",
+    "Continuous Learning"
+  ],
+  "rootLayer": "shared-design-system-or-conformance-control",
+  "decisionClass": "Material",
+  "resourceClass": "Standard",
+  "firstAction": "inspect-shared-control",
+  "forbiddenFirstAction": "page-specific-breakpoint-patch",
+  "humanGate": "approve-shared-system-change",
+  "evidence": [
+    "shared-contract-or-conformance-result",
+    "responsive-content-accessibility-contract",
+    "targeted-rendered-evidence",
+    "regression-fixture"
+  ],
+  "elevatedTrigger": "A broad multi-page visual matrix is necessary after targeted evidence remains inconclusive.",
+  "learningDestination": "canonical-design-system-contract-and-evaluation"
+}
