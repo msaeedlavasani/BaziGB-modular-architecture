@@ -17,3 +17,4 @@ This directory is the version-controlled home for high-value reports that must n
 | 2026-08-26 | Security | [Repository security audit](./security/2026-08-26-repository-security-audit.md) | Validated static audit; runtime follow-ups remain | `17049d2704f755a1df85190580027001c0bb6856` |
 | 2026-08-26 | AIPDE | [System capability audit](./aipde/2026-08-26-system-capability-audit.md) | Analysis complete; implementation not approved | `17049d2704f755a1df85190580027001c0bb6856` |
 | 2026-08-26 | AIPDE | [Control Plane Pilot](./aipde/2026-08-26-control-plane-pilot.md) | Dry-run contract passed; live product Pilot remains | working tree after `17049d2704f755a1df85190580027001c0bb6856` |
+| 2026-08-26 | AIPDE | [System integration audit](./aipde/2026-08-26-system-integration-audit.md) | Integration contract implemented and structurally validated; domain pilots remain | working tree after `044ade5acc7507aa64361871da6cb839d8256c43` |

@@ -24,11 +24,68 @@ const pilot = {
   evidence: ['regression-fixture'],
 };
 
+const integrationCapabilities = [
+  'Human Direction',
+  'AI Orchestration',
+  'Product Discovery',
+  'Research and Strategy',
+  'Product Design',
+  'Design System',
+  'Engineering',
+  'Security and Privacy',
+  'Evaluation and Quality',
+  'Delivery and Operations',
+  'Governance and Versioning',
+  'Cost and Resource Governance',
+  'Knowledge Management',
+  'Continuous Learning',
+].map((name, index) => ({
+  id: `capability-${index}`,
+  name,
+  purpose: 'test-purpose',
+  inputs: ['test-input'],
+  outputs: ['test-output'],
+  evidence: ['test-evidence'],
+  aiAuthority: ['test-ai-authority'],
+  humanAuthority: ['test-human-authority'],
+  escalatesWhen: ['test-escalation'],
+  stages: ['Discovery'],
+}));
+const integrationStages = ['Discovery', 'Research', 'Strategy', 'Design', 'Engineering', 'Validation', 'Delivery', 'Operations', 'Evolution']
+  .map((stage, index, stages) => ({
+    stage,
+    accountable: 'capability-0',
+    requiredInput: 'test-input',
+    output: 'test-output',
+    evidence: 'test-evidence',
+    humanGate: 'test-gate',
+    receiver: stages[(index + 1) % stages.length],
+    rejectWhen: 'test-rejection',
+  }));
+const integration = {
+  version: '1.0.0',
+  capabilities: integrationCapabilities,
+  lifecycle: integrationStages,
+  crossCuttingRequired: ['capability-0'],
+  integrationFixture: {
+    decisionClass: 'Material',
+    resourceClass: 'Standard',
+    firstGate: 'approve-protocol-change-plan',
+    forbiddenShortcut: 'implement-from-user-symptom-without-protocol-root-analysis',
+    requiredStages: integrationStages.map(({ stage }) => stage),
+    requiredCapabilities: integrationCapabilities.map(({ name }) => name),
+    releaseRequires: ['explicit-deploy-authority', 'protocol-regression-evidence', 'rollback-or-recovery-proof'],
+    learningDestination: 'protocol-invariant-and-regression-suite',
+  },
+};
+
 write('AGENTS.md', 'AI_CONTEXT_MAP.md docs/aipde/system-governance.md npm run check:governance');
-write('AI_CONTEXT_MAP.md', 'ai/CONTROL_PLANE.md ai/VALIDATION_GATE.md');
-write('ai/CONTROL_PLANE.md', 'Resource Approval Request Pilot protocol');
+write('AI_CONTEXT_MAP.md', 'ai/CONTROL_PLANE.md ai/SYSTEM_INTEGRATION.md ai/VALIDATION_GATE.md');
+write('ai/CONTROL_PLANE.md', 'Resource Approval Request Pilot protocol ai/SYSTEM_INTEGRATION.md');
+write('ai/SYSTEM_INTEGRATION.md', 'accepted handoff cross-cutting controls');
 write('ai/VALIDATION_GATE.md', 'PASS FAIL NOT RUN BLOCKED');
 write('ai/pilots/control-plane-v1.json', JSON.stringify(pilot));
+write('ai/system-integration-v1.json', JSON.stringify(integration));
 write('docs/aipde/system-governance.md', 'Working layer History layer Off-device layer Elevated Intensive');
 write('docs/reports/README.md', '| 2026-08-26 | Test | [Report](./test/report.md) | Status | revision |');
 write('docs/reports/test/report.md', '# Test Report\n\n- Date: 2026-08-26\n- Status: test\n');
@@ -49,6 +106,16 @@ const invalid = run();
 if (invalid.status === 0 || !invalid.stderr.includes('Missing required control-plane file')) {
   console.error(invalid.stdout, invalid.stderr);
   throw new Error('Expected the broken control-plane fixture to fail closed');
+}
+
+write('ai/VALIDATION_GATE.md', 'PASS FAIL NOT RUN BLOCKED');
+const brokenIntegration = structuredClone(integration);
+brokenIntegration.capabilities = brokenIntegration.capabilities.filter(({ name }) => name !== 'Security and Privacy');
+write('ai/system-integration-v1.json', JSON.stringify(brokenIntegration));
+const invalidIntegration = run();
+if (invalidIntegration.status === 0 || !invalidIntegration.stderr.includes('System Integration is missing capability: Security and Privacy')) {
+  console.error(invalidIntegration.stdout, invalidIntegration.stderr);
+  throw new Error('Expected incomplete System Integration capability coverage to fail closed');
 }
 
 fs.rmSync(fixtureRoot, { recursive: true, force: true });

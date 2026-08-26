@@ -11,10 +11,12 @@ const requiredFiles = [
   'AGENTS.md',
   'AI_CONTEXT_MAP.md',
   'ai/CONTROL_PLANE.md',
+  'ai/SYSTEM_INTEGRATION.md',
   'ai/VALIDATION_GATE.md',
   'docs/aipde/system-governance.md',
   'docs/reports/README.md',
   'ai/pilots/control-plane-v1.json',
+  'ai/system-integration-v1.json',
 ];
 
 const read = (relativePath) => {
@@ -32,8 +34,10 @@ const agents = read('AGENTS.md');
 const contextMap = read('AI_CONTEXT_MAP.md');
 const governance = read('docs/aipde/system-governance.md');
 const controlPlane = read('ai/CONTROL_PLANE.md');
+const systemIntegration = read('ai/SYSTEM_INTEGRATION.md');
 const registry = read('docs/reports/README.md');
 const pilotText = read('ai/pilots/control-plane-v1.json');
+const integrationText = read('ai/system-integration-v1.json');
 
 const requiredWiring = [
   [agents, 'AI_CONTEXT_MAP.md', 'AGENTS must route through AI_CONTEXT_MAP.md'],
@@ -41,6 +45,10 @@ const requiredWiring = [
   [agents, 'npm run check:governance', 'AGENTS must require the Governance Check'],
   [contextMap, 'ai/CONTROL_PLANE.md', 'Context Map must route to the Control Plane'],
   [contextMap, 'ai/VALIDATION_GATE.md', 'Context Map must route validation'],
+  [contextMap, 'ai/SYSTEM_INTEGRATION.md', 'Context Map must route AIPDE work through System Integration'],
+  [controlPlane, 'ai/SYSTEM_INTEGRATION.md', 'Control Plane must connect to System Integration'],
+  [systemIntegration, 'accepted handoff', 'System Integration must define accepted handoffs'],
+  [systemIntegration, 'cross-cutting controls', 'System Integration must define cross-cutting controls'],
   [controlPlane, 'Resource Approval Request', 'Control Plane must define resource approval'],
   [controlPlane, 'Pilot protocol', 'Control Plane must define its Pilot'],
   [governance, 'Working layer', 'Governance must define local working storage'],
@@ -75,6 +83,79 @@ try {
   if (pilot.forbiddenFirstAction !== 'page-specific-breakpoint-patch') failures.push('Pilot must reject page-specific breakpoint tuning as the first action');
 } catch (error) {
   failures.push(`Pilot JSON is invalid: ${error.message}`);
+}
+
+try {
+  const integration = JSON.parse(integrationText);
+  const requiredCapabilities = [
+    'Human Direction',
+    'AI Orchestration',
+    'Product Discovery',
+    'Research and Strategy',
+    'Product Design',
+    'Design System',
+    'Engineering',
+    'Security and Privacy',
+    'Evaluation and Quality',
+    'Delivery and Operations',
+    'Governance and Versioning',
+    'Cost and Resource Governance',
+    'Knowledge Management',
+    'Continuous Learning',
+  ];
+  const requiredStages = ['Discovery', 'Research', 'Strategy', 'Design', 'Engineering', 'Validation', 'Delivery', 'Operations', 'Evolution'];
+  const capabilityNames = new Set(integration.capabilities?.map((capability) => capability.name));
+  const capabilityIds = new Set(integration.capabilities?.map((capability) => capability.id));
+  const stageNames = new Set(integration.lifecycle?.map((stage) => stage.stage));
+  const capabilityFields = ['id', 'name', 'purpose', 'inputs', 'outputs', 'evidence', 'aiAuthority', 'humanAuthority', 'escalatesWhen', 'stages'];
+  const stageFields = ['stage', 'accountable', 'requiredInput', 'output', 'evidence', 'humanGate', 'receiver', 'rejectWhen'];
+
+  for (const name of requiredCapabilities) {
+    if (!capabilityNames.has(name)) failures.push(`System Integration is missing capability: ${name}`);
+  }
+  if (capabilityNames.size !== (integration.capabilities?.length ?? 0)) failures.push('System Integration capability names must be unique');
+  if (capabilityIds.size !== (integration.capabilities?.length ?? 0)) failures.push('System Integration capability ids must be unique');
+  for (const capability of integration.capabilities ?? []) {
+    for (const field of capabilityFields) {
+      const value = capability[field];
+      if (value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) {
+        failures.push(`Capability ${capability.name ?? capability.id ?? 'unknown'} is missing contract field: ${field}`);
+      }
+    }
+  }
+  for (const stageName of requiredStages) {
+    if (!stageNames.has(stageName)) failures.push(`System Integration is missing lifecycle stage: ${stageName}`);
+  }
+  if (stageNames.size !== (integration.lifecycle?.length ?? 0)) failures.push('Each lifecycle stage must have exactly one accountable contract');
+  for (const stage of integration.lifecycle ?? []) {
+    for (const field of stageFields) {
+      if (!stage[field]) failures.push(`Lifecycle stage ${stage.stage ?? 'unknown'} is missing handoff field: ${field}`);
+    }
+    if (stage.accountable && !capabilityIds.has(stage.accountable)) {
+      failures.push(`Lifecycle stage ${stage.stage} has unknown accountable capability: ${stage.accountable}`);
+    }
+    if (stage.receiver && !stageNames.has(stage.receiver)) failures.push(`Lifecycle stage ${stage.stage} has unknown receiver: ${stage.receiver}`);
+  }
+  for (const capabilityId of integration.crossCuttingRequired ?? []) {
+    if (!capabilityIds.has(capabilityId)) failures.push(`System Integration has unknown cross-cutting capability: ${capabilityId}`);
+  }
+  const fixture = integration.integrationFixture ?? {};
+  if (fixture.decisionClass !== 'Material') failures.push('System Integration fixture must be Material');
+  if (fixture.resourceClass !== 'Standard') failures.push('System Integration fixture must begin with Standard resources');
+  if (fixture.firstGate !== 'approve-protocol-change-plan') failures.push('System Integration fixture must stop before protocol implementation');
+  if (fixture.forbiddenShortcut !== 'implement-from-user-symptom-without-protocol-root-analysis') failures.push('System Integration fixture must prohibit symptom-first protocol work');
+  for (const stage of requiredStages) {
+    if (!fixture.requiredStages?.includes(stage)) failures.push(`System Integration fixture is missing stage: ${stage}`);
+  }
+  for (const capability of requiredCapabilities.filter((name) => name !== 'Design System')) {
+    if (!fixture.requiredCapabilities?.includes(capability)) failures.push(`System Integration fixture is missing capability: ${capability}`);
+  }
+  for (const requirement of ['explicit-deploy-authority', 'protocol-regression-evidence', 'rollback-or-recovery-proof']) {
+    if (!fixture.releaseRequires?.includes(requirement)) failures.push(`System Integration fixture is missing release requirement: ${requirement}`);
+  }
+  if (fixture.learningDestination !== 'protocol-invariant-and-regression-suite') failures.push('System Integration fixture must close into a protocol learning destination');
+} catch (error) {
+  failures.push(`System Integration JSON is invalid: ${error.message}`);
 }
 
 const reportLinks = [...registry.matchAll(/\]\((\.\/[^)]+\.md)\)/g)].map((match) => match[1]);

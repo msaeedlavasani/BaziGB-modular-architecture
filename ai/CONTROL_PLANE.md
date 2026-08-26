@@ -4,6 +4,8 @@
 
 **Role:** Operational contract that turns AIPDE Governance into repeatable task behavior.
 
+Lifecycle ownership, capability responsibilities, handoffs, and cross-cutting triggers are defined by `ai/SYSTEM_INTEGRATION.md` and its machine-readable registry. The Control Plane routes each task through that integration contract rather than treating capabilities as an unconnected checklist.
+
 ## Task envelope
 
 Before material work, establish this envelope:

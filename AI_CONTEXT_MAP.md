@@ -16,7 +16,7 @@ The lifecycle is:
 
 | Task | Required sources | Primary evidence |
 | --- | --- | --- |
-| AIPDE or Governance | `docs/aipde/system-governance.md`, `ai/CONTROL_PLANE.md` | Governance Check and Pilot |
+| AIPDE or Governance | `docs/aipde/system-governance.md`, `ai/CONTROL_PLANE.md`, `ai/SYSTEM_INTEGRATION.md` | Governance Check and Pilot |
 | Product discovery or strategy | `docs/aipde/system-governance.md`, current product strategy | research evidence, assumptions, outcome decision |
 | Frontend or responsive UI | `DESIGN_SYSTEM.md`, `ai/CONTROL_PLANE.md`, relevant component and closest analogue | design-system contract, rendered risk-based evaluation |
 | Reusable component or pattern | `DESIGN_SYSTEM.md`, relevant shared components and consumers | contribution contract and conformance evidence |
