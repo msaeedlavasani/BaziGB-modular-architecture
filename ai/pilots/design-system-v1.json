@@ -1,0 +1,132 @@
+{
+  "id": "design-system-v1-live-pilot",
+  "status": "second-human-gate-rejected-correction-loop-active",
+  "intent": "Prove that recurring responsive and consistency defects can be corrected through reusable Design System controls rather than page-specific geometry patches.",
+  "lifecycleStage": "Design",
+  "capabilities": [
+    "Human Direction",
+    "AI Orchestration",
+    "Product Design",
+    "Design System",
+    "Engineering",
+    "Evaluation and Quality",
+    "Governance and Versioning",
+    "Cost and Resource Governance",
+    "Knowledge Management",
+    "Continuous Learning"
+  ],
+  "rootLayer": "design-system-contract-and-conformance-control",
+  "decisionClass": "Material",
+  "resourceClass": "Standard",
+  "humanApproval": "Approved in conversation before shared-control implementation.",
+  "sharedControls": [
+    "semantic-layout-contract",
+    "page-container",
+    "page-stack",
+    "semantic-responsive-grid",
+    "action-card",
+    "status-cluster",
+    "game-media-containment",
+    "game-surface-track",
+    "component-maturity-registry",
+    "fail-closed-design-system-check"
+  ],
+  "acceptanceCases": [
+    {
+      "name": "game-screen",
+      "route": "/fa/game/tic-tac-toe",
+      "claims": ["shared-toolbar-and-board-track", "logical-status-spacing", "short-landscape-primary-board", "no-horizontal-overflow"]
+    },
+    {
+      "name": "non-game-discovery-and-action",
+      "routes": ["/fa/lobby", "/fa/games/backgammon"],
+      "claims": ["semantic-page-geometry", "container-driven-repeated-items", "contained-game-media", "cta-hierarchy", "no-horizontal-overflow"]
+    }
+  ],
+  "evaluation": {
+    "designSystemCheck": "PASS",
+    "designSystemCheckerTest": "PASS",
+    "webTypecheck": "PASS",
+    "packageBuild": "PASS",
+    "boundaryCheck": "PASS",
+    "webBuild": "PASS_WITH_EXTERNAL_FONT_OPTIMIZATION_WARNING",
+    "runtimeConsoleErrors": "PASS_NONE_OBSERVED",
+    "targetedRenderedEvaluation": "PASS_THIRD_CORRECTION_CANDIDATE",
+    "humanVisualGate": "REJECTED"
+  },
+  "renderedMatrix": [
+    {"case":"lobby","viewport":"360x800","horizontalOverflow":false,"result":"PASS"},
+    {"case":"lobby","viewport":"800x360","horizontalOverflow":false,"result":"PASS"},
+    {"case":"lobby","viewport":"1440x900","horizontalOverflow":false,"result":"PASS"},
+    {"case":"game-hub","viewport":"360x800","horizontalOverflow":false,"result":"PASS"},
+    {"case":"game-hub","viewport":"800x360","horizontalOverflow":false,"result":"PASS"},
+    {"case":"game-hub","viewport":"1440x900","horizontalOverflow":false,"result":"PASS"},
+    {"case":"game-shell","viewport":"360x800","horizontalOverflow":false,"result":"PASS"},
+    {"case":"game-shell","viewport":"800x360","horizontalOverflow":false,"primaryBoardInInitialViewport":true,"result":"PASS"}
+  ],
+  "forbiddenRegression": [
+    "feature-page-min-item-width",
+    "page-local-global-gutters",
+    "uncontained-game-card-media",
+    "page-local-status-chip-spacing",
+    "game-specific-pixel-surface-width"
+  ],
+  "correctionLoop": {
+    "failedControls": [
+      "evaluation-overweighted-overflow-and-equal-width",
+      "navigation-icon-label-proximity",
+      "action-card-visual-hierarchy",
+      "game-settings-internal-anatomy",
+      "trust-seal-load-fallback",
+      "game-identity-art-direction",
+      "page-title-hierarchy",
+      "gameplay-findings-not-yet-routed"
+      ,"mobile-density-not-viewport-prioritized"
+      ,"board-checker-pixel-minimum"
+      ,"status-cluster-did-not-own-indicator-anatomy"
+      ,"duplicate-board-score"
+      ,"duplicate-lobby-destination"
+      ,"game-mark-recognizability"
+    ],
+    "newControls": [
+      "quality-heuristics-beyond-geometry",
+      "navigation-item",
+      "action-deck",
+      "game-settings-toolbar",
+      "trust-seal-fallback",
+      "game-identity-mark",
+      "page-header",
+      "gameplay-finding-ledger"
+      ,"mobile-compact-action-anatomy"
+      ,"collapsible-mobile-game-settings"
+      ,"status-pill"
+      ,"board-fluid-piece-containment"
+      ,"single-lobby-entry-point"
+      ,"cross-game-art-direction-concept-gate"
+    ],
+    "acceptanceRule": "Re-run machine and rendered evaluation, then return to a new human visual gate without promoting Candidate components."
+  },
+  "correctionValidation": {
+    "navigationProximity": "PASS_SHARED_COMPONENT",
+    "wideActionHierarchy": "PASS_PRIMARY_WIDTH_AND_EMPHASIS",
+    "gameSettingsAnatomy": "PASS_SEPARATE_OPTION_AND_ACTION_REGIONS",
+    "trustSealFallback": "PASS_NO_BROKEN_IMAGE",
+    "gameIdentityFamily": "PASS_SHARED_VECTOR_LANGUAGE",
+    "pageTitleHierarchy": "PASS_BOUNDED_FLUID_SCALE",
+    "persianBackgammonName": "PASS_TAKHTE",
+    "gameplayFindings": "DEFERRED_TO_SEPARATE_LEDGER"
+    ,"mobileViewportPriority": "PASS_ACTIONS_VISIBLE_AT_320x700_AND_SETTINGS_COLLAPSED"
+    ,"backgammonContainment": "PASS_30_CHECKERS_WITHIN_320PX_VIEWPORT"
+    ,"statusAnatomy": "PASS_STATUS_PILL_SINGLE_LAYOUT_OWNER"
+    ,"duplicateTicTacToeScore": "REMOVED"
+    ,"duplicateLobbyNavigation": "REMOVED_LOBBY_NAV_ITEM_BRAND_REMAINS_HOME"
+    ,"gameArtDirection": "CONCEPT_GENERATED_HUMAN_SELECTION_PENDING"
+  },
+  "learningDestination": "DESIGN_SYSTEM.md-and-executable-component-registry",
+  "limitations": [
+    "Candidate components are not promoted to Stable before the human visual gate.",
+    "No new browser-test dependency or broad screenshot service was introduced.",
+    "The external Google Font stylesheet could not be optimized during the local production build.",
+    "This pilot does not remediate every existing product page or legacy component."
+  ]
+}

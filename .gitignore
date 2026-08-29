@@ -6,6 +6,7 @@ dist/
 build/
 .vite/
 .next/
+.next-verify/
 
 # env
 .env

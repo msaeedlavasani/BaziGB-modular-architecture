@@ -26,4 +26,14 @@ export type BackgammonState = GameState<BackgammonBoard, BackgammonMove> & {
   cube: number;                             // 1|2|4|8|16|32|64
   cubeOwner: string | null;                 // playerId holder
   doubling: { offeredBy: string } | null;   // pending offer
+  /** Winner of the completed game while a points match may still continue. */
+  gameWinner: string | null;
+  /** Points awarded for the most recently completed game. */
+  gamePoints: number;
+  /** Player who opens the next game after result acknowledgement. */
+  nextStarter: string | null;
+  /** The current game is the one Crawford game; doubling is disabled. */
+  crawfordGame: boolean;
+  /** The match has already consumed its Crawford game. */
+  crawfordUsed: boolean;
 };

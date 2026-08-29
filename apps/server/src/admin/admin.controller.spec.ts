@@ -1,4 +1,3 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { AdminController } from './admin.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { RoomService } from '../rooms/room.service';
@@ -9,26 +8,12 @@ describe('AdminController', () => {
   let controller: AdminController;
   let roomService: RoomService;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [AdminController],
-      providers: [
-        {
-          provide: PrismaService,
-          useValue: {},
-        },
-        {
-          provide: RoomService,
-          useValue: {
-            deleteRoom: vi.fn(),
-            deleteRoomsBulk: vi.fn(),
-          },
-        },
-      ],
-    }).compile();
-
-    controller = module.get<AdminController>(AdminController);
-    roomService = module.get<RoomService>(RoomService);
+  beforeEach(() => {
+    roomService = {
+      deleteRoom: vi.fn(),
+      deleteRoomsBulk: vi.fn(),
+    } as unknown as RoomService;
+    controller = new AdminController({} as PrismaService, roomService);
   });
 
   describe('deleteRoomsBulk', () => {
@@ -57,9 +42,9 @@ describe('AdminController', () => {
     it('should delete a room with spaces in the code', async () => {
       const roomCode = 'DOCUMENTATION BLOAT';
       vi.spyOn(roomService, 'deleteRoom').mockResolvedValue(true);
-      
+
       const result = await controller.deleteRoom(roomCode);
-      
+
       expect(roomService.deleteRoom).toHaveBeenCalledWith(roomCode);
       expect(result).toEqual({ ok: true, code: roomCode });
     });

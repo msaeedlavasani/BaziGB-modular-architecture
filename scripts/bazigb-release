@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# Root-owned production controller. Install as /usr/local/sbin/bazigb-release.
+set -euo pipefail
+
+ROOT="${BAZIGB_RELEASE_ROOT:-/srv/bazigb}"
+RELEASES="${ROOT}/releases"
+SHARED="${ROOT}/shared"
+CURRENT="${ROOT}/current"
+PREVIOUS="${ROOT}/previous"
+DEPLOY_USER="bazigb-deploy"
+RUNTIME_USER="bazigb-runtime"
+APP_GROUP="bazigb-app"
+SQLITE_BACKUP="/usr/local/sbin/bazigb-sqlite-backup"
+
+die() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+release_id="${2:-}"
+expected_lock="${3:-}"
+[[ "${release_id}" =~ ^[0-9a-f]{7,40}$ ]] || die 'Invalid release id.'
+candidate="${RELEASES}/${release_id}"
+[[ "${candidate}" == "${RELEASES}/"* ]] || die 'Release path escaped the release root.'
+
+verify() {
+  [[ "${#expected_lock}" -eq 64 ]] || die 'Invalid package-lock checksum length.'
+  [[ "${expected_lock}" != *[!0-9a-f]* ]] || die 'Invalid package-lock checksum characters.'
+  [[ -f "${candidate}/release.manifest" ]] || die 'Candidate manifest is missing.'
+  [[ -f "${candidate}/package-lock.json" ]] || die 'Candidate package-lock is missing.'
+  actual_lock="$(sha256sum "${candidate}/package-lock.json" | awk '{print $1}')"
+  [[ "${actual_lock}" == "${expected_lock}" ]] || die 'Candidate package-lock checksum mismatch.'
+  grep -Fxq "release_id=${release_id}" "${candidate}/release.manifest" || die 'Manifest release id mismatch.'
+  grep -Fxq "git_revision=${release_id}" "${candidate}/release.manifest" || die 'Manifest Git revision mismatch.'
+  [[ -f "${candidate}/apps/server/dist/main.js" ]] || die 'Server build output is missing.'
+  [[ -f "${candidate}/apps/web/.next/standalone/apps/web/server.js" ]] || die 'Web build output is missing.'
+}
+
+prepare() {
+  [[ ! -e "${candidate}" ]] || die 'Release directory already exists; candidates are immutable.'
+  install -d -m 2750 -o "${DEPLOY_USER}" -g "${APP_GROUP}" "${candidate}"
+}
+
+link_persistent_data() {
+  [[ ! -e "${candidate}/.env" ]] || die 'Candidate unexpectedly contains .env.'
+  [[ ! -e "${candidate}/apps/server/prisma/dev.db" ]] || die 'Candidate unexpectedly contains dev.db.'
+  ln -s "${SHARED}/.env" "${candidate}/.env"
+  ln -s "${SHARED}/data/dev.db" "${candidate}/apps/server/prisma/dev.db"
+}
+
+database_checkpoint() {
+  timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  destination="${SHARED}/backups/dev-${timestamp}-before-${release_id}.db"
+  [[ -x "${SQLITE_BACKUP}" ]] || die 'The approved SQLite backup helper is missing.'
+  "${SQLITE_BACKUP}" "${SHARED}/data/dev.db" "${destination}"
+  chown root:root "${destination}"
+  chmod 0600 "${destination}"
+}
+
+health_check() {
+  curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3001/api/rooms >/dev/null
+  curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/fa/lobby >/dev/null
+}
+
+activate() {
+  verify
+  [[ -f "${SHARED}/.env" ]] || die 'Shared environment file is missing.'
+  [[ -f "${SHARED}/data/dev.db" ]] || die 'Shared SQLite database is missing.'
+  link_persistent_data
+  database_checkpoint
+
+  old_target=''
+  if [[ -L "${CURRENT}" ]]; then
+    old_target="$(readlink "${CURRENT}")"
+    ln -sfn "${old_target}" "${PREVIOUS}"
+  fi
+  ln -s "${candidate}" "${ROOT}/.current-${release_id}"
+  mv -Tf "${ROOT}/.current-${release_id}" "${CURRENT}"
+  systemctl restart bazigb-server bazigb-web
+
+  if health_check; then
+    return 0
+  fi
+
+  if [[ -n "${old_target}" ]]; then
+    ln -s "${old_target}" "${ROOT}/.rollback-${release_id}"
+    mv -Tf "${ROOT}/.rollback-${release_id}" "${CURRENT}"
+    systemctl restart bazigb-server bazigb-web
+    health_check || die 'Activation and rollback health checks both failed.'
+  fi
+  die 'Activation health check failed; previous release restored.'
+}
+
+case "${1:-}" in
+  prepare) prepare ;;
+  verify) verify ;;
+  activate) activate ;;
+  *) die 'Usage: bazigb-release {prepare|verify|activate} RELEASE_ID [LOCK_SHA256]' ;;
+esac

@@ -5,6 +5,7 @@ import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
+import Link from 'next/link';
 
 interface GameCardProps {
   title: string;
@@ -13,6 +14,7 @@ interface GameCardProps {
   selected?: boolean;
   disabled?: boolean;
   onClick?: () => void;
+  href?: string;
 }
 
 /**
@@ -29,14 +31,17 @@ export default function GameCard({
   selected = false,
   disabled = false,
   onClick,
+  href,
 }: GameCardProps) {
   const theme = useTheme();
 
   return (
     <ButtonBase
+      component={href ? Link : 'button'}
+      href={href}
       onClick={onClick}
       disabled={disabled}
-      aria-pressed={selected}
+      aria-pressed={href ? undefined : selected}
       sx={{
         width: '100%',
         height: '100%',
@@ -45,8 +50,9 @@ export default function GameCard({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 2,
-        p: { xs: 3, sm: 5 },
+        gap: 'clamp(0.75rem, 4cqi, 1rem)',
+        minBlockSize: 'clamp(6.75rem, 38cqi, 11rem)',
+        p: 'clamp(0.75rem, 6cqi, 2rem)',
         borderRadius: 4,
         border: '2px solid',
         borderColor: selected ? 'primary.main' : 'divider',
@@ -83,12 +89,23 @@ export default function GameCard({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          overflow: 'hidden',
           bgcolor: selected
             ? alpha(theme.palette.primary.main, 0.16)
             : alpha(theme.palette.text.primary, 0.05),
           color: 'inherit',
           transform: selected ? 'scale(1.06)' : 'none',
           transition: 'transform 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+          '& > *': {
+            maxInlineSize: '100%',
+            maxBlockSize: '100%',
+            flexShrink: 0,
+          },
+          '& > svg, & > img': {
+            inlineSize: '60%',
+            blockSize: '60%',
+            objectFit: 'contain',
+          },
           '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
         }}
       >

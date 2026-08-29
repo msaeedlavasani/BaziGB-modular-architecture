@@ -13,6 +13,7 @@ export interface BackgammonBoardMessages {
   decline: string;
   accept: string;
   diceSeparator: string;
+  crawford: string;
 }
 
 const BACKGAMMON_BOARD_MESSAGES: Record<Locale, BackgammonBoardMessages> = {
@@ -29,6 +30,7 @@ const BACKGAMMON_BOARD_MESSAGES: Record<Locale, BackgammonBoardMessages> = {
     decline: 'رد',
     accept: 'پذیرش',
     diceSeparator: ' و ',
+    crawford: 'دست کرافورد؛ دابل غیرفعال است',
   },
   en: {
     off: 'Off',
@@ -43,9 +45,15 @@ const BACKGAMMON_BOARD_MESSAGES: Record<Locale, BackgammonBoardMessages> = {
     decline: 'Decline',
     accept: 'Accept',
     diceSeparator: ' & ',
+    crawford: 'Crawford game · doubling disabled',
   },
 };
 
 export function getBackgammonBoardMessages(locale: Locale): BackgammonBoardMessages {
   return BACKGAMMON_BOARD_MESSAGES[locale];
+}
+
+/** One locale-aware number contract for points, bar and borne-off checkers. */
+export function formatBackgammonCount(locale: Locale, count: number): string {
+  return new Intl.NumberFormat(locale === 'fa' ? 'fa-IR' : 'en-US', { useGrouping: false }).format(Math.abs(count));
 }

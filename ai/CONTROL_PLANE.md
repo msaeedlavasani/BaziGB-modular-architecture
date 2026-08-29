@@ -1,10 +1,12 @@
 # AIPDE Control Plane
 
-**Version:** 1.0.0
+**Version:** 2.0.0
 
 **Role:** Operational contract that turns AIPDE Governance into repeatable task behavior.
 
 Lifecycle ownership, capability responsibilities, handoffs, and cross-cutting triggers are defined by `ai/SYSTEM_INTEGRATION.md` and its machine-readable registry. The Control Plane routes each task through that integration contract rather than treating capabilities as an unconnected checklist.
+
+Portfolio grouping, active task state, reporting, retrieval, supersession, and percentage-based resource gates are defined by `ai/WORK_MANAGEMENT.md`. `ai/work-registry-v1.json` is the only active backlog; `ai/current-state.json` is the bounded resume source.
 
 ## Task envelope
 
@@ -23,6 +25,8 @@ Before material work, establish this envelope:
 | Output | What artifact, implementation, or decision will exist? |
 | Evaluation | What proves the output is sufficient? |
 | Learning | Which canonical rule, registry, test, or backlog receives the result? |
+| Work identity | Which portfolio, workstream, milestone, and stable task id own this work? |
+| Resource estimate | Low, medium, or high; what percentage band and stopping condition apply? |
 
 ## Lifecycle stage contract
 
@@ -82,6 +86,8 @@ Before Elevated or Intensive work, present:
 - durable output artifact
 
 Wait for explicit approval. Stop or de-escalate when marginal evidence no longer justifies cost.
+
+Medium work (estimated 3% to 8% of the user's five-hour usage window) and high work (above 8%) require prior approval. If actual telemetry is unavailable, label allocation as an estimate and state confidence. Experiential browser acceptance defaults to Human Direction; do not spend AI resources reproducing it unless explicitly approved or technically necessary.
 
 ## Documentation state
 

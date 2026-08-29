@@ -15,7 +15,7 @@ interface ProvidersProps {
 export default function Providers({
   children,
   direction = 'rtl',
-  fontFamily = 'Vazirmatn, "Segoe UI", Tahoma, sans-serif',
+  fontFamily = '"Vazirmatn Variable", Vazirmatn, "Segoe UI", Tahoma, sans-serif',
 }: ProvidersProps) {
   const theme = useMemo(
     () => createBaziGBTheme({ direction, fontFamily }),

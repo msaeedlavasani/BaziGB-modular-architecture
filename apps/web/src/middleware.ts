@@ -15,8 +15,10 @@ const LOCALIZED_ROOTS = new Set([
   'profile',
   'login',
   'game',
+  'games',
   'play',
   'rules',
+  'privacy',
   'contact',
 ]);
 

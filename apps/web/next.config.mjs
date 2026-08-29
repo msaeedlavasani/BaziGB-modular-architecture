@@ -2,6 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
+  // Validation builds must not overwrite the active dev server's `.next` tree.
+  // `npm run build:verify -w @bazigb/web` selects `.next-verify` explicitly.
+  distDir: process.env.NEXT_DIST_DIR ?? '.next',
   // در توسعه، API و Socket.IO سرور NestJS روی پورت 3001 است.
   // استفاده از پروکسی same-origin باعث می‌شود دستگاه‌های دیگر شبکه هم
   // با همان آدرس وب (مثلاً http://192.168.x.x:3000) به سرور وصل شوند
@@ -30,4 +33,3 @@ const nextConfig = {
 };
 
 export default nextConfig;
-

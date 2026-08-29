@@ -25,11 +25,12 @@ import {
 import { Undo2 } from 'lucide-react';
 import { TicTacToe, getBestMove as tttAI } from '@bazigb/game-tic-tac-toe';
 import * as BG from '@bazigb/game-backgammon';
-import { Backgammon, getBestMoveSequence, type BackgammonMove } from '@bazigb/game-backgammon';
+import { BACKGAMMON_RULES_PROFILE, Backgammon, getBestMoveSequence, type BackgammonMove } from '@bazigb/game-backgammon';
 import { ChessGame, getBestMove as chessAI } from '@bazigb/game-chess';
 import { Vegas, getBestMove as vegasAI } from '@bazigb/game-vegas';
 
 import GameShell from '@/components/game/GameShell';
+import GameSettingsToolbar from '@/components/game/GameSettingsToolbar';
 import TicTacToeBoard from '@/components/game/TicTacToeBoard';
 import BackgammonBoard from '@/components/game/BackgammonBoard';
 import ChessBoard from '@/components/game/ChessBoard';
@@ -37,9 +38,22 @@ import ChessInfo from '@/components/game/ChessInfo';
 import VegasBoard from '@/components/game/VegasBoard';
 import { useAppLocale } from '@/hooks/useAppLocale';
 import { getMessages } from '@/i18n/messages';
+import { canRetainLocalUndoHistory } from '@/lib/local-game-undo';
+import {
+  addLocalBackgammonMove,
+  autoDraftForcedBearOff,
+  canCommitLocalBackgammonTurn,
+  commitLocalBackgammonTurnTransaction,
+  getLocalBackgammonNextMoves,
+  restoreLocalBackgammonTurn,
+  startLocalBackgammonTurn,
+  undoLocalBackgammonMove,
+  type LocalBackgammonTurn,
+} from '@/lib/local-backgammon-turn';
+import { getGameShellMessages } from '@/i18n/game-shell';
 import { localizedAppRoute } from '@/i18n/routing';
 import { api } from '@/lib/api';
-import { getGameChip, getGameTitle, isWebGameId } from '@/lib/game-catalog';
+import { getGameCatalogEntry, getGameTitle, isWebGameId } from '@/lib/game-catalog';
 
 const ADAPTERS: Record<GameId, GameAdapter> = {
   'tic-tac-toe': TicTacToe,
@@ -66,6 +80,7 @@ function GameInner() {
   const params = useParams<{ gameId: string }>();
   const locale = useAppLocale();
   const messages = getMessages(locale);
+  const shellMessages = getGameShellMessages(locale);
   const rawGameId = params.gameId ?? 'tic-tac-toe';
   const gameId: GameId = isWebGameId(rawGameId) ? rawGameId : 'tic-tac-toe';
   const adapter = ADAPTERS[gameId];
@@ -79,12 +94,19 @@ function GameInner() {
   const [state, setState] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<any[]>([]);
+  const [backgammonTurn, setBackgammonTurn] = useState<LocalBackgammonTurn | null>(null);
+  const hydratedGameRef = useRef<string | null>(null);
+  const configurationRef = useRef<string | null>(null);
 
   const stateRef = useRef(state);
+  const backgammonTurnRef = useRef(backgammonTurn);
   const isBotRunning = useRef(false);
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+  useEffect(() => {
+    backgammonTurnRef.current = backgammonTurn;
+  }, [backgammonTurn]);
 
   const players = useMemo<Player[]>(
     () => [
@@ -96,15 +118,83 @@ function GameInner() {
 
   const newGame = useCallback(() => {
     const config = supportsMatchPoint(gameId) ? match : DEFAULT_MATCH;
+    setUndoStack([]);
+    setBackgammonTurn(null);
     setState(adapter.createState(players, config));
   }, [adapter, gameId, match, players]);
 
   useEffect(() => {
-    newGame();
-  }, [newGame]);
+    const configuration = `${match.matchPoint}:${match.winByTwo}:${match.targetScore}`;
+    if (hydratedGameRef.current !== gameId) {
+      hydratedGameRef.current = gameId;
+      configurationRef.current = configuration;
+      try {
+        const stored = window.sessionStorage.getItem(`bazigb_local_game_${gameId}`);
+        if (stored) {
+          const restored = JSON.parse(stored);
+          if (restored?.gameId === gameId && Array.isArray(restored?.players) && restored?.board !== undefined) {
+            setUndoStack([]);
+            if (gameId === 'backgammon') {
+              const storedTurn = window.sessionStorage.getItem('bazigb_local_turn_backgammon');
+              const restoredTurn = restoreLocalBackgammonTurn(storedTurn ? JSON.parse(storedTurn) : null);
+              setBackgammonTurn(restoredTurn);
+              setState(restoredTurn ? BG.applyTurnDraft(restoredTurn.baseState, restoredTurn.moves) : restored);
+            } else {
+              setState(restored);
+            }
+            return;
+          }
+        }
+      } catch {
+        window.sessionStorage.removeItem(`bazigb_local_game_${gameId}`);
+      }
+      newGame();
+      return;
+    }
+    if (configurationRef.current !== configuration) {
+      configurationRef.current = configuration;
+      newGame();
+    }
+  }, [gameId, match.matchPoint, match.targetScore, match.winByTwo, newGame]);
+
+  useEffect(() => {
+    if (!state || hydratedGameRef.current !== gameId) return;
+    window.sessionStorage.setItem(`bazigb_local_game_${gameId}`, JSON.stringify(state));
+  }, [gameId, state]);
+
+  useEffect(() => {
+    if (gameId !== 'backgammon' || hydratedGameRef.current !== gameId) return;
+    if (backgammonTurn) {
+      window.sessionStorage.setItem('bazigb_local_turn_backgammon', JSON.stringify(backgammonTurn));
+    } else {
+      window.sessionStorage.removeItem('bazigb_local_turn_backgammon');
+    }
+  }, [backgammonTurn, gameId]);
+
+  // Reconcile forced bear-off moves from the transaction lifecycle, not only
+  // click handlers. This covers refresh, session restoration and HMR without
+  // auto-playing any ambiguous or non-bearing move.
+  useEffect(() => {
+    if (gameId !== 'backgammon' || !backgammonTurn) return;
+    const auto = autoDraftForcedBearOff(backgammonTurn);
+    if (auto.applied.length === 0) return;
+    if (auto.state.off[1] === 15 && canCommitLocalBackgammonTurn(auto.transaction)) {
+      const committed = commitLocalBackgammonTurnTransaction(auto.transaction);
+      setBackgammonTurn(null);
+      setUndoStack([]);
+      setState(committed);
+      return;
+    }
+    setBackgammonTurn(auto.transaction);
+    setState(auto.state);
+  }, [backgammonTurn, gameId]);
 
   const myId = 'p1';
   const humanTurn = !!state && state.phase === 'playing' && state.turn === myId;
+
+  useEffect(() => {
+    if (!canRetainLocalUndoHistory(state, myId)) setUndoStack([]);
+  }, [state?.phase, state?.turn]);
 
   const applyLocal = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -112,18 +202,35 @@ function GameInner() {
       const s = stateRef.current;
       if (!s) return;
       try {
-        setUndoStack((prev) => {
-          const next = [...prev, s];
-          return next.length > 10 ? next.slice(next.length - 10) : next;
-        });
+        if (gameId === 'backgammon') {
+          const actions = Array.isArray(m) ? m : [m];
+          if (actions.length === 1 && actions[0]?.kind === 'roll') {
+            const rolled = BG.applyMove(s, actions[0]);
+            setBackgammonTurn(startLocalBackgammonTurn(rolled));
+            setState(rolled);
+            return;
+          }
+          const transaction = backgammonTurnRef.current ?? startLocalBackgammonTurn(s);
+          const drafted = addLocalBackgammonMove(transaction, actions);
+          setBackgammonTurn(drafted.transaction);
+          setState(drafted.state);
+          return;
+        }
+        const actions = Array.isArray(m) ? m : [m];
+        const undoable = actions.some((action) => adapter.canUndoMove ? adapter.canUndoMove(s, action) : true);
+        if (undoable) {
+          setUndoStack((prev) => {
+            const next = [...prev, s];
+            return next.length > 10 ? next.slice(next.length - 10) : next;
+          });
+        }
         let next;
         if (Array.isArray(m)) {
           next = adapter.applyChain(s, m);
-        } else if (gameId === 'backgammon' && (m.kind === 'roll' || m.kind === 'move')) {
-          next = adapter.applyChain(s, [m]);
         } else {
           next = adapter.applyMove(s, m);
         }
+        if (next.phase === 'roundEnd' || next.phase === 'finished') setUndoStack([]);
         setState(next);
       } catch (e) {
         setError(e instanceof Error ? e.message : messages.gameShell.invalidMove);
@@ -133,18 +240,43 @@ function GameInner() {
   );
 
   const handleUndo = useCallback(() => {
+    if (gameId === 'backgammon') {
+      const transaction = backgammonTurnRef.current;
+      if (!transaction || transaction.moves.length === 0) return;
+      try {
+        const undone = undoLocalBackgammonMove(transaction);
+        setBackgammonTurn(undone.transaction);
+        setState(undone.state);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : messages.gameShell.invalidMove);
+      }
+      return;
+    }
     setUndoStack((prev) => {
       if (prev.length === 0) return prev;
       const snapshot = prev[prev.length - 1];
       setState(snapshot);
       return prev.slice(0, -1);
     });
-  }, []);
+  }, [gameId, messages.gameShell.invalidMove]);
+
+  const commitLocalBackgammonTurn = useCallback(() => {
+    const transaction = backgammonTurnRef.current;
+    if (!transaction || !canCommitLocalBackgammonTurn(transaction)) return;
+    try {
+      const committed = commitLocalBackgammonTurnTransaction(transaction);
+      setBackgammonTurn(null);
+      setUndoStack([]);
+      setState(committed);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : messages.gameShell.invalidMove);
+    }
+  }, [messages.gameShell.invalidMove]);
 
   const runBot = useCallback(async () => {
     if (isBotRunning.current) return;
     const s = stateRef.current;
-    if (!s || s.phase === 'finished' || s.turn !== 'p2') return;
+    if (!s || s.phase !== 'playing' || s.turn !== 'p2') return;
     isBotRunning.current = true;
     try {
       const cur = s;
@@ -180,7 +312,7 @@ function GameInner() {
             await sleep(800);
             tempState = adapter.applyChain(tempState, [m]);
             setState(tempState);
-            if (tempState.phase === 'finished') break;
+            if (tempState.phase !== 'playing') break;
           }
         }
         isBotRunning.current = false;
@@ -241,7 +373,9 @@ function GameInner() {
             onRoll={() => applyLocal({ player: state.turn, kind: 'roll' })}
             onMove={(m: BackgammonMove) => applyLocal(m)}
             onChain={(chain) => applyLocal(chain)}
-            onEndTurn={() => applyLocal([])}
+            onEndTurn={commitLocalBackgammonTurn}
+            canEndTurn={canCommitLocalBackgammonTurn(backgammonTurn)}
+            legalMovesOverride={getLocalBackgammonNextMoves(backgammonTurn)}
             onOfferDouble={() => {
               const fn = (BG as any).offerDouble;
               if (fn) setState(fn(stateRef.current, 'p1'));
@@ -264,6 +398,16 @@ function GameInner() {
   })();
 
   const isFinished = !!state && state.phase === 'finished';
+  const isRoundEnd = gameId === 'backgammon' && state?.phase === 'roundEnd';
+
+  const startNextBackgammonGame = useCallback(() => {
+    const current = stateRef.current;
+    if (!current || current.phase !== 'roundEnd') return;
+    setUndoStack([]);
+    setBackgammonTurn(null);
+    if (!adapter.startNextGame) return;
+    setState(adapter.startNextGame(current));
+  }, [adapter]);
   useEffect(() => {
     if (isFinished && state && state.winner) {
       const winnerId = state.winner === 'p1' ? 'p1' : 'p2';
@@ -275,7 +419,14 @@ function GameInner() {
     }
   }, [isFinished, state, gameId]);
 
-  const winner = isFinished
+  const winner = isRoundEnd
+    ? {
+        label: state.gameWinner === myId ? shellMessages.youWonGame : shellMessages.botWonGame,
+        sub: messages.gameShell.finalScore(state.scores[myId] ?? 0, state.scores.p2 ?? 0),
+        onRematch: startNextBackgammonGame,
+        actionLabel: shellMessages.nextGame,
+      }
+    : isFinished
     ? {
         label: state.winner
           ? state.winner === myId
@@ -295,8 +446,9 @@ function GameInner() {
       : null;
 
   const settings = (
-    <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
-      <FormControl size="small" sx={{ minWidth: 120 }}>
+    <GameSettingsToolbar
+      options={<>
+      <FormControl size="small">
         <InputLabel>{messages.gameShell.difficulty}</InputLabel>
         <Select
           value={difficulty}
@@ -327,19 +479,7 @@ function GameInner() {
           />
           {match.matchPoint && (
             <>
-              {gameId !== 'tic-tac-toe' && (
-                <FormControlLabel
-                  control={
-                    <Switch
-                      size="small"
-                      checked={match.winByTwo}
-                      onChange={(e) => setMatch({ ...match, winByTwo: e.target.checked })}
-                    />
-                  }
-                  label={<Typography variant="body2">{messages.gameShell.winByTwo}</Typography>}
-                />
-              )}
-              <FormControl size="small" sx={{ minWidth: 90 }}>
+              <FormControl size="small">
                 <InputLabel>{messages.gameShell.target}</InputLabel>
                 <Select
                   value={match.targetScore}
@@ -347,7 +487,7 @@ function GameInner() {
                   onChange={(e) => setMatch({ ...match, targetScore: Number(e.target.value) })}
                   sx={{ borderRadius: 2, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' } }}
                 >
-                  {[3, 5, 7, 9].map((n) => (
+                  {(gameId === 'backgammon' ? BACKGAMMON_RULES_PROFILE.targetScores : [3, 5, 7, 9]).map((n) => (
                     <MenuItem key={n} value={n}>
                       {n} {messages.gameShell.points}
                     </MenuItem>
@@ -358,12 +498,14 @@ function GameInner() {
           )}
         </>
       )}
+      </>}
+      actions={<>
       <Button
         size="small"
         variant="outlined"
         color="primary"
         onClick={handleUndo}
-        disabled={undoStack.length === 0 || !humanTurn}
+        disabled={(gameId === 'backgammon' ? (backgammonTurn?.moves.length ?? 0) === 0 : undoStack.length === 0) || !humanTurn}
         startIcon={<Undo2 size={14} />}
         title={messages.gameShell.undoLastMove}
       >
@@ -372,17 +514,19 @@ function GameInner() {
       <Button size="small" variant="outlined" color="primary" onClick={newGame}>
         {messages.common.newGame}
       </Button>
-    </Box>
+      </>}
+    />
   );
 
   return (
     <GameShell
       title={getGameTitle(gameId, locale)}
-      gameChip={getGameChip(gameId, locale)}
+      surfaceRatio={getGameCatalogEntry(gameId).surfaceRatio}
       backHref={localizedAppRoute(locale, 'lobby')}
       turnText={state && state.phase === 'playing' ? (humanTurn ? messages.gameShell.yourTurn : messages.gameShell.botTurn) : null}
       scores={scores}
       maxRounds={match.matchPoint ? match.targetScore : 1}
+      scoreTitle={gameId === 'backgammon' && match.matchPoint ? `${match.targetScore} ${messages.gameShell.points}` : undefined}
       settings={settings}
       winner={winner}
     >

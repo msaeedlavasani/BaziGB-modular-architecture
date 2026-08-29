@@ -30,6 +30,9 @@ jobs:
       - name: Check AIPDE governance wiring
         run: npm run check:governance && npm run test:governance
 
+      - name: Check Design System contracts
+        run: npm run check:design-system && npm run test:design-system
+
       - name: Build shared game packages
         run: npm run build:packages
 

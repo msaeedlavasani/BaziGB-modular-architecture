@@ -1,29 +1,52 @@
 /**
  * Seed کاربر اصلی (مدیر/صاحب پلتفرم) در دیتابیس محلی.
- * اجرا:  node scripts/seed-user.js
+ * اجرا با ورودی صریح:
+ * SEED_EMAIL=... SEED_USERNAME=... SEED_PASSWORD=... node scripts/seed-user.js
  * اگر کاربر با همین ایمیل وجود داشته باشد فقط رمز را به‌روز می‌کند.
  */
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 
-const EMAIL = process.env.SEED_EMAIL || 'msaeedlavasani@gmail.com';
-const USERNAME = process.env.SEED_USERNAME || 'msaeedlavasani';
-const PASSWORD = process.env.SEED_PASSWORD || 'BaziGB@2026';
+const REQUIRED_SEED_VARIABLES = ['SEED_EMAIL', 'SEED_USERNAME', 'SEED_PASSWORD'];
 
-(async () => {
-  const prisma = new PrismaClient();
+function readSeedConfig(environment) {
+  const missing = REQUIRED_SEED_VARIABLES.filter((name) => {
+    const value = environment[name];
+    return typeof value !== 'string' || value.trim().length === 0;
+  });
+
+  if (missing.length > 0) {
+    throw new Error(`Missing required seed environment variables: ${missing.join(', ')}`);
+  }
+
+  return {
+    email: environment.SEED_EMAIL,
+    username: environment.SEED_USERNAME,
+    password: environment.SEED_PASSWORD,
+  };
+}
+
+async function seedUser({ environment = process.env, prismaClient, hashPassword = bcrypt.hash } = {}) {
+  const { email, username, password } = readSeedConfig(environment);
+  const prisma = prismaClient || new PrismaClient();
   try {
-    const hashed = await bcrypt.hash(PASSWORD, 10);
+    const hashed = await hashPassword(password, 10);
     const user = await prisma.user.upsert({
-      where: { email: EMAIL },
+      where: { email },
       update: { password: hashed },
-      create: { email: EMAIL, username: USERNAME, password: hashed, role: 'ADMIN' },
+      create: { email, username, password: hashed, role: 'ADMIN' },
     });
     console.log('User ready:', { email: user.email, username: user.username, role: user.role });
   } finally {
     await prisma.$disconnect();
   }
-})().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+}
+
+if (require.main === module) {
+  seedUser().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
+
+module.exports = { readSeedConfig, seedUser };

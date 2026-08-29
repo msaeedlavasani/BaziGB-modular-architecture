@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# One-time, explicitly approved preparation for the versioned release path.
+# Running this script changes production and is never part of deploy.sh.
+set -euo pipefail
+
+[[ "$(id -u)" -eq 0 ]] || { echo 'Run as root.' >&2; exit 1; }
+
+ROOT="${BAZIGB_RELEASE_ROOT:-/srv/bazigb}"
+LEGACY_ROOT="${BAZIGB_LEGACY_ROOT:-/opt/bazigb}"
+CONTROLLER_SOURCE="${1:-scripts/bazigb-release}"
+SQLITE_BACKUP_SOURCE="${2:-scripts/sqlite-backup.py}"
+DEPLOY_USER="bazigb-deploy"
+RUNTIME_USER="bazigb-runtime"
+APP_GROUP="bazigb-app"
+
+[[ -f "${CONTROLLER_SOURCE}" ]] || { echo 'Release controller source is missing.' >&2; exit 1; }
+[[ -f "${SQLITE_BACKUP_SOURCE}" ]] || { echo 'SQLite backup helper source is missing.' >&2; exit 1; }
+[[ -f "${LEGACY_ROOT}/.env" ]] || { echo 'Legacy environment file is missing.' >&2; exit 1; }
+[[ -f "${LEGACY_ROOT}/apps/server/prisma/dev.db" ]] || { echo 'Legacy SQLite database is missing.' >&2; exit 1; }
+command -v visudo >/dev/null 2>&1 || { echo 'visudo is required.' >&2; exit 1; }
+
+getent group "${APP_GROUP}" >/dev/null || groupadd --system "${APP_GROUP}"
+getent group "${RUNTIME_USER}" >/dev/null || groupadd --system "${RUNTIME_USER}"
+id "${DEPLOY_USER}" >/dev/null 2>&1 || useradd --create-home --shell /bin/bash --user-group "${DEPLOY_USER}"
+id "${RUNTIME_USER}" >/dev/null 2>&1 || useradd --system --home-dir /nonexistent --shell /usr/sbin/nologin --gid "${RUNTIME_USER}" "${RUNTIME_USER}"
+usermod -a -G "${APP_GROUP}" "${DEPLOY_USER}"
+usermod -a -G "${APP_GROUP}" "${RUNTIME_USER}"
+
+install -d -m 0750 -o root -g "${APP_GROUP}" "${ROOT}"
+install -d -m 2770 -o "${DEPLOY_USER}" -g "${APP_GROUP}" "${ROOT}/releases"
+install -d -m 0750 -o root -g "${RUNTIME_USER}" "${ROOT}/shared"
+install -d -m 0750 -o "${RUNTIME_USER}" -g "${RUNTIME_USER}" "${ROOT}/shared/data"
+install -d -m 0700 -o root -g root "${ROOT}/shared/backups"
+
+install -m 0640 -o root -g "${RUNTIME_USER}" "${LEGACY_ROOT}/.env" "${ROOT}/shared/.env"
+install -m 0755 -o root -g root "${SQLITE_BACKUP_SOURCE}" /usr/local/sbin/bazigb-sqlite-backup
+/usr/local/sbin/bazigb-sqlite-backup "${LEGACY_ROOT}/apps/server/prisma/dev.db" "${ROOT}/shared/data/dev.db"
+chown "${RUNTIME_USER}:${RUNTIME_USER}" "${ROOT}/shared/data/dev.db"
+chmod 0660 "${ROOT}/shared/data/dev.db"
+
+install -m 0755 -o root -g root "${CONTROLLER_SOURCE}" /usr/local/sbin/bazigb-release
+cat >/etc/sudoers.d/bazigb-release <<'SUDOERS'
+Cmnd_Alias BAZIGB_RELEASE = /usr/local/sbin/bazigb-release prepare *, /usr/local/sbin/bazigb-release verify *, /usr/local/sbin/bazigb-release activate *
+bazigb-deploy ALL=(root) NOPASSWD: BAZIGB_RELEASE
+SUDOERS
+chmod 0440 /etc/sudoers.d/bazigb-release
+visudo -cf /etc/sudoers.d/bazigb-release >/dev/null
+
+cat >/etc/systemd/system/bazigb-server.service.next <<'UNIT'
+[Unit]
+Description=BaziGB NestJS Server
+After=network.target
+
+[Service]
+Type=simple
+User=bazigb-runtime
+Group=bazigb-app
+WorkingDirectory=/srv/bazigb/current/apps/server
+Environment=NODE_ENV=production
+ExecStart=/usr/local/bin/node dist/main.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/srv/bazigb/shared/data
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+cat >/etc/systemd/system/bazigb-web.service.next <<'UNIT'
+[Unit]
+Description=BaziGB Next.js Web
+After=network.target
+
+[Service]
+Type=simple
+User=bazigb-runtime
+Group=bazigb-app
+WorkingDirectory=/srv/bazigb/current/apps/web
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/local/bin/node .next/standalone/apps/web/server.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+echo 'Host preparation completed. Units are staged as *.service.next and are not active.'
+echo 'Do not replace active units until a candidate has passed verify and cutover is explicitly approved.'

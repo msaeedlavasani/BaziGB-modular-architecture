@@ -101,7 +101,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   /** ساخت وضعیت اولیه با ۱ راند در هر state (مدیریت راندها با گیتوی) */
   private initialState(room: RoomWithParsedData): GameState {
-    const match: MatchConfig = { matchPoint: true, winByTwo: false, targetScore: 1 };
+    const match: MatchConfig = room.gameType === 'backgammon'
+      ? { matchPoint: room.maxRounds > 1, winByTwo: false, targetScore: room.maxRounds }
+      : { matchPoint: true, winByTwo: room.gameType === 'tic-tac-toe', targetScore: this.matchTarget(room.maxRounds) };
     return this.resolveGame(room.gameType).createState(this.makePlayers(room), match) as GameState;
   }
 
@@ -412,6 +414,39 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   /** پایان یک راند: بهروزرسانی امتیازها و بررسی پایان مسابقه */
   private async handleRoundOver(room: RoomWithParsedData, finalState: GameState) {
+    if (room.gameType === 'backgammon') {
+      const scores = { ...(finalState.scores ?? {}) };
+      await this.roomService.saveScores(room.code, scores);
+      this.undoStacks.delete(room.code);
+      this.clearTurnTimers(room.code);
+      this.server.to(room.code).emit('matchScore', { room: room.code, scores });
+
+      if (finalState.phase === 'roundEnd') {
+        this.server.to(room.code).emit('roundOver', {
+          room: room.code,
+          winner: (finalState as { gameWinner?: string | null }).gameWinner ?? null,
+          points: (finalState as { gamePoints?: number }).gamePoints ?? 1,
+          scores,
+          state: finalState,
+        });
+        this.emitSystemMessage(room.code, 'این دست تمام شد؛ نتیجه را ببینید و دست بعدی را شروع کنید');
+        return;
+      }
+
+      const matchWinner = finalState.winner ?? '';
+      await this.roomService.finishRoom(room.code, matchWinner, finalState);
+      const finalRoom = await this.roomService.getRoom(room.code);
+      this.server.to(room.code).emit('gameOver', {
+        room: room.code,
+        winner: matchWinner,
+        scores,
+        state: finalState,
+      });
+      this.server.to(room.code).emit('roomUpdate', finalRoom);
+      this.emitSystemMessage(room.code, 'مسابقه تخته تمام شد', matchWinner || undefined, 'success');
+      return;
+    }
+
     // وگاس: راندهای ۴گانه داخل خود بازی است — پایان state یعنی پایان کل مسابقه
     if (room.gameType === 'vegas') {
       await this.roomService.finishRoom(room.code, finalState.winner ?? '', finalState);
@@ -500,18 +535,26 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       next = adapter.applyMove(state, move as never) as GameState;
     }
 
-    // ذخیره اسنپشات برای undo
-    const stack = this.undoStacks.get(room.code) ?? [];
-    stack.push({ state, actorId: (move as { player?: string }).player ?? state.turn });
-    if (stack.length > UNDO_DEPTH) stack.shift();
-    this.undoStacks.set(room.code, stack);
+    // Undo policy belongs to the game. Random actions such as Backgammon rolls
+    // must never become a transport-level reversible snapshot.
+    const actions = Array.isArray(move) ? move : [move];
+    const undoable = actions.some((action) =>
+      adapter.canUndoMove ? adapter.canUndoMove(state as never, action as never) : true,
+    );
+    if (undoable) {
+      const stack = this.undoStacks.get(room.code) ?? [];
+      const actorId = (actions[0] as { player?: string } | undefined)?.player ?? state.turn;
+      stack.push({ state, actorId });
+      if (stack.length > UNDO_DEPTH) stack.shift();
+      this.undoStacks.set(room.code, stack);
+    }
 
     await this.roomService.saveState(room.code, next);
     const updated = await this.roomService.getRoom(room.code);
     this.server.to(room.code).emit('gameState', next);
     this.server.to(room.code).emit('roomUpdate', updated);
 
-    if (next.phase === 'finished') {
+    if (next.phase === 'finished' || next.phase === 'roundEnd') {
       await this.handleRoundOver(updated!, next);
     } else {
       this.scheduleTurnTimer(room.code, next);
@@ -583,7 +626,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const room = await this.roomService.getRoom(parsed.data.room);
       if (!room || room.status !== 'playing') return;
-      await this.roomService.startGame(room.code, this.initialState(room));
+      if (room.gameType === 'backgammon') {
+        const current = room.currentState as GameState | null;
+        if (!current || current.phase !== 'roundEnd') {
+          throw new BadRequestException('دست بعدی هنوز آماده شروع نیست');
+        }
+        const adapter = this.resolveGame(room.gameType);
+        if (!adapter.startNextGame) throw new BadRequestException('این بازی ادامه مسابقه را پشتیبانی نمی‌کند');
+        await this.roomService.startGame(room.code, adapter.startNextGame(current as never) as GameState);
+      } else {
+        await this.roomService.startGame(room.code, this.initialState(room));
+      }
+      this.undoStacks.delete(room.code);
       const updated = await this.roomService.getRoom(room.code);
       this.server.to(room.code).emit('gameState', updated?.currentState);
       this.server.to(room.code).emit('roomUpdate', updated);
@@ -687,7 +741,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to(room.code).emit('gameState', next);
       this.server.to(room.code).emit('roomUpdate', updated);
 
-      if (next.phase === 'finished') {
+      if (next.phase === 'finished' || next.phase === 'roundEnd') {
         this.emitSystemMessage(room.code, 'پیشنهاد دابل رد شد و راند به پایان رسید');
         await this.handleRoundOver(updated!, next);
       } else {

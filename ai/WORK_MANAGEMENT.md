@@ -1,0 +1,144 @@
+# AIPDE Work Management Contract
+
+**Version:** 1.0.0
+**Role:** Canonical policy for portfolio grouping, task state, reporting, retrieval, supersession, and resource gates.
+
+The machine-readable companions are `ai/work-registry-v1.json`, `ai/current-state.json`, and `ai/retrieval-manifest-v1.json`. Active work state lives in the Work Registry, never in historical reports.
+
+## Operating model
+
+AIPDE capabilities are accountable operational functions, not simulated job titles. Every task has one accountable capability, bounded contributors, an evidence contract, a receiver, and a learning destination.
+
+The hierarchy is:
+
+`portfolio → domain → workstream → milestone → task → evidence → learning`
+
+Tasks are grouped when they share an outcome, root control, evidence path, or dependency boundary. Screenshot recency, file proximity, and chat order are not grouping or priority rules.
+
+## Portfolio taxonomy
+
+The canonical portfolio categories are:
+
+1. Product Integrity — rules, state, scoring, completion, randomness, reconnect, and result correctness.
+2. Security and Trust — identity, authorization, protocol trust, abuse prevention, privacy, and administrative authority.
+3. Product Experience — information architecture, interaction, accessibility, ergonomics, hierarchy, and comprehension.
+4. Design System and Brand — reusable anatomy, tokens, responsive contracts, identity, assets, maturity, and conformance.
+5. Platform Architecture — package, adapter, routing, persistence, localization, and server/client ownership contracts.
+6. Evaluation and Quality — unit, contract, integration, adversarial, accessibility, human-acceptance, and evidence gates.
+7. Delivery and Operations — environment, deployment, rollback, observability, backup, restore, and incidents.
+8. Governance and Knowledge — authority, work state, retrieval, reporting, versioning, cost, and transferability.
+9. Growth and Market Learning — launch scope, acquisition, activation, retention, feedback, experiments, and cost of delay.
+10. Evolution — recurrence analysis, changed controls, regression mechanisms, and measured learning.
+
+Evaluation and Quality and Evolution are embedded in every applicable workstream even when another category owns its outcome.
+
+## Priority model
+
+Priority is recomputed from evidence rather than inherited from report order. Evaluate:
+
+- user or safety harm;
+- release-blocking trust or correctness risk;
+- dependency leverage and number of downstream tasks unblocked;
+- recurrence likelihood and shared-control leverage;
+- uncertainty and evidence gap;
+- reversibility;
+- cost relative to expected risk reduction;
+- cost of delay and time to validated market learning;
+- human value and product visibility.
+
+Priority bands:
+
+- `P0`: active harm, exploit, corrupted authority/state, or release blocker.
+- `P1`: high-value dependency or user-critical correctness/experience gap.
+- `P2`: important quality, resilience, or scale work that does not block the current candidate.
+- `P3`: bounded improvement, optional capability, or deferred optimization.
+
+## Launch discipline
+
+When a usable candidate exists, launch readiness becomes an explicit portfolio
+milestone rather than an implicit final phase. The system must distinguish:
+
+1. release blockers: trust, correctness, operability, recovery, legal/support,
+   and evidence gaps that can harm users or make the service uncontrollable;
+2. Alpha learning enablers: onboarding, feedback, critical funnel events, and an
+   owned response loop;
+3. post-launch evolution: polish, optional variants, speculative capabilities,
+   and architecture improvements that do not block the stated release promise.
+
+Every pre-launch task must justify why its risk reduction exceeds the cost of
+delaying user learning. A release train uses an explicit included/excluded
+capability boundary, WIP limits, Go/No-Go evidence, a candidate revision, and
+separate deploy authority. Product perfection is never an implicit release gate.
+
+## Task lifecycle
+
+Allowed states are:
+
+`observed → triaged → approved → in-progress → implemented → machine-validated → human-validation-pending → accepted → operationally-verified → learning-captured`
+
+Additional non-linear states are `blocked`, `deferred`, `rejected`, `superseded`, and `reopened`.
+
+Implemented is not validated. Machine-validated is not human-accepted. Accepted is not deployed or operationally verified. A task is never deleted to make the backlog appear smaller.
+
+Every task records: stable id, category, domain, workstream, milestone, outcome, accountable capability, contributors, source, state, priority, risk, dependencies, scope, exclusions, acceptance, machine evidence, human evidence, resource estimate, approval gate, artifact, receiver, learning destination, and related or superseding tasks.
+
+## Work reporting policy
+
+Every milestone report separates:
+
+1. changed;
+2. validated, with exact evidence;
+3. implemented but awaiting a gate;
+4. genuinely open, blocked, deferred, rejected, reopened, or superseded;
+5. resource estimate versus observed user-reported usage when available.
+
+Reports are evidence snapshots and must not become a second active backlog. They reference task ids. Status changes occur only in the Work Registry.
+
+## Current-state policy
+
+`ai/current-state.json` is the small mandatory session-resume source. It contains only repository context, active milestone, active or next tasks, current gates, blockers, last validation, constraints, and links to canonical registries.
+
+Update it at a material handoff or milestone boundary. Do not copy long decisions or histories into it.
+
+## Retrieval policy
+
+Every task first reads:
+
+1. `AGENTS.md`;
+2. `AI_CONTEXT_MAP.md`;
+3. `ai/current-state.json`;
+4. the matching route in `ai/retrieval-manifest-v1.json`;
+5. only the routed domain sources and closest implementation/evidence.
+
+Historical reports are excluded by default. They may be opened only when provenance is required, a regression recurs, current sources conflict, or the user requests history/audit. Within one task, an unchanged source is not reread without a concrete reason.
+
+Context expansion is progressive: start with the route's initial sources, inspect direct dependencies, and expand only when uncertainty, risk, a failed check, or a source conflict demands it. Broad documentation search requires an explicit retrieval reason and may trigger a Resource Approval Request.
+
+## Supersession policy
+
+Historical evidence is immutable. A newer artifact does not erase it.
+
+- Canonical contracts may be updated in place with version and validation changes.
+- Historical reports receive status metadata and a `supersededBy` link when replaced.
+- The Work Registry task retains relationships and the decision reason.
+- A superseded task is excluded from actionable backlog counts.
+- A reopened task links the new evidence and preserves the earlier acceptance record.
+- HANDOFF and Current State link to canonical active state rather than restating historical status.
+
+## Resource and cost gate
+
+Each task has an estimated usage band:
+
+- `low`: under 3% of the user's five-hour usage window;
+- `medium`: 3% to 8%;
+- `high`: above 8%.
+
+Low work may proceed inside an approved scope. Medium and high work require an explicit estimate and human approval before execution. If expected usage crosses the approved band, work stops before expansion.
+
+Human browser acceptance is assigned to the human when experiential judgment can supply the evidence. AI-run browser work is used only when specifically approved or when a technical ambiguity cannot be tested more economically. Machine tests necessary for correctness are not removed to save cost; scope is reduced instead.
+
+Exact token attribution is reported only when telemetry exists. Otherwise label percentages as estimates, give confidence, and never present inferred allocation as measured fact.
+
+## Closure and learning
+
+Task closure requires the applicable evidence and gate. A structurally repeatable failure also requires a changed shared control and recurrence detector. The visible defect may close before all optional evolution work, but the learning task remains linked and explicitly prioritized.

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -16,20 +16,24 @@ import {
 import {
   getLegalMoves,
   getMoveHints,
-  canBearOff,
+  canOfferDouble,
   type BackgammonMove,
   type BackgammonState,
 } from '@bazigb/game-backgammon';
 import Dice3D from './Dice3D';
 import { soundService } from '@/lib/sound-service';
 import { useAppLocale } from '@/hooks/useAppLocale';
-import { getBackgammonBoardMessages } from '@/i18n/backgammon-board';
+import { formatBackgammonCount, getBackgammonBoardMessages } from '@/i18n/backgammon-board';
+import { getBackgammonCubeDockPosition } from '@/lib/backgammon-cube-dock';
 
 /**
  * Backgammon board with fixed LTR game geometry and locale-aware surrounding chrome.
  */
-const CHECKER_LIGHT = '#F1E6CF';
-const CHECKER_DARK = '#3A3A40';
+const CHECKER_LIGHT = '#F5EBD8';
+const CHECKER_DARK = '#8FA2B8';
+const BOARD_EDGE = '#1D3348';
+const BOARD_FIELD = '#0D2133';
+const BOARD_ACCENT = '#C88B2A';
 
 interface Props {
   state: BackgammonState;
@@ -37,6 +41,8 @@ interface Props {
   onMove?: (move: BackgammonMove) => void;
   onChain?: (chain: BackgammonMove[]) => void;
   onEndTurn?: () => void;
+  canEndTurn?: boolean;
+  legalMovesOverride?: BackgammonMove[];
   onOfferDouble?: () => void;
   onRespondDouble?: (accept: boolean) => void;
   disabled?: boolean;
@@ -56,6 +62,8 @@ export default function BackgammonBoard({
   onMove,
   onChain,
   onEndTurn,
+  canEndTurn = false,
+  legalMovesOverride,
   onOfferDouble,
   onRespondDouble,
   disabled = false,
@@ -64,6 +72,7 @@ export default function BackgammonBoard({
 }: Props) {
   const locale = useAppLocale();
   const messages = getBackgammonBoardMessages(locale);
+  const pointNumber = useMemo(() => new Intl.NumberFormat(locale === 'fa' ? 'fa-IR' : 'en-US', { useGrouping: false }), [locale]);
   const myColorNum: number = myColor ?? ((state.players[0]?.color as number) || 1);
   const [selected, setSelected] = useState<number | 'bar' | null>(null);
 
@@ -80,8 +89,9 @@ export default function BackgammonBoard({
 
   const p1Id = state.players.find((p) => p.color === 1)?.id;
   const p2Id = state.players.find((p) => p.color === -1)?.id;
+  const cubeDockPosition = getBackgammonCubeDockPosition(cubeOwner, p1Id, p2Id);
 
-  const legalMoves = useMemo(() => getLegalMoves(state), [state]);
+  const legalMoves = useMemo(() => legalMovesOverride ?? getLegalMoves(state), [legalMovesOverride, state]);
 
   const pieceMoves = useMemo(
     () =>
@@ -114,30 +124,6 @@ export default function BackgammonBoard({
   const myBarCount = bar[myColorNum] ?? 0;
   const mustFromBar = myBarCount > 0;
   const myCheckerOnPoint = (i: number) => (myColorNum === 1 ? board[i] > 0 : board[i] < 0);
-
-  const stateKey = [board.join(','), bar[1], bar[-1], off[1], off[-1], dice.join(',')].join('|');
-
-  const forcedPlayedRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (disabled || !isMyTurn || !rolled || dice.length === 0) return;
-    if (forcedPlayedRef.current === stateKey) return;
-    if (pieceMoves.length !== 1) return;
-    const only = pieceMoves[0];
-    const allInHome = canBearOff(state, state.turn);
-    if (myBarCount > 0 || allInHome) {
-      forcedPlayedRef.current = stateKey;
-      onMove?.(only);
-    }
-  }, [stateKey, disabled, isMyTurn, rolled, dice.length, pieceMoves, myBarCount, onMove, state]);
-
-  const passedRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (disabled || !isMyTurn || !rolled || dice.length === 0) return;
-    if (pieceMoves.length > 0) return;
-    if (passedRef.current === stateKey) return;
-    passedRef.current = stateKey;
-    onEndTurn?.();
-  }, [stateKey, disabled, isMyTurn, rolled, dice.length, pieceMoves, onEndTurn]);
 
   const handleMove = (move: BackgammonMove) => {
     if (disabled || !isMyTurn || move.kind !== 'move') return;
@@ -204,10 +190,11 @@ export default function BackgammonBoard({
     const color = light ? CHECKER_LIGHT : CHECKER_DARK;
     const maxVisible = 5;
     const shown = Math.min(absCount, maxVisible);
-    const size = isBar ? 38 : '94%';
+    const size = isBar ? 'min(88%, 2.25rem)' : '94%';
     return (
       <Box
         sx={{
+          width: '100%',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -220,7 +207,7 @@ export default function BackgammonBoard({
             key={`${keyPrefix}-${i}`}
             sx={{
               width: size,
-              minWidth: 26,
+              minWidth: isBar ? 24 : 0,
               maxWidth: 110,
               aspectRatio: '1',
               borderRadius: '50%',
@@ -249,7 +236,7 @@ export default function BackgammonBoard({
                   lineHeight: 1,
                 }}
               >
-                {absCount}
+                {formatBackgammonCount(locale, absCount)}
               </Typography>
             )}
           </Box>
@@ -257,6 +244,31 @@ export default function BackgammonBoard({
       </Box>
     );
   };
+
+  const cubeMarker = cube > 1 && cubeDockPosition ? (
+    <Paper
+      elevation={6}
+      aria-label={`doubling cube ${pointNumber.format(cube)}`}
+      sx={{
+        width: 'min(82%, 1.875rem)',
+        aspectRatio: '1',
+        flex: '0 0 auto',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: '#2a1408',
+        color: '#f0d9b5',
+        fontWeight: 900,
+        fontSize: { xs: 10, sm: 13 },
+        borderRadius: 1,
+        border: '1px solid #b58863',
+        boxShadow: '0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
+        pointerEvents: 'none',
+      }}
+    >
+      {pointNumber.format(cube)}
+    </Paper>
+  ) : null;
 
   const Point = ({ index }: { index: number }) => {
     const count = board[index];
@@ -363,14 +375,14 @@ export default function BackgammonBoard({
             zIndex: 20,
             pointerEvents: 'none',
             textAlign: 'center',
-            fontFamily: 'monospace',
-            fontSize: 8,
-            color: isDark ? 'rgba(255,255,255,0.55)' : 'rgba(60,30,5,0.6)',
+            fontVariantNumeric: 'tabular-nums',
+            fontSize: 'clamp(0.38rem, 1.8cqi, 0.55rem)',
+            color: 'rgba(232,238,246,0.48)',
             bottom: isTop ? 1 : undefined,
             top: isTop ? undefined : 1,
           }}
         >
-          {index + 1}
+          {pointNumber.format(index + 1)}
         </Typography>
       </Box>
     );
@@ -389,7 +401,7 @@ export default function BackgammonBoard({
           gridTemplateColumns: 'repeat(6, 1fr)',
           width: '100%',
           aspectRatio: '5/4',
-          borderBottom: '2px solid rgba(43,21,9,0.85)',
+          borderBottom: `1px solid ${BOARD_EDGE}`,
         }}
       >
         {top.map((i) => (
@@ -405,17 +417,10 @@ export default function BackgammonBoard({
   );
 
   const canRoll = isMyTurn && !disabled && !rolled && state.phase === 'playing';
-  const canEndTurn = isMyTurn && !disabled && rolled && dice.length > 0 && pieceMoves.length === 0;
+  const showEndTurn = isMyTurn && !disabled && canEndTurn;
   const showDice = dice.length > 0;
 
-  const canDouble =
-    isMyTurn &&
-    !disabled &&
-    !rolled &&
-    cube < 64 &&
-    !doubling &&
-    state.phase === 'playing' &&
-    (cubeOwner === null || cubeOwner !== state.turn);
+  const canDouble = isMyTurn && !disabled && canOfferDouble(state, state.turn);
 
   return (
     <Paper
@@ -430,13 +435,13 @@ export default function BackgammonBoard({
         mx: 'auto',
         p: { xs: 1, sm: 2.5 },
         borderRadius: { xs: 3, sm: 5 },
-        border: { xs: '6px solid #2a1408', sm: '9px solid #2a1408' },
+        containerType: 'inline-size',
+        border: { xs: `4px solid ${BOARD_EDGE}`, sm: `7px solid ${BOARD_EDGE}` },
         background: [
-          'repeating-linear-gradient(90deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 2px, transparent 2px, transparent 7px)',
-          'repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 11px)',
-          'linear-gradient(155deg, #6e3c1d 0%, #4e2912 40%, #331a0b 72%, #241105 100%)',
+          'radial-gradient(circle at 50% 0%, rgba(200,139,42,0.12), transparent 52%)',
+          'linear-gradient(155deg, #162D43 0%, #10263A 48%, #091A29 100%)',
         ].join(', '),
-        boxShadow: '0 30px 60px -15px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
+        boxShadow: '0 24px 48px -18px rgba(0,0,0,0.58), inset 0 1px 0 rgba(255,255,255,0.08)',
       }}
     >
       <Box
@@ -448,27 +453,27 @@ export default function BackgammonBoard({
           userSelect: 'none',
           overflow: 'hidden',
           borderRadius: 1.5,
-          border: '4px solid #2b1509',
+          border: `2px solid ${BOARD_EDGE}`,
           background: [
             'radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 45%)',
             'radial-gradient(130% 120% at 50% 115%, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 55%)',
             'repeating-linear-gradient(45deg, rgba(0,0,0,0.045) 0px, rgba(0,0,0,0.045) 1px, transparent 1px, transparent 5px)',
             'repeating-linear-gradient(-45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 5px)',
-            'radial-gradient(ellipse 150% 110% at 50% 50%, #38543f 0%, #26392c 55%, #152319 100%)',
+            `radial-gradient(ellipse 150% 110% at 50% 50%, #18364E 0%, ${BOARD_FIELD} 62%, #081827 100%)`,
           ].join(', '),
         }}
       >
         <svg width={0} height={0} style={{ position: 'absolute' }} aria-hidden="true" focusable="false">
           <defs>
             <linearGradient id="bgPtDark" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#8a5a30" />
-              <stop offset="45%" stopColor="#6b3f1e" />
-              <stop offset="100%" stopColor="#45260f" />
+              <stop offset="0%" stopColor="#D59A37" />
+              <stop offset="55%" stopColor={BOARD_ACCENT} />
+              <stop offset="100%" stopColor="#8D5D17" />
             </linearGradient>
             <linearGradient id="bgPtLight" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#f5e0b2" />
-              <stop offset="45%" stopColor="#dfbd85" />
-              <stop offset="100%" stopColor="#bf9257" />
+              <stop offset="0%" stopColor="#B9C7D6" />
+              <stop offset="55%" stopColor="#7F96AD" />
+              <stop offset="100%" stopColor="#526B84" />
             </linearGradient>
           </defs>
         </svg>
@@ -480,60 +485,37 @@ export default function BackgammonBoard({
           sx={{
             position: 'relative',
             zIndex: 30,
-            width: { xs: 28, sm: 44 },
+            width: 'clamp(2.5rem, 9cqi, 3.75rem)',
             cursor: isMyTurn && !disabled && rolled && myBarCount > 0 ? 'pointer' : 'default',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderLeft: '2px solid #2b1509',
-            borderRight: '2px solid #2b1509',
             py: 0.75,
+            borderInline: `1px solid ${BOARD_EDGE}`,
             bgcolor:
               selected === 'bar'
                 ? 'rgba(240, 217, 181, 0.4)'
                 : [
                     'repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 10px)',
-                    'linear-gradient(180deg, #f0d9b5 0%, #b58863 50%, #f0d9b5 100%)',
+                    'linear-gradient(180deg, #24435D 0%, #112A40 50%, #24435D 100%)',
                   ].join(', '),
           }}
         >
-          {cube > 1 && (
-            <Paper
-              elevation={6}
-              sx={{
-                position: 'absolute',
-                left: '50%',
-                width: { xs: 22, sm: 30 },
-                height: { xs: 22, sm: 30 },
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                bgcolor: '#2a1408',
-                color: '#f0d9b5',
-                fontWeight: 900,
-                fontSize: { xs: 11, sm: 15 },
-                borderRadius: 1,
-                zIndex: 100,
-                border: '1px solid #b58863',
-                boxShadow: '0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                ...(cubeOwner === p1Id
-                  ? { top: '12%', transform: 'translateX(-50%)' }
-                  : cubeOwner === p2Id
-                    ? { bottom: '12%', transform: 'translateX(-50%)' }
-                    : { top: '50%', transform: 'translate(-50%, -50%)' }),
-              }}
-            >
-              {cube}
-            </Paper>
-          )}
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: 1 }}>
+          <Box aria-label={`bar ${pointNumber.format(bar[-1] ?? 0)}`} sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, pt: 0.5 }}>
+            {cubeDockPosition === 'top' && cubeMarker}
             {renderCheckers(-(bar[-1] ?? 0), true, 'bar-b', true)}
+            {(bar[-1] ?? 0) > 0 && (
+              <Typography sx={{ px: 0.75, borderRadius: 99, bgcolor: 'rgba(255,255,255,0.82)', color: '#17171B', fontSize: 11, fontWeight: 900 }}>{pointNumber.format(bar[-1])}</Typography>
+            )}
           </Box>
-          <Typography sx={{ color: 'rgba(42, 20, 8, 0.8)', fontSize: 8, fontWeight: 900, letterSpacing: 1 }}>BAR</Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pb: 1 }}>
+          <Box aria-hidden sx={{ width: 4, height: 24, flex: '0 0 auto', borderRadius: 99, bgcolor: 'rgba(200,139,42,0.7)' }} />
+          <Box aria-label={`bar ${pointNumber.format(bar[1] ?? 0)}`} sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, pb: 0.5 }}>
             {renderCheckers(bar[1] ?? 0, false, 'bar-g', true)}
+            {(bar[1] ?? 0) > 0 && (
+              <Typography sx={{ px: 0.75, borderRadius: 99, bgcolor: 'rgba(16,24,32,0.85)', color: '#FFF8E8', fontSize: 11, fontWeight: 900 }}>{pointNumber.format(bar[1])}</Typography>
+            )}
+            {cubeDockPosition === 'bottom' && cubeMarker}
           </Box>
         </Box>
 
@@ -544,13 +526,13 @@ export default function BackgammonBoard({
           sx={{
             position: 'relative',
             zIndex: 30,
-            width: { xs: 34, sm: 52 },
+            width: 'clamp(1.25rem, 8cqi, 3.25rem)',
             cursor: isMyTurn && !disabled && rolled && destinations.has('off') ? 'pointer' : 'default',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderLeft: '2px solid #2b1509',
+            borderInlineStart: `1px solid ${BOARD_EDGE}`,
             py: 1,
             bgcolor: destinations.has('off')
               ? 'rgba(34, 197, 94, 0.28)'
@@ -564,11 +546,11 @@ export default function BackgammonBoard({
             <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: 8, fontWeight: 700 }}>
               {messages.off}
             </Typography>
-            {Array.from({ length: Math.min(Math.abs(off[-1] ?? 0), 8) }, (_, i) => (
+            {Array.from({ length: Math.min(Math.abs(off[-1] ?? 0), 3) }, (_, i) => (
               <Box
                 key={i}
                 sx={{
-                  width: { xs: 22, sm: 34 },
+                  width: 'min(80%, 2.1rem)',
                   height: 5,
                   borderRadius: 0.5,
                   border: '1px solid rgba(20,50,80,0.8)',
@@ -577,19 +559,23 @@ export default function BackgammonBoard({
                 }}
               />
             ))}
-            {(off[-1] ?? 0) > 8 && (
-              <Typography sx={{ color: CHECKER_DARK, fontSize: 10, fontWeight: 800 }}>{off[-1]}</Typography>
+            {(off[-1] ?? 0) > 0 && (
+              <Typography sx={{ px: 0.5, borderRadius: 99, bgcolor: 'rgba(255,255,255,0.82)', color: '#17171B', fontSize: 10, fontWeight: 900, lineHeight: 1.5 }}>
+                {formatBackgammonCount(locale, off[-1])}
+              </Typography>
             )}
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-            {(off[1] ?? 0) > 8 && (
-              <Typography sx={{ color: CHECKER_LIGHT, fontSize: 10, fontWeight: 800 }}>{off[1]}</Typography>
+            {(off[1] ?? 0) > 0 && (
+              <Typography sx={{ px: 0.5, borderRadius: 99, bgcolor: 'rgba(16,24,32,0.85)', color: '#FFF8E8', fontSize: 10, fontWeight: 900, lineHeight: 1.5 }}>
+                {formatBackgammonCount(locale, off[1])}
+              </Typography>
             )}
-            {Array.from({ length: Math.min(Math.abs(off[1] ?? 0), 8) }, (_, i) => (
+            {Array.from({ length: Math.min(Math.abs(off[1] ?? 0), 3) }, (_, i) => (
               <Box
                 key={i}
                 sx={{
-                  width: { xs: 22, sm: 34 },
+                  width: 'min(80%, 2.1rem)',
                   height: 5,
                   borderRadius: 0.5,
                   border: '1px solid rgba(60,50,20,0.8)',
@@ -623,6 +609,7 @@ export default function BackgammonBoard({
           alignItems: 'center',
           justifyContent: 'space-between',
           width: '100%',
+          direction: 'ltr',
           gap: 1.5,
           px: { xs: 0.5, sm: 1.5 },
         }}
@@ -688,13 +675,18 @@ export default function BackgammonBoard({
           )}
         </Box>
 
-        <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1.5, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end', direction: 'ltr' }}>
+          {state.crawfordGame && (
+            <Chip size="small" variant="outlined" color="warning" label={messages.crawford} sx={{ direction: locale === 'fa' ? 'rtl' : 'ltr' }} />
+          )}
           {canDouble && (
             <Button
               variant="contained"
               size="small"
               onClick={() => onOfferDouble?.()}
               sx={{
+                minHeight: 44,
+                direction: locale === 'fa' ? 'rtl' : 'ltr',
                 px: { xs: 1.5, sm: 2 },
                 bgcolor: 'primary.dark',
                 '&:hover': { bgcolor: 'primary.main' },
@@ -707,7 +699,7 @@ export default function BackgammonBoard({
               {messages.double}
             </Button>
           )}
-          {canEndTurn && (
+          {showEndTurn && (
             <Button
               variant="outlined"
               onClick={() => {
@@ -715,6 +707,8 @@ export default function BackgammonBoard({
                 onEndTurn?.();
               }}
               sx={{
+                minHeight: 44,
+                direction: locale === 'fa' ? 'rtl' : 'ltr',
                 px: { xs: 1.5, sm: 2.5 },
                 borderColor: 'divider',
                 color: 'text.primary',
@@ -734,6 +728,10 @@ export default function BackgammonBoard({
                 onRoll?.();
               }}
               sx={{
+                minHeight: 48,
+                minWidth: 112,
+                direction: locale === 'fa' ? 'rtl' : 'ltr',
+                touchAction: 'manipulation',
                 px: { xs: 2, sm: 3 },
                 py: 1,
                 bgcolor: 'primary.main',

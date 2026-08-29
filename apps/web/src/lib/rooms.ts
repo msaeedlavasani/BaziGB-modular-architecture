@@ -47,8 +47,9 @@ export interface Room {
 }
 
 /** List rooms; pass a status to filter (e.g. 'waiting'). */
-export function fetchRooms(status?: RoomStatus): Promise<Room[]> {
-  return api.get<Room[]>(`/rooms${status ? `?status=${status}` : ''}`);
+export async function fetchRooms(status?: RoomStatus, gameType?: string): Promise<Room[]> {
+  const rooms = await api.get<Room[]>(`/rooms${status ? `?status=${status}` : ''}`);
+  return gameType ? rooms.filter((room) => room.gameType === gameType) : rooms;
 }
 
 /** Fetch a single room by its invite code (includes currentState from the DB). */

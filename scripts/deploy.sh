@@ -1,30 +1,63 @@
 #!/usr/bin/env bash
-# ============================================================
-# BaziGB — دیپلوی Zero Build به سرور (بدون بیلد روی VPS)
-# بیلد محلی → rsync به /opt/bazigb → npm ci روی سرور → restart سرویس‌ها
-# قبل از اولین اجرا: scripts/server-setup.sh را روی سرور اجرا کنید.
-# ============================================================
+# BaziGB release candidate publisher.
+# This script never writes into the active release and never changes SSH trust.
 set -euo pipefail
 
-PROD_HOST="${PROD_HOST:-root@193.151.153.204}"
-PROD_PATH="${PROD_PATH:-/opt/bazigb}"
+PROD_HOST="${PROD_HOST:-bazigb-deploy@193.151.153.204}"
+RELEASE_ROOT="${BAZIGB_RELEASE_ROOT:-/srv/bazigb}"
+SSH_KEY="${BAZIGB_SSH_KEY:-${HOME}/.ssh/bazigb_production_ed25519}"
+RELEASE_ID="${RELEASE_ID:-}"
+DEPLOY_APPROVED="${DEPLOY_APPROVED:-}"
 
-# کلید host قدیمی ممکن است استِیل باشد (سرور ریست شده) — پاک و تازه کن
-ssh-keygen -R 193.151.153.204 >/dev/null 2>&1 || true
+die() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
 
-echo "▶ [1/4] بیلد محلی همه پکیج‌ها و اپ‌ها..."
+[[ -n "${RELEASE_ID}" ]] || die 'RELEASE_ID is required and must name the approved Git revision.'
+[[ "${RELEASE_ID}" =~ ^[0-9a-f]{7,40}$ ]] || die 'RELEASE_ID must be a 7-40 character lowercase Git revision.'
+[[ "${DEPLOY_APPROVED}" == "${RELEASE_ID}" ]] || die 'DEPLOY_APPROVED must exactly equal RELEASE_ID.'
+[[ -f "${SSH_KEY}" ]] || die "SSH key not found: ${SSH_KEY}"
+
+GIT_REVISION="$(git rev-parse HEAD)"
+[[ "${GIT_REVISION}" == "${RELEASE_ID}" ]] || die 'RELEASE_ID does not equal the checked-out Git revision.'
+[[ -z "$(git status --porcelain)" ]] || die 'The working tree is dirty; an uncommitted candidate cannot be released.'
+
+SSH=(ssh -i "${SSH_KEY}" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes)
+RSYNC_SSH="ssh -i ${SSH_KEY} -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes"
+CANDIDATE_PATH="${RELEASE_ROOT}/releases/${RELEASE_ID}"
+MANIFEST="$(mktemp)"
+trap 'rm -f "${MANIFEST}"' EXIT
+
+LOCK_SHA256="$(shasum -a 256 package-lock.json | awk '{print $1}')"
+cat >"${MANIFEST}" <<EOF
+release_id=${RELEASE_ID}
+git_revision=${GIT_REVISION}
+package_lock_sha256=${LOCK_SHA256}
+EOF
+
+printf 'Building candidate %s...\n' "${RELEASE_ID}"
 npm run build
 
-echo "▶ [2/4] انتقال با rsync (بدون node_modules — روی سرور npm ci می‌گیرد)..."
+printf 'Preparing isolated release directory...\n'
+"${SSH[@]}" "${PROD_HOST}" sudo /usr/local/sbin/bazigb-release prepare "${RELEASE_ID}"
+
+printf 'Uploading candidate without touching the active release...\n'
 rsync -az --delete --timeout=600 \
+  -e "${RSYNC_SSH}" \
   --exclude={.git,node_modules,data,dev.db,.env,.DS_Store,*.log,test-socket.mjs} \
-  ./ "${PROD_HOST}:${PROD_PATH}/"
+  ./ "${PROD_HOST}:${CANDIDATE_PATH}/"
+rsync -az -e "${RSYNC_SSH}" "${MANIFEST}" "${PROD_HOST}:${CANDIDATE_PATH}/release.manifest"
 
-echo "▶ [3/4] npm ci و ری‌استارت سرویس‌ها روی سرور..."
-ssh "${PROD_HOST}" "cd ${PROD_PATH} && npm ci --omit=dev --workspaces --include-workspace-root 2>&1 | tail -2 && systemctl restart bazigb-server bazigb-web && sleep 3 && systemctl is-active bazigb-server bazigb-web"
+printf 'Installing locked production dependencies inside the candidate...\n'
+"${SSH[@]}" "${PROD_HOST}" npm ci \
+  --prefix "${CANDIDATE_PATH}" \
+  --omit=dev --workspaces --include-workspace-root
 
-echo "▶ [4/4] بررسی سلامت..."
-ssh "${PROD_HOST}" "curl -sf -o /dev/null -w 'API: HTTP %{http_code}\n' http://localhost:3001/api/rooms || echo 'API: check needed'; curl -sf -o /dev/null -w 'WEB: HTTP %{http_code}\n' http://localhost:3000/lobby || true"
+printf 'Verifying immutable candidate metadata...\n'
+"${SSH[@]}" "${PROD_HOST}" sudo /usr/local/sbin/bazigb-release verify "${RELEASE_ID}" "${LOCK_SHA256}"
 
-echo "✅ دیپلوی Zero Build کامل شد."
-echo "   پس از اتمام، Hard Refresh (Ctrl+F5) را به کاربر یادآوری کنید."
+printf 'Activating with rollback-on-failure...\n'
+"${SSH[@]}" "${PROD_HOST}" sudo /usr/local/sbin/bazigb-release activate "${RELEASE_ID}" "${LOCK_SHA256}"
+
+printf 'Release %s is active and healthy.\n' "${RELEASE_ID}"

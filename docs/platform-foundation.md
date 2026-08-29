@@ -38,6 +38,7 @@ Public localized URLs are active without duplicating the page tree:
 /fa/leaderboard     /en/leaderboard
 /fa/tournaments     /en/tournaments
 /fa/game/[gameId]   /en/game/[gameId]
+/fa/games/[gameId]  /en/games/[gameId]
 /fa/play/[roomId]   /en/play/[roomId]
 /fa/login           /en/login
 ```
@@ -153,15 +154,25 @@ The canonical shell now:
 
 ## 9. Lobby
 
-Lobby now consumes the shared UI system:
-- game selection → `GameCard`,
-- repeated loading → `LoadingSkeleton`,
-- empty states → `EmptyState`,
-- retryable failures expose retry,
-- game/room navigation is explicitly localized,
-- code input stays LTR,
-- selected mode state is semantic,
-- room/recent sections adapt for narrow viewports.
+Lobby is now the bounded game-discovery surface only. It renders the canonical
+catalog through `GameCard` and routes to the shared locale-aware Game Hub.
+Create-room, bot, invite-code, recent-match and global active-room workflows no
+longer live in Lobby.
+
+### Shared Game Hub
+
+`/[locale]/games/[gameId]` is one data-driven page for every catalog game. It
+reuses `game-catalog`, room APIs and shared feedback components, and exposes:
+- play with bot,
+- create online room,
+- join by invite code,
+- active rooms filtered to the selected game.
+
+Match-length settings appear only for Tic-Tac-Toe and Backgammon, matching the
+existing supported online behavior. The active-room region has a fixed maximum
+height and local scrolling, with structural loading, actionable empty and
+retryable error states. Room chips show status only and do not repeat the game
+name/icon already established by the page.
 
 `DEBT-003` is resolved in code. `DEBT-009` is substantially mitigated.
 
@@ -241,8 +252,20 @@ This is an implementation/validation issue, not a product decision.
 - `DEBT-020` MUI/Emotion RTL cache/plugin verification — OPEN / RUNTIME-VALIDATION DEPENDENT.
 - `DEBT-021` oversized/inconsistent MUI radius baseline — RESOLVED IN CODE; visual validation pending.
 - `UI-001` Profile 360px density — RESOLVED IN CODE.
-- `BUG-001` runtime/compile state — VALIDATION PENDING.
-- `BUG-002` `/play` imported deleted `i18n/useAppLocale` — RESOLVED IN CODE; executable validation pending.
+- `BUG-001` runtime/compile state — RESOLVED; package/web typechecks, boundaries, production build and local routes pass.
+- `BUG-002` `/play` imported deleted `i18n/useAppLocale` — RESOLVED AND VALIDATED by web typecheck/build.
+- `BUG-004` initial web typecheck could not resolve workspace package declarations before package build — RESOLVED by the required `build:packages` ordering; subsequent web typecheck passed.
+- `BUG-005` Lobby game cards received focus but client-handler navigation did not fire reliably — RESOLVED by rendering discovery cards as real locale-aware links; browser flow to Hub and room creation passed.
+- `BUG-006` theme spacing base was 4px while application `sx` values and intended page geometry assumed 8px — RESOLVED in the design-system source of truth; `PageContainer` now enforces canonical page gutters/padding.
+- `BUG-007` GameShell composition repeated game identity/turn state and left settings as an unbounded floating row — RESOLVED through the canonical GameShell composition contract and shared settings toolbar.
+- `BUG-008` running `next build` while `next dev` was active corrupted their shared `.next` artifacts and caused missing `vendor-chunks/@mui.js` at runtime — RESOLVED by stopping dev, moving the generated cache aside and restarting cleanly. Never run web build concurrently with web dev in this checkout.
+- `BUG-009` GameShell settings and primary surfaces used independent widths, leaving compact boards visually detached with wasted lateral space — RESOLVED through catalog-owned `surfaceMaxWidth` and one shared GameShell layout track.
+- `BUG-010` responsive behavior depended on named breakpoints, fixed heights and per-game pixel widths, requiring screenshot-led correction — RESOLVED at the shared composition layer with fluid spacing, container-driven grids, intrinsic game geometry, CTA hierarchy and short-landscape GameShell mode. `BUG-009`'s pixel-width implementation is superseded by this rule.
+- `ENV-001` default npm cache contains root-owned files — OPEN / LOCAL ENVIRONMENT; validation uses `/private/tmp/bazigb-npm-cache` without changing user ownership.
+- `ENV-002` port 3000 was occupied in this workspace — RESOLVED; dev server now runs on 3000.
+- `ENV-003` watch-mode dev server cannot compile until its generated Prisma client is restored; this pre-existing server/tooling issue is outside the UI/IA scope.
+- `ENV-004` Next dev watcher previously hit the local open-file limit (`EMFILE`) — RESOLVED at the current runtime checkpoint; hot reload is ready on port 3000.
+- `ENV-005` repeated Socket.IO polling proxies reset while the responsive browser matrix reloaded game routes — OPEN / BACKEND RUNTIME; HTTP pages remained healthy and no gameplay protocol change was made.
 
 ## 13. Validation Infrastructure
 
@@ -253,19 +276,13 @@ A targeted branch-only workflow exists at `.github/workflows/foundation-web-chec
 - web typecheck,
 - web build.
 
-The connector has not surfaced a completed status for the latest branch commit yet. No validation PASS is claimed.
+Local validation on 2026-08-25: dependency install, shared package build,
+boundary check, web typecheck and optimized web build passed.
 
 ## 14. Current UI Cleanup Order
 
-User preference: **do not request local visual review yet**.
-
-Continue:
-1. Tournament detail + game-entry remaining 360px/logical-direction audit,
-2. game-specific surrounding UI overflow scan without redesigning game art,
-3. remaining proven recurring loading/empty/error normalization,
-4. safe Admin dead-logic cleanup preparation,
-5. static known-bug/compile-risk pass,
-6. then declare a local visual-review checkpoint.
+The IA refactor is implemented and ready for local review after the current web
+build/dev-server checkpoint.
 
 ## 15. Safety
 
@@ -273,5 +290,37 @@ Continue:
 - Governance branch: untouched.
 - Merge: not performed.
 - Deployment: not performed.
-- Build/typecheck/tests/browser QA: NOT CONFIRMED / NOT RUN in current connector context.
+- Shared package build, boundaries and web typecheck: PASSED locally on 2026-08-25.
+- Optimized web build: PASSED locally on 2026-08-25.
+- Dev-server status: see current HANDOFF.
 - Never report PASS from static inspection alone.
+
+## 16. Game Rules Boundary
+
+The canonical rules architecture and change workflow are versioned in
+[`game-rules-contract.md`](./game-rules-contract.md). Game packages own pure
+legality, transitions, invariants, serialization and undo policy; the server
+owns authoritative online sequencing and persistence; UI layers only present
+and submit canonical actions.
+
+`BUG-014` local Backgammon state was ephemeral, allowing refresh to regenerate
+an unresolved roll. **RESOLVED IN CODE AND BROWSER-VALIDATED.**
+
+`BUG-015` generic undo history treated random rolls like reversible checker
+moves. **RESOLVED IN CODE** through the game-owned `canUndoMove` contract on
+both local and server paths; package/server validation is required before final
+closure.
+
+`BUG-016` Backgammon hit/bar continuity lacked an explicit conservation
+contract. **RESOLVED IN CODE** with direct move validation, bar serialization
+coverage and fifteen-checker invariants; rendered multiplayer validation remains.
+
+`BUG-017` Backgammon automatically crossed from one completed game into the next,
+allowing Undo and result presentation to blur the boundary. **RESOLVED IN CODE AND
+TARGETED TESTS** through explicit `roundEnd`, acknowledgement-driven next-game
+transition, adapter ownership and Undo-history sealing.
+
+`ENV-006` a stale nested Vitest 4 installation shadowed the repository's declared
+Vitest 1.6 runner in the server workspace. **RESOLVED RECOVERABLY FOR THE CURRENT
+CHECKOUT**; the incompatible directory was moved to `/private/tmp`. Two unrelated,
+pre-existing Admin controller tests still need their `roomService` mocks updated.

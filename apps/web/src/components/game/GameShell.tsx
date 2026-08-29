@@ -26,11 +26,15 @@ import {
 } from 'lucide-react';
 import { useAppLocale } from '@/hooks/useAppLocale';
 import { getGameShellMessages } from '@/i18n/game-shell';
+import StatusCluster from '@/components/shared/StatusCluster';
+import StatusPill from '@/components/shared/StatusPill';
+import { gameSurfaceTrack, layoutContract } from '@/design-system/layout-contract';
 
 export interface WinnerBanner {
   label: string;
   sub?: string;
   onRematch?: () => void;
+  actionLabel?: string;
 }
 
 export interface MatchScores {
@@ -40,7 +44,7 @@ export interface MatchScores {
 
 interface Props {
   title: string;
-  gameChip?: string;
+  surfaceRatio?: number;
   backHref?: string;
   onBack?: () => void;
   turnText?: string | null;
@@ -51,6 +55,7 @@ interface Props {
   copied?: boolean;
   scores?: MatchScores | null;
   maxRounds?: number;
+  scoreTitle?: string;
   roundNotice?: string | null;
   settings?: React.ReactNode;
   winner?: WinnerBanner | null;
@@ -60,7 +65,7 @@ interface Props {
 /** Shared game shell for both local/bot and realtime multiplayer game routes. */
 export default function GameShell({
   title,
-  gameChip,
+  surfaceRatio,
   backHref = '/lobby',
   onBack,
   turnText,
@@ -71,6 +76,7 @@ export default function GameShell({
   copied = false,
   scores,
   maxRounds = 1,
+  scoreTitle,
   roundNotice,
   settings,
   winner,
@@ -81,22 +87,17 @@ export default function GameShell({
   const messages = getGameShellMessages(locale);
   const BackIcon = locale === 'fa' ? ArrowRight : ArrowLeft;
   const isMultiRound = maxRounds > 1 && scores !== null && scores !== undefined;
+  const surfaceInlineSize = gameSurfaceTrack(surfaceRatio);
 
   const connChip =
     connStatus === 'connected'
       ? {
           label: messages.connected,
           Icon: Wifi,
-          bgcolor: alpha(theme.palette.success.main, 0.1),
-          color: theme.palette.success.light,
-          borderColor: alpha(theme.palette.success.main, 0.3),
         }
       : {
           label: connStatus === 'reconnecting' ? messages.reconnecting : messages.connecting,
           Icon: WifiOff,
-          bgcolor: alpha(theme.palette.warning.main, 0.1),
-          color: theme.palette.warning.light,
-          borderColor: alpha(theme.palette.warning.main, 0.3),
         };
 
   return (
@@ -108,8 +109,8 @@ export default function GameShell({
         justifyContent: 'center',
         bgcolor: 'background.default',
         color: 'text.primary',
-        px: { xs: 2, sm: 4 },
-        py: { xs: 2, sm: 3 },
+        px: layoutContract.game.shellInlineGutter,
+        py: layoutContract.game.shellBlockPadding,
       }}
     >
       <Box
@@ -119,12 +120,25 @@ export default function GameShell({
           minWidth: 0,
           display: 'flex',
           flexDirection: 'column',
-          gap: { xs: 2, sm: 2.5 },
+          gap: layoutContract.game.shellGap,
+          '@media (orientation: landscape) and (max-height: 36rem)': {
+            display: 'grid',
+            gridTemplateColumns: 'minmax(12rem, 0.7fr) minmax(0, 1fr)',
+            gridTemplateRows: 'auto auto 1fr',
+            gridTemplateAreas: `
+              "shellNav shellNav"
+              "shellTitle shellSurface"
+              "shellSettings shellSurface"
+            `,
+            gap: 0.75,
+            alignItems: 'start',
+          },
         }}
       >
         <Box
           component="header"
           sx={{
+            gridArea: 'shellNav',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -228,106 +242,95 @@ export default function GameShell({
           </Box>
         </Box>
 
-        <Box sx={{ textAlign: 'center', minWidth: 0 }}>
+        <Box sx={{ gridArea: 'shellTitle', textAlign: 'center', minWidth: 0 }}>
           <Typography
             variant="h4"
             sx={{
               color: 'text.primary',
               fontWeight: 900,
               lineHeight: 1.25,
-              fontSize: { xs: '1.45rem', sm: '2rem' },
+              fontSize: layoutContract.game.titleSize,
+              '@media (orientation: landscape) and (max-height: 36rem)': {
+                fontSize: '1.25rem',
+              },
             }}
           >
             {title}
           </Typography>
 
-          <Box
-            sx={{
-              mt: 1.25,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 1,
-              flexWrap: 'wrap',
-            }}
-          >
+          <StatusCluster sx={{ mt: { xs: 0.75, sm: 1.25 } }}>
             {connStatus && (
-              <Chip
-                icon={<connChip.Icon size={14} />}
+              <StatusPill
+                icon={<connChip.Icon />}
                 label={connChip.label}
-                size="small"
-                variant="outlined"
-                sx={{
-                  bgcolor: connChip.bgcolor,
-                  color: connChip.color,
-                  borderColor: connChip.borderColor,
-                  fontWeight: 700,
-                  '& .MuiChip-icon': { color: 'inherit' },
-                }}
+                tone={connStatus === 'connected' ? 'success' : 'warning'}
               />
             )}
             {turnText && (
-              <Chip
+              <StatusPill
                 label={turnText}
-                size="small"
-                sx={{
-                  fontWeight: 800,
-                  bgcolor: alpha(theme.palette.success.main, 0.12),
-                  color: theme.palette.success.light,
-                  border: '1px solid',
-                  borderColor: alpha(theme.palette.success.main, 0.3),
-                }}
-              />
-            )}
-            {gameChip && (
-              <Chip
-                label={gameChip}
-                size="small"
-                variant="outlined"
-                sx={{
-                  fontWeight: 700,
-                  bgcolor: alpha(theme.palette.primary.main, 0.08),
-                  color: 'primary.light',
-                  borderColor: alpha(theme.palette.primary.main, 0.25),
-                }}
+                tone="success"
               />
             )}
             {isMultiRound && (
-              <Chip
-                icon={<Trophy size={14} />}
+              <StatusPill
+                icon={<Trophy />}
                 label={messages.matchScore(scores.a, scores.b)}
-                size="small"
-                title={messages.bestOf(maxRounds, Math.ceil(maxRounds / 2))}
-                variant="outlined"
-                sx={{
-                  fontWeight: 700,
-                  bgcolor: alpha(theme.palette.warning.main, 0.1),
-                  color: theme.palette.warning.light,
-                  borderColor: alpha(theme.palette.warning.main, 0.3),
-                  '& .MuiChip-icon': { color: 'inherit' },
-                }}
+                title={scoreTitle ?? messages.bestOf(maxRounds, Math.ceil(maxRounds / 2))}
+                tone="warning"
               />
             )}
             {roundNotice && (
-              <Chip
+              <StatusPill
                 label={roundNotice}
-                size="small"
-                variant="outlined"
-                sx={{
-                  fontWeight: 700,
-                  bgcolor: alpha(theme.palette.success.main, 0.1),
-                  color: theme.palette.success.light,
-                  borderColor: alpha(theme.palette.success.main, 0.3),
-                }}
+                tone="success"
               />
             )}
-          </Box>
+          </StatusCluster>
         </Box>
 
         {settings && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', minWidth: 0 }}>
+          <Paper
+            component="details"
+            elevation={0}
+            sx={{
+              gridArea: 'shellSettings',
+              display: { xs: 'block', sm: 'none' },
+              width: '100%',
+              minWidth: 0,
+              borderRadius: 3,
+              border: '1px solid',
+              borderColor: 'divider',
+              bgcolor: alpha(theme.palette.background.paper, 0.42),
+              '& > summary': { cursor: 'pointer', listStylePosition: 'inside', px: 1.5, py: 1, fontWeight: 800 },
+              '&[open] > summary': { borderBottom: '1px solid', borderBottomColor: 'divider' },
+              '& > div': { p: 1.25 },
+            }}
+          >
+            <Typography component="summary" variant="body2">{messages.settings}</Typography>
+            <Box>{settings}</Box>
+          </Paper>
+        )}
+
+        {settings && (
+          <Paper
+            elevation={0}
+            sx={{
+              gridArea: 'shellSettings',
+              display: { xs: 'none', sm: 'block' },
+              alignSelf: 'center',
+              width: '100%',
+              maxWidth: surfaceInlineSize,
+              minWidth: 0,
+              p: { xs: 1.5, sm: 2 },
+              borderRadius: 4,
+              border: '1px solid',
+              borderColor: 'divider',
+              bgcolor: alpha(theme.palette.background.paper, 0.42),
+            }}
+          >
             {settings}
-          </Box>
+          </Paper>
         )}
 
         {winner ? (
@@ -363,7 +366,7 @@ export default function GameShell({
             <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
               {winner.onRematch && (
                 <Button variant="contained" onClick={winner.onRematch} sx={{ fontWeight: 800 }}>
-                  {messages.rematch}
+                  {winner.actionLabel ?? messages.rematch}
                 </Button>
               )}
               <Button component={Link} href={backHref} variant="outlined" sx={{ fontWeight: 800 }}>
@@ -375,7 +378,10 @@ export default function GameShell({
           <Box
             component="main"
             sx={{
+              gridArea: 'shellSurface',
               width: '100%',
+              maxWidth: surfaceInlineSize,
+              alignSelf: 'center',
               minWidth: 0,
               display: 'flex',
               flexDirection: 'column',

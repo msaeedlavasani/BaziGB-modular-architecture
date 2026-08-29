@@ -1,6 +1,5 @@
 'use client';
 import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
 import type { TTTMove, TTTState } from '@bazigb/game-tic-tac-toe';
 import { useAppLocale } from '@/hooks/useAppLocale';
@@ -17,11 +16,6 @@ export default function TicTacToeBoard({ state, onMove, disabled }: Props) {
   const theme = useTheme();
   const locale = useAppLocale();
   const messages = getMessages(locale);
-  const humanId = state.players[0]?.id ?? '';
-  const botId = state.players[1]?.id ?? '';
-  const humanColor = state.players[0]?.color;
-  const isHumanTurn = state.turn === humanId;
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, width: '100%', minWidth: 0 }}>
       <Box
@@ -29,7 +23,7 @@ export default function TicTacToeBoard({ state, onMove, disabled }: Props) {
           display: 'grid',
           gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
           gap: 1,
-          width: 'min(100%, 340px)',
+          width: '100%',
           p: 1.5,
           borderRadius: 3,
           background: `linear-gradient(160deg, ${alpha(theme.palette.background.paper, 0.92)} 0%, ${theme.palette.secondary.main} 100%)`,
@@ -86,15 +80,6 @@ export default function TicTacToeBoard({ state, onMove, disabled }: Props) {
             </Box>
           );
         })}
-      </Box>
-
-      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center', textAlign: 'center' }}>
-        <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 700 }}>
-          {isHumanTurn ? messages.gameShell.yourTurn : messages.gameShell.botTurn}
-        </Typography>
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          {messages.gameShell.you} {humanColor === 'x' ? '✕' : '◯'} · {state.scores[humanId] ?? 0} : {state.scores[botId] ?? 0} {messages.gameShell.bot}
-        </Typography>
       </Box>
     </Box>
   );

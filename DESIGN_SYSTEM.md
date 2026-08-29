@@ -1,6 +1,6 @@
 # BaziGB — Design System & UI Architecture
 
-**Version:** 2.2.0
+**Version:** 2.4.0
 
 This document defines the visual and interaction language of BaziGB. It does not define backend architecture, game rules, deployment, database strategy, or business strategy.
 
@@ -77,6 +77,26 @@ Guidelines:
 
 Avoid decorative fonts that reduce readability.
 
+## 4A. SPACING SCALE
+
+The canonical MUI spacing base is **8px**. Numeric layout values in `sx` must
+be interpreted against this scale:
+
+```text
+1   -> 8px
+1.5 -> 12px
+2   -> 16px
+3   -> 24px
+4   -> 32px
+6   -> 48px
+8   -> 64px
+```
+
+Do not override the theme spacing base locally. Do not describe or review an
+`sx` spacing value without converting it through this scale. Component-internal
+spacing and page-level spacing use the same scale; the canonical page geometry
+below determines which values belong at the page boundary.
+
 ## 5. DIRECTIONALITY — RTL / LTR
 
 BaziGB supports both directions through one shared component tree:
@@ -111,6 +131,31 @@ AppShell
 over implementing global layout structures independently in every page.
 
 Use MUI layout primitives. Avoid unnecessary absolute positioning.
+
+### Canonical page geometry
+
+Public application pages MUST use the shared `PageContainer` for their outer
+content geometry. A page must not re-declare its own combination of horizontal
+gutters, vertical page padding and centered max-width unless its geometry is
+functionally specialized (for example a game board or tournament bracket).
+
+Canonical page spacing:
+
+| Viewport | Inline gutter | Block padding |
+|---|---:|---:|
+| `xs` / 360px+ | `16px` | `24px` |
+| `sm` | `24px` | `40px` |
+| `md`+ | `32px` | `48px` |
+
+Width variants are semantic:
+- `narrow` → focused forms/read-heavy content (`sm`),
+- `content` → ordinary lists/profile/content (`md`),
+- `wide` → discovery, hubs and broad data layouts (`lg`).
+
+Page sections should normally use `24px` gaps on mobile and `32px` on larger
+screens. Components own their internal padding; pages own only section rhythm.
+Do not stack page padding, MUI Container gutters and feature-local outer padding.
+New pages must select a `PageContainer` width variant before feature layout work.
 
 ## 6A. SHAPE / CORNER-RADIUS HIERARCHY
 
@@ -161,6 +206,41 @@ Do not turn every section into a Card.
 
 Shared primitives must earn canonical status through real consumers. Do not keep parallel inline implementations after a shared pattern becomes canonical.
 
+### Responsive composition contract
+
+Responsive behavior is a property of a component's available space, not a list
+of named devices. New page sections must follow these rules before adding a
+viewport breakpoint:
+
+- Use fluid `clamp()` spacing between documented minimum and comfort maximum values.
+- Use `PageContainer` for page gutters and block rhythm.
+- Use `ResponsiveGrid` for repeated equal-priority items. It chooses columns from the container's actual inline size with `auto-fit/minmax`; feature pages must not guess phone/tablet/desktop column counts.
+- Use container queries only when composition or priority changes, not to nudge pixels.
+- Preserve CTA hierarchy across every layout mode. Primary actions may span a row at intermediate widths; DOM order must match visual priority.
+- Use intrinsic geometry (`aspect-ratio`) and available dynamic viewport block size for boards/media. Do not store per-breakpoint pixel widths in feature metadata.
+- Short landscape viewports are a first-class mode: primary content must enter the initial viewport and supporting controls move beside it when space permits.
+- Height constraints for live lists use viewport-relative logical units and a comfort cap (for example `min(..., dvb)`), never a standalone magic pixel value.
+- Validate a viewport matrix covering narrow portrait, narrow landscape, medium portrait, medium landscape, and wide desktop. Zero horizontal overflow alone is not sufficient; primary content visibility and CTA order are required assertions.
+
+Responsive acceptance never targets one observed pixel width across devices. A
+measurement such as `328px` may be evidence for one `360px` viewport, but the
+contract is consumption of available container space within fluid minimum and
+comfort boundaries. Evaluation must cover composition, hierarchy, reachability,
+content density and task usability in addition to overflow and geometry.
+
+Equal-width or equal-height cards are correct only for equal-priority objects.
+Product actions use `ActionDeck`: the primary outcome remains visually dominant,
+while secondary and tertiary actions adapt without artificial empty space.
+Dominance comes from width, position, content and emphasis; never from stretching
+a sparse card across extra rows merely to make it larger.
+
+### Page-title hierarchy
+
+Ordinary application pages use `PageHeader`. Feature pages must not choose
+arbitrary `h1` sizes. Title scale is fluid and bounded, the page has one semantic
+`h1`, identity stays visually attached to the title, and descriptions use a
+bounded readable line length.
+
 ## 8. GAME UI
 
 Game interfaces are not administrative interfaces.
@@ -174,6 +254,85 @@ Visual hierarchy should prioritize:
 6. Secondary information
 
 The game board should remain the visual center of the screen. Avoid surrounding the board with excessive generic cards.
+
+### GameShell composition contract
+
+Every game screen keeps this semantic hierarchy; its physical composition may
+become two-region in short landscape viewports:
+
+```text
+utility navigation
+game title
+status row
+settings toolbar (when present)
+primary board/game surface
+secondary game information
+```
+
+- Game identity appears once as the title; do not repeat its name/icon in the adjacent status row.
+- Turn/connection/match status appears once in the shell; a board must not repeat the same status below itself.
+- Settings belong inside the canonical restrained GameShell toolbar, not in a free-floating full-width row.
+- The catalog may declare only intrinsic `surfaceRatio` geometry. GameShell derives the rendered track from available inline/block space and a shared comfort cap; it must not contain game-specific pixel widths.
+- Settings and the primary surface share the derived track in vertical mode. In short landscape mode, settings become the supporting region beside the visually primary board.
+- The toolbar fills the selected game track, wraps responsively, and keeps one surface/border/radius treatment across games.
+- Board geometry and game-art styling stay game-specific and visually primary.
+- Game settings use `GameSettingsToolbar`. Options and actions are separate
+  semantic regions with consistent control height and an intentional reflow;
+  wrapping a free-form flex row inside a shared border is not conformance.
+- On narrow viewports, settings are supporting content and collapse behind a
+  clearly labelled native disclosure. The game surface is the primary user
+  intent and must appear before expanded configuration controls.
+- Responsive acceptance measures task access inside the initial viewport, not
+  merely absence of horizontal overflow. Discovery must expose all game choices
+  at 320px without vertical discovery scrolling; Game Hub must expose all three
+  play modes at 320x700 before the fold.
+- A board piece may be sized from its containing cell but must never impose a
+  pixel minimum wider than that cell. Container ownership wins over decorative
+  fidelity at every supported width.
+- Board-local labels use locale-aware numerals and the product type system.
+  Raw implementation labels and harsh structural lines are prohibited.
+
+### Status indicator anatomy
+
+`StatusCluster` owns grouping and wrapping. `StatusPill` owns the anatomy of one
+indicator: icon, label, logical gap, tone, border and containment. Pages and game
+boards may not repair MUI Chip icon margins locally. Status, connection, turn and
+match results must have one semantic owner and must not be repeated below a board.
+
+### Game identity system
+
+Game identity uses `GameIdentityMark`, not unrelated emoji selected per page.
+Every glyph belongs to one family with a shared frame, stroke weight, optical
+size, color role and small/medium/large scale. A new game must select or create a
+semantic glyph inside this family and validate it beside existing games before
+registration. Game art may be richer inside gameplay; discovery identity remains
+minimal, recognizable and brand-coherent.
+
+### Navigation composition
+
+Header navigation uses `NavigationItem`. Icon and label form one proximity group
+with a single direction owner. Do not combine MUI `startIcon` spacing, manual
+logical margins and direction overrides in the same navigation item.
+
+One prominent destination should have one primary affordance in the same header.
+The centered BaziGB brand is the Lobby/Home entry point, so a second Lobby icon is
+not rendered beside Leaderboard and Tournaments. Visual symmetry is not a reason
+to duplicate information architecture.
+
+### Cross-game visual language
+
+Shared game art is governed as a family, not generated per feature. Every board
+must share palette roles, edge treatment, elevation, interaction feedback,
+typographic treatment and piece material while preserving game-specific geometry
+and recognizability. Concept art is evidence for a human art-direction gate; it
+must not be shipped directly as a board implementation or identity asset.
+
+### Remote trust assets
+
+External trust or compliance images must define loading, success and error
+states. A blocked image must never expose a broken-image glyph. The fallback must
+remain an honest verification link and must not impersonate a successfully loaded
+official seal.
 
 ## 9. TACTILE GAME LANGUAGE
 
@@ -326,6 +485,34 @@ When a recurring new UI pattern appears:
 5. document it here if it becomes a recurring design rule
 
 Avoid speculative design-system abstractions.
+
+### Executable component registry
+
+Reusable BaziGB components are registered in
+`apps/web/src/design-system/registry.json`. The registry records responsibility,
+contracts, consumers, evaluation and maturity. A component's folder location
+does not make it canonical.
+
+Maturity states:
+
+- `Experimental` — a bounded exploration; product adoption is not assumed.
+- `Candidate` — a reusable contract with a reference implementation, real consumer and evaluation plan; targeted adoption is allowed.
+- `Stable` — at least two representative consumers plus automated regression and rendered evidence; preferred for new work.
+- `Deprecated` — retained temporarily with a named replacement or removal path.
+
+Contribution sequence:
+
+`need → existing-system search → proposal → contract → reference implementation → consumer → evaluation → maturity decision → registration → adoption → learning or deprecation`
+
+Feature code chooses semantic component roles. Raw page-level geometry such as
+repeated-item minimum widths, column counts, global gutters or composite-card
+padding is not a feature API. Those decisions live in the executable layout
+contract and shared components.
+
+Run `npm run check:design-system` and `npm run test:design-system` when changing
+a registered component, its contract, maturity, or consumers. The check is a
+structural gate; targeted rendered evidence remains required before a Candidate
+is promoted to Stable.
 
 ## 22. FRONTEND COMPLETION CHECKLIST
 

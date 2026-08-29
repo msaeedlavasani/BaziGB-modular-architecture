@@ -10,7 +10,7 @@ export type GameId = 'tic-tac-toe' | 'backgammon' | 'chess' | 'vegas';
 /** نام نمایشی فارسی هر بازی */
 export const GAME_NAMES: Record<GameId, string> = {
   'tic-tac-toe': 'دوز',
-  backgammon: 'نرد',
+  backgammon: 'تخته',
   chess: 'شطرنج',
   vegas: 'وگاس',
 };
@@ -134,6 +134,18 @@ export interface GameAdapter<B = unknown, M extends Move = Move> {
    * سرور هر گام زنجیره را جداگانه بررسی می‌کند؛ در صورت خطا exception می‌دهد.
    */
   applyChain(state: GameState<B, M>, chain: Move[]): GameState<B, M>;
+
+  /**
+   * Game-owned undo policy. Transport and UI must consult this contract instead
+   * of assuming every action (especially random rolls) is reversible.
+   */
+  canUndoMove?(state: GameState<B, M>, move: M): boolean;
+
+  /**
+   * Optional multi-game match transition. A game package owns the reset rules,
+   * starter, carried score and per-game equipment such as the doubling cube.
+   */
+  startNextGame?(state: GameState<B, M>): GameState<B, M>;
 
   /** آیا بازی تمام شده است؟ */
   isFinished(state: GameState<B, M>): boolean;

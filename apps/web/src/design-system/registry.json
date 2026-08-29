@@ -1,0 +1,132 @@
+{
+  "version": "1.0.0",
+  "maturityModel": ["Experimental", "Candidate", "Stable", "Deprecated"],
+  "components": [
+    {
+      "name": "PageContainer",
+      "path": "apps/web/src/components/layout/PageContainer.tsx",
+      "maturity": "Candidate",
+      "responsibility": "Own semantic page width, inline gutters, and block padding.",
+      "contracts": ["semantic-width", "logical-gutters", "block-rhythm", "no-stacked-page-padding"],
+      "consumers": ["apps/web/src/app/lobby/page.tsx", "apps/web/src/app/games/[gameId]/page.tsx"],
+      "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
+    },
+    {
+      "name": "PageStack",
+      "path": "apps/web/src/components/layout/PageStack.tsx",
+      "maturity": "Candidate",
+      "responsibility": "Own page-section rhythm without creating decorative surfaces.",
+      "contracts": ["section-gap", "minimum-inline-size", "single-rhythm-owner"],
+      "consumers": ["apps/web/src/app/lobby/page.tsx", "apps/web/src/app/games/[gameId]/page.tsx"],
+      "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
+    },
+    {
+      "name": "ResponsiveGrid",
+      "path": "apps/web/src/components/layout/ResponsiveGrid.tsx",
+      "maturity": "Candidate",
+      "responsibility": "Lay out repeated equal-priority items from available container space and semantic item roles.",
+      "contracts": ["semantic-item-size", "auto-fit", "minmax", "container-owned-columns"],
+      "consumers": ["apps/web/src/app/lobby/page.tsx"],
+      "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
+    },
+    {
+      "name": "ActionCard",
+      "path": "apps/web/src/components/shared/ActionCard.tsx",
+      "maturity": "Candidate",
+      "responsibility": "Express primary and secondary product-action hierarchy without page-local card geometry.",
+      "contracts": ["emphasis", "content-owned-height", "contained-content", "semantic-padding"],
+      "consumers": ["apps/web/src/app/games/[gameId]/page.tsx"],
+      "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
+    },
+    {
+      "name": "ActionDeck",
+      "path": "apps/web/src/components/layout/ActionDeck.tsx",
+      "maturity": "Candidate",
+      "responsibility": "Preserve primary, secondary, and tertiary product-action hierarchy across available space.",
+      "contracts": ["semantic-slots", "primary-width-and-emphasis", "no-empty-height-as-hierarchy", "responsive-composition", "dom-priority"],
+      "consumers": ["apps/web/src/app/games/[gameId]/page.tsx"],
+      "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
+    },
+    {
+      "name": "PageHeader",
+      "path": "apps/web/src/components/layout/PageHeader.tsx",
+      "maturity": "Candidate",
+      "responsibility": "Own page-title scale, identity, description rhythm, and semantic heading hierarchy.",
+      "contracts": ["single-h1", "fluid-title-scale", "bounded-line-length", "identity-proximity"],
+      "consumers": ["apps/web/src/app/lobby/page.tsx", "apps/web/src/app/games/[gameId]/page.tsx"],
+      "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
+    },
+    {
+      "name": "NavigationItem",
+      "path": "apps/web/src/components/layout/NavigationItem.tsx",
+      "maturity": "Candidate",
+      "responsibility": "Keep header icon and label as one directional, proximity-controlled navigation object.",
+      "contracts": ["icon-label-proximity", "single-direction-owner", "active-state", "mobile-icon-mode"],
+      "consumers": ["apps/web/src/components/layout/Header.tsx"],
+      "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
+    },
+    {
+      "name": "TrustSeal",
+      "path": "apps/web/src/components/layout/TrustSeal.tsx",
+      "maturity": "Candidate",
+      "responsibility": "Show the official remote trust seal when available and an honest verification-link fallback when blocked.",
+      "contracts": ["load-state", "error-fallback", "external-verification-link", "no-broken-image"],
+      "consumers": ["apps/web/src/components/layout/Footer.tsx"],
+      "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
+    },
+    {
+      "name": "GameIdentityMark",
+      "path": "apps/web/src/components/game/GameIdentityMark.tsx",
+      "maturity": "Candidate",
+      "responsibility": "Give every game a coherent branded icon frame, stroke language, scale, and containment rule.",
+      "contracts": ["shared-frame", "shared-stroke", "semantic-glyph", "three-sizes", "no-random-emoji"],
+      "consumers": ["apps/web/src/app/lobby/page.tsx", "apps/web/src/app/games/[gameId]/page.tsx"],
+      "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
+    },
+    {
+      "name": "GameSettingsToolbar",
+      "path": "apps/web/src/components/game/GameSettingsToolbar.tsx",
+      "maturity": "Candidate",
+      "responsibility": "Own the internal option and action anatomy of game settings across widths.",
+      "contracts": ["option-area", "action-area", "no-option-action-axis-competition", "uniform-control-height", "semantic-reflow"],
+      "consumers": ["apps/web/src/app/game/[gameId]/page.tsx"],
+      "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
+    },
+    {
+      "name": "StatusCluster",
+      "path": "apps/web/src/components/shared/StatusCluster.tsx",
+      "maturity": "Candidate",
+      "responsibility": "Compose status indicators with consistent wrapping and logical icon/text spacing.",
+      "contracts": ["logical-icon-spacing", "wrapping", "content-containment", "status-semantics"],
+      "consumers": ["apps/web/src/components/game/GameShell.tsx"],
+      "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
+    },
+    {
+      "name": "StatusPill",
+      "path": "apps/web/src/components/shared/StatusPill.tsx",
+      "maturity": "Candidate",
+      "responsibility": "Own direction-safe icon, label, tone, spacing, and containment inside one status indicator.",
+      "contracts": ["single-layout-owner", "logical-icon-label-gap", "semantic-tone", "bounded-content"],
+      "consumers": ["apps/web/src/components/game/GameShell.tsx"],
+      "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
+    },
+    {
+      "name": "GameCard",
+      "path": "apps/web/src/components/shared/GameCard.tsx",
+      "maturity": "Candidate",
+      "responsibility": "Present one selectable game identity with contained media and consistent interaction states.",
+      "contracts": ["media-containment", "selection-state", "focus-state", "reduced-motion"],
+      "consumers": ["apps/web/src/app/lobby/page.tsx"],
+      "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
+    },
+    {
+      "name": "GameShell",
+      "path": "apps/web/src/components/game/GameShell.tsx",
+      "maturity": "Candidate",
+      "responsibility": "Own game-screen hierarchy, status composition, settings track, and short-landscape composition.",
+      "contracts": ["single-game-identity", "shared-surface-track", "status-cluster", "short-landscape", "logical-navigation"],
+      "consumers": ["apps/web/src/app/game/[gameId]/page.tsx", "apps/web/src/app/play/[roomId]/page.tsx"],
+      "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
+    }
+  ]
+}

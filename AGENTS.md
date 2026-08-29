@@ -1,6 +1,6 @@
 # BaziGB — AI Engineering & Workflow Standard
 
-**Version:** 7.0.0
+**Version:** 8.0.0
 
 This document defines how AI agents must inspect, reason about, plan, modify, validate, and document work in the BaziGB repository.
 
@@ -11,20 +11,23 @@ It is the mandatory AI entry and engineering-governance document. Product-lifecy
 At the beginning of every task:
 
 1. verify the active repository and branch,
-2. read `AGENTS.md` and `AI_CONTEXT_MAP.md` from that working context,
-3. route the task to the relevant AIPDE capabilities,
-4. read only the canonical sources required by that route,
-5. classify lifecycle stage, risk, reversibility, human gate, and resource class,
-6. inspect the closest existing implementation and validation evidence,
-7. plan before changing anything outside an already approved routine scope.
+2. read `AGENTS.md`, `AI_CONTEXT_MAP.md`, and the small `ai/current-state.json` from that working context,
+3. select the matching route from `ai/retrieval-manifest-v1.json`,
+4. route the task to the relevant AIPDE capabilities and Work Registry task,
+5. read only the canonical sources required by that route,
+6. classify lifecycle stage, risk, reversibility, human gate, and resource class,
+7. inspect the closest existing implementation and validation evidence,
+8. plan before changing anything outside an already approved routine scope.
 
-If the branch or working context changes, repeat the entry protocol. Cached governance is not evidence.
+If the branch or working context changes, repeat the entry protocol. Do not reread unchanged historical or domain documents without a routed reason. Cached memory is not authority; the small Current State and canonical domain source are.
 
 Canonical operating sequence:
 
 `DIRECT → ROUTE → DISCOVER → CLASSIFY → PLAN → APPROVE WHEN REQUIRED → IMPLEMENT → EVALUATE → RECORD → LEARN`
 
 Do not use screenshot recency, implementation convenience, or chat order as the product backlog priority.
+
+Active work state and priority come only from `ai/work-registry-v1.json`. Historical reports and progress narratives are evidence, not an actionable backlog.
 
 ## 1. AUTHORITY AND SOURCE OF TRUTH
 
@@ -275,6 +278,8 @@ GitHub Issues / task backlog → active implementation work
 
 Historical documents must not override current implementation.
 
+Work lifecycle, portfolio taxonomy, reporting, retrieval, supersession, and cost gates are canonical in `ai/WORK_MANAGEMENT.md`. Do not copy active task state into reports.
+
 If documentation conflicts with code:
 1. detect the conflict
 2. identify the current source
@@ -311,8 +316,8 @@ Do not mix these responsibilities.
 
 At the beginning of a new AI session:
 1. verify the active repository and branch,
-2. read `AGENTS.md` and `AI_CONTEXT_MAP.md`,
-3. route the task and identify required AIPDE capabilities,
+2. read `AGENTS.md`, `AI_CONTEXT_MAP.md`, and `ai/current-state.json`,
+3. select the route in `ai/retrieval-manifest-v1.json` and identify the Work Registry task and capabilities,
 4. read `DESIGN_SYSTEM.md` for frontend tasks,
 5. inspect only relevant manifests, source, analogues, and validation,
 6. classify CURRENT / TARGET / CONSTRAINT / DEBT / UNKNOWN,

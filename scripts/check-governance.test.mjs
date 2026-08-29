@@ -80,13 +80,21 @@ const integration = {
 };
 
 write('AGENTS.md', 'AI_CONTEXT_MAP.md docs/aipde/system-governance.md npm run check:governance');
-write('AI_CONTEXT_MAP.md', 'ai/CONTROL_PLANE.md ai/SYSTEM_INTEGRATION.md ai/VALIDATION_GATE.md');
-write('ai/CONTROL_PLANE.md', 'Resource Approval Request Pilot protocol ai/SYSTEM_INTEGRATION.md');
+write('AGENTS.md', 'AI_CONTEXT_MAP.md docs/aipde/system-governance.md npm run check:governance ai/current-state.json ai/work-registry-v1.json ai/retrieval-manifest-v1.json');
+write('AI_CONTEXT_MAP.md', 'ai/CONTROL_PLANE.md ai/SYSTEM_INTEGRATION.md ai/VALIDATION_GATE.md ai/current-state.json ai/work-registry-v1.json ai/retrieval-manifest-v1.json');
+write('ai/CONTROL_PLANE.md', 'Resource Approval Request Pilot protocol ai/SYSTEM_INTEGRATION.md ai/WORK_MANAGEMENT.md');
 write('ai/SYSTEM_INTEGRATION.md', 'accepted handoff cross-cutting controls');
 write('ai/VALIDATION_GATE.md', 'PASS FAIL NOT RUN BLOCKED');
+write('ai/WORK_MANAGEMENT.md', 'Historical reports are excluded by default. Medium and high work require approval.');
 write('ai/pilots/control-plane-v1.json', JSON.stringify(pilot));
 write('ai/system-integration-v1.json', JSON.stringify(integration));
-write('docs/aipde/system-governance.md', 'Working layer History layer Off-device layer Elevated Intensive');
+write('docs/aipde/system-governance.md', 'Working layer History layer Off-device layer Elevated Intensive ai/work-registry-v1.json');
+const categories = ['Product Integrity', 'Security and Trust', 'Product Experience', 'Design System and Brand', 'Platform Architecture', 'Evaluation and Quality', 'Delivery and Operations', 'Governance and Knowledge', 'Evolution'];
+const states = ['observed', 'triaged', 'approved', 'in-progress', 'implemented', 'machine-validated', 'human-validation-pending', 'accepted', 'operationally-verified', 'learning-captured', 'blocked', 'deferred', 'rejected', 'superseded', 'reopened'];
+const testTask = {id:'TASK-1',title:'Test',category:'Governance and Knowledge',domain:'Test',workstream:'Test',milestone:'m1',outcome:'Test',accountable:'Governance and Versioning',contributors:[],source:[],state:'in-progress',priority:'P0',risk:'test',dependencies:[],scope:[],exclusions:[],acceptance:[],machineEvidence:[],humanEvidence:[],resource:{band:'medium',approved:true},approvalGate:'approved',artifact:[],receiver:'AI Orchestration',learningDestination:'test',related:[]};
+write('ai/work-registry-v1.json', JSON.stringify({version:'1.0.0',states,portfolioOrder:categories,milestones:[{id:'m1'}],tasks:[testTask]}));
+write('ai/current-state.json', JSON.stringify({version:'1.0.0',updated:'2026-08-27',repository:'test',branch:'test',activeMilestone:'m1',currentGate:{taskId:'TASK-1'},nextProposedTask:'TASK-1',lastValidation:{passed:[]},constraints:[],canonical:{workRegistry:'ai/work-registry-v1.json'}}));
+write('ai/retrieval-manifest-v1.json', JSON.stringify({version:'1.0.0',defaultEntry:['AGENTS.md','AI_CONTEXT_MAP.md','ai/current-state.json'],rules:{historicalReportsDefault:'exclude'},routes:['work-state-and-priority','game-rules-change','frontend-or-design-system','security-finding','validation-only','governance-evolution'].map(id=>({id,triggers:['test'],initialSources:['test'],expandTo:['test'],forbiddenDefault:['test']}))}));
 write('docs/reports/README.md', '| 2026-08-26 | Test | [Report](./test/report.md) | Status | revision |');
 write('docs/reports/test/report.md', '# Test Report\n\n- Date: 2026-08-26\n- Status: test\n');
 
@@ -118,5 +126,21 @@ if (invalidIntegration.status === 0 || !invalidIntegration.stderr.includes('Syst
   throw new Error('Expected incomplete System Integration capability coverage to fail closed');
 }
 
+write('ai/system-integration-v1.json', JSON.stringify(integration));
+write('ai/current-state.json', JSON.stringify({version:'1.0.0',updated:'2026-08-27',repository:'test',branch:'test',activeMilestone:'m1',currentGate:{taskId:'MISSING'},nextProposedTask:'TASK-1',lastValidation:{passed:[]},constraints:[],canonical:{workRegistry:'ai/work-registry-v1.json'}}));
+const invalidCurrentState = run();
+if (invalidCurrentState.status === 0 || !invalidCurrentState.stderr.includes('Current State has unknown gate task')) {
+  console.error(invalidCurrentState.stdout, invalidCurrentState.stderr);
+  throw new Error('Expected a Current State pointing at an unknown task to fail closed');
+}
+
+write('ai/current-state.json', JSON.stringify({version:'1.0.0',updated:'2026-08-27',repository:'test',branch:'test',activeMilestone:'m1',currentGate:{taskId:'TASK-1'},nextProposedTask:'TASK-1',lastValidation:{passed:[]},constraints:[],canonical:{workRegistry:'ai/work-registry-v1.json'}}));
+write('ai/retrieval-manifest-v1.json', JSON.stringify({version:'1.0.0',defaultEntry:['AGENTS.md','AI_CONTEXT_MAP.md','ai/current-state.json'],rules:{historicalReportsDefault:'include'},routes:['work-state-and-priority','game-rules-change','frontend-or-design-system','security-finding','validation-only','governance-evolution'].map(id=>({id,triggers:['test'],initialSources:['test'],expandTo:['test'],forbiddenDefault:['test']}))}));
+const invalidRetrieval = run();
+if (invalidRetrieval.status === 0 || !invalidRetrieval.stderr.includes('Retrieval Manifest must exclude historical reports by default')) {
+  console.error(invalidRetrieval.stdout, invalidRetrieval.stderr);
+  throw new Error('Expected an unbounded historical retrieval policy to fail closed');
+}
+
 fs.rmSync(fixtureRoot, { recursive: true, force: true });
-console.log('Governance checker tests passed: valid fixture accepted; broken fixture rejected.');
+console.log('Governance checker tests passed: valid fixture accepted; broken files, capability, Current State, and retrieval policy rejected.');

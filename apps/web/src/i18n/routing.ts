@@ -8,6 +8,7 @@ export const APP_ROUTES = {
   profile: '/profile',
   login: '/login',
   rules: '/rules',
+  privacy: '/privacy',
   contact: '/contact',
   admin: '/admin',
 } as const;
@@ -16,6 +17,10 @@ export type AppRouteKey = keyof typeof APP_ROUTES;
 
 export function gameRoute(gameId: string): string {
   return `/game/${encodeURIComponent(gameId)}`;
+}
+
+export function gameHubRoute(gameId: string): string {
+  return `/games/${encodeURIComponent(gameId)}`;
 }
 
 export function playRoute(roomId: string): string {
@@ -33,6 +38,10 @@ export function localePath(locale: Locale, pathname: string): string {
 
 export function localizedGameRoute(locale: Locale, gameId: string): string {
   return localePath(locale, gameRoute(gameId));
+}
+
+export function localizedGameHubRoute(locale: Locale, gameId: string): string {
+  return localePath(locale, gameHubRoute(gameId));
 }
 
 export function localizedPlayRoute(locale: Locale, roomId: string): string {

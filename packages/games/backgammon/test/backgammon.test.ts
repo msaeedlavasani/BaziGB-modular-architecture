@@ -10,8 +10,17 @@ import {
   offerDouble,
   respondDouble,
   getGameMultiplier,
-  serialize
+  serialize,
+  checkerInventory,
+  canUndoMove,
+  getRequiredMoveChains,
+  isValidTurnDraft,
+  applyTurnDraft,
+  canCommitTurn,
+  commitTurn,
+  startNextGame,
 } from '../src/index';
+import type { BackgammonMove } from '../src/index';
 
 const players = [
   { id: 'p1', name: 'Player 1', color: 1 as const },
@@ -39,6 +48,83 @@ describe('Backgammon Game Logic', () => {
     expect(state.dice!.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('rejects a second roll and never permits undoing random dice', () => {
+    const state = createState(players);
+    const rolled = rollDiceFor(state);
+    expect(() => rollDiceFor(rolled)).toThrow();
+    expect(canUndoMove(state, { player: 'p1', kind: 'roll' })).toBe(false);
+  });
+
+  it('ends a single game instead of silently starting another board', () => {
+    let state = createState(players);
+    state.board.fill(0);
+    state.board[23] = 1;
+    state.off[1] = 14;
+    state.board[0] = -15;
+    state.dice = [1];
+    state.rolled = true;
+
+    state = applyChain(state, [{ player: 'p1', kind: 'move', from: 23, to: 'off', amount: 1 }]);
+
+    expect(state.phase).toBe('finished');
+    expect(state.winner).toBe('p1');
+    expect(state.gameWinner).toBe('p1');
+  });
+
+  it('pauses a points match at roundEnd and resets the cube only after acknowledgement', () => {
+    let state = createState(players, { matchPoint: true, winByTwo: false, targetScore: 5 });
+    state.board.fill(0);
+    state.board[23] = 1;
+    state.off[1] = 14;
+    state.board[0] = -14;
+    state.off[-1] = 1;
+    state.dice = [1];
+    state.rolled = true;
+    state.cube = 2;
+    state.cubeOwner = 'p1';
+
+    state = applyChain(state, [{ player: 'p1', kind: 'move', from: 23, to: 'off', amount: 1 }]);
+    expect(state.phase).toBe('roundEnd');
+    expect(state.winner).toBeNull();
+    expect(state.gameWinner).toBe('p1');
+    expect(state.gamePoints).toBe(2);
+    expect(() => applyChain(state, [])).toThrow();
+
+    const next = startNextGame(state);
+    expect(next.phase).toBe('playing');
+    expect(next.round).toBe(2);
+    expect(next.scores.p1).toBe(2);
+    expect(next.turn).toBe('p2');
+    expect(next.cube).toBe(1);
+    expect(next.cubeOwner).toBeNull();
+  });
+
+  it('activates Crawford once when a player becomes one-away', () => {
+    let state = createState(players, { matchPoint: true, winByTwo: false, targetScore: 5 });
+    state.phase = 'roundEnd';
+    state.scores = { p1: 4, p2: 2 };
+    state.gameWinner = 'p1';
+    state.gamePoints = 1;
+    state.nextStarter = 'p2';
+
+    const crawford = startNextGame(state);
+    expect(crawford.crawfordGame).toBe(true);
+    expect(crawford.crawfordUsed).toBe(true);
+    expect(canOfferDouble(crawford, 'p2')).toBe(false);
+
+    crawford.phase = 'roundEnd';
+    crawford.nextStarter = 'p1';
+    const afterCrawford = startNextGame(crawford);
+    expect(afterCrawford.crawfordGame).toBe(false);
+    expect(afterCrawford.crawfordUsed).toBe(true);
+  });
+
+  it('prevents a dead-cube offer that would add no match value', () => {
+    const state = createState(players, { matchPoint: true, winByTwo: false, targetScore: 5 });
+    state.scores = { p1: 4, p2: 1 };
+    expect(canOfferDouble(state, 'p1')).toBe(false);
+  });
+
   it('should identify legal moves with a single die', () => {
     let state = createState(players);
     state.dice = [3, 5];
@@ -61,6 +147,19 @@ describe('Backgammon Game Logic', () => {
     state = applyMove(state, move);
 
     expect(state.board[3]).toBe(1);
+    expect(state.bar[-1]).toBe(1);
+    expect(serialize(state)).toMatchObject({ bar: { '-1': 1 } });
+  });
+
+  it('conserves both 15-checker inventories through a legal hit', () => {
+    let state = createState(players);
+    state.board[3] = -1;
+    state.board[5] = -4;
+    state.dice = [3];
+    state.rolled = true;
+
+    state = applyMove(state, { player: 'p1', kind: 'move', from: 0, to: 3, amount: 3 });
+    expect(checkerInventory(state)).toEqual({ 1: 15, '-1': 15 });
     expect(state.bar[-1]).toBe(1);
   });
 
@@ -176,6 +275,87 @@ describe('Backgammon Game Logic', () => {
     expect(state.board[17]).toBe(4);
   });
 
+  describe('Turn transaction contract', () => {
+    it('keeps ownership after the second drafted die until explicit commit', () => {
+      const state = createState(players);
+      state.dice = [3, 4];
+      state.rolled = true;
+      const draft = [
+        { player: 'p1', kind: 'move', from: 11, to: 14, amount: 3 },
+        { player: 'p1', kind: 'move', from: 18, to: 22, amount: 4 },
+      ] as BackgammonMove[];
+
+      const first = applyTurnDraft(state, draft.slice(0, 1));
+      expect(first.turn).toBe('p1');
+      expect(first.dice).toEqual([4]);
+      expect(isValidTurnDraft(state, draft.slice(0, 1))).toBe(true);
+      expect(canCommitTurn(state, draft.slice(0, 1))).toBe(false);
+
+      const completeDraft = applyTurnDraft(state, draft);
+      expect(completeDraft.turn).toBe('p1');
+      expect(completeDraft.dice).toEqual([]);
+      expect(canCommitTurn(state, draft)).toBe(true);
+
+      const committed = commitTurn(state, draft);
+      expect(committed.turn).toBe('p2');
+      expect(committed.rolled).toBe(false);
+    });
+
+    it('rejects a shorter chain when another die can still be played', () => {
+      const state = createState(players);
+      state.dice = [3, 4];
+      state.rolled = true;
+      const firstMove = getRequiredMoveChains(state)[0][0];
+
+      expect(isValidTurnDraft(state, [firstMove])).toBe(true);
+      expect(canCommitTurn(state, [firstMove])).toBe(false);
+      expect(() => commitTurn(state, [firstMove])).toThrow('incomplete');
+    });
+
+    it('requires the higher die when only one unequal die can be used', () => {
+      const state = createState(players);
+      state.board.fill(0);
+      state.board[23] = 1;
+      state.off[1] = 14;
+      state.board[0] = -15;
+      state.dice = [1, 6];
+      state.rolled = true;
+
+      const chains = getRequiredMoveChains(state);
+      expect(chains.length).toBeGreaterThan(0);
+      expect(chains.every((chain) => chain.length === 1 && chain[0].amount === 6)).toBe(true);
+      expect(isValidTurnDraft(state, [{ player: 'p1', kind: 'move', from: 23, to: 'off', amount: 1 }])).toBe(false);
+    });
+
+    it('supports an explicit no-move commit', () => {
+      const state = createState(players);
+      state.board.fill(0);
+      state.board[0] = 14;
+      state.bar[1] = 1;
+      state.board[5] = -15;
+      state.dice = [6, 6, 6, 6];
+      state.rolled = true;
+
+      expect(getRequiredMoveChains(state)).toEqual([[]]);
+      expect(canCommitTurn(state, [])).toBe(true);
+      expect(commitTurn(state, []).turn).toBe('p2');
+    });
+
+    it('keeps all four double moves in one reversible draft', () => {
+      const state = createState(players);
+      state.board.fill(0);
+      state.board[0] = 15;
+      state.dice = [1, 1, 1, 1];
+      state.rolled = true;
+      const chain = getRequiredMoveChains(state)[0];
+
+      expect(chain).toHaveLength(4);
+      expect(isValidTurnDraft(state, chain.slice(0, 3))).toBe(true);
+      expect(canCommitTurn(state, chain.slice(0, 3))).toBe(false);
+      expect(canCommitTurn(state, chain)).toBe(true);
+    });
+  });
+
   it('should handle doubles correctly', () => {
     let state = createState(players);
     state.dice = [4, 4, 4, 4]; // موتور بازی در صورت جفت بودن ۴ تاس می‌دهد
@@ -247,8 +427,9 @@ describe('Backgammon Game Logic', () => {
       state.doubling = { offeredBy: 'p1' };
       
       state = respondDouble(state, 'p2', false);
-      // Game (round) finished, new round starts if match not over
-      expect(state.round).toBe(2);
+      expect(state.phase).toBe('finished');
+      expect(state.round).toBe(1);
+      expect(state.winner).toBe('p1');
       expect(state.scores['p1']).toBe(2); // cube=2
     });
   });
@@ -306,8 +487,8 @@ describe('Backgammon Game Logic', () => {
     });
   });
 
-  it('Carry-over: cube and owner should persist across rounds', () => {
-    let state = createState(players);
+  it('new games reset the cube instead of carrying it across a match', () => {
+    let state = createState(players, { matchPoint: true, winByTwo: false, targetScore: 9 });
     state.cube = 4;
     state.cubeOwner = 'p2';
     state.off[1] = 14;
@@ -320,9 +501,12 @@ describe('Backgammon Game Logic', () => {
     const chain = [{ player: 'p1', kind: 'move', from: 23, to: 'off', amount: 1 }] as any;
     state = applyChain(state, chain);
     
-    expect(state.round).toBe(2);
-    expect(state.cube).toBe(4);
-    expect(state.cubeOwner).toBe('p2');
+    expect(state.phase).toBe('roundEnd');
+    expect(state.round).toBe(1);
+    const next = startNextGame(state);
+    expect(next.round).toBe(2);
+    expect(next.cube).toBe(1);
+    expect(next.cubeOwner).toBeNull();
   });
 
   it('serialize should include cube fields', () => {

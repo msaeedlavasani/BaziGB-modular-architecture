@@ -203,4 +203,40 @@ describe('GameGateway Unit Tests', () => {
     // matchWinner must be 'p1'.
     expect(roomService.finishRoom).toHaveBeenCalledWith(room2.code, 'p1', finalState2);
   });
+
+  it('7. Backgammon uses room points as the match target, not best-of conversion', () => {
+    const room: any = { gameType: 'backgammon', players: ['p1', 'p2'], maxRounds: 7 };
+    const state = (gateway as any).initialState(room);
+    expect(state.match).toEqual({ matchPoint: true, winByTwo: false, targetScore: 7 });
+  });
+
+  it('8. Backgammon roundEnd is persisted as an acknowledgement boundary', async () => {
+    const room: any = {
+      code: 'BGROOM',
+      gameType: 'backgammon',
+      players: ['p1', 'p2'],
+      scores: { p1: 0, p2: 0 },
+      maxRounds: 5,
+      status: 'playing',
+    };
+    const state: any = {
+      phase: 'roundEnd',
+      winner: null,
+      gameWinner: 'p1',
+      gamePoints: 2,
+      scores: { p1: 2, p2: 0 },
+    };
+    (gateway as any).undoStacks.set(room.code, [{ state: {}, actorId: 'p1' }]);
+
+    await (gateway as any).handleRoundOver(room, state);
+
+    expect(roomService.saveScores).toHaveBeenCalledWith(room.code, state.scores);
+    expect(roomService.startGame).not.toHaveBeenCalled();
+    expect(roomService.finishRoom).not.toHaveBeenCalled();
+    expect((gateway as any).undoStacks.has(room.code)).toBe(false);
+    expect(server.to().emit).toHaveBeenCalledWith('roundOver', expect.objectContaining({
+      winner: 'p1',
+      points: 2,
+    }));
+  });
 });

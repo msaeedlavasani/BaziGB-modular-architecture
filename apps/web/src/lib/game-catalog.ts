@@ -7,9 +7,10 @@ export type GameMessageKey = keyof AppMessages['games'];
 export interface GameCatalogEntry {
   id: GameId;
   messageKey: GameMessageKey;
-  chipSymbol: string;
   /** Presentation fallback only; authoritative runtime capability stays in GameAdapter. */
   maxPlayers: number;
+  /** Intrinsic board geometry, not a breakpoint or pixel width. */
+  surfaceRatio?: number;
 }
 
 /**
@@ -24,25 +25,24 @@ export const GAME_CATALOG: Record<GameId, GameCatalogEntry> = {
   'tic-tac-toe': {
     id: 'tic-tac-toe',
     messageKey: 'ticTacToe',
-    chipSymbol: '✕',
     maxPlayers: 2,
+    surfaceRatio: 1,
   },
   backgammon: {
     id: 'backgammon',
     messageKey: 'backgammon',
-    chipSymbol: '🎲',
     maxPlayers: 2,
+    surfaceRatio: 1.25,
   },
   chess: {
     id: 'chess',
     messageKey: 'chess',
-    chipSymbol: '♞',
     maxPlayers: 2,
+    surfaceRatio: 1,
   },
   vegas: {
     id: 'vegas',
     messageKey: 'vegas',
-    chipSymbol: '💵',
     maxPlayers: 5,
   },
 };
@@ -60,9 +60,4 @@ export function getGameCatalogEntry(gameId: GameId): GameCatalogEntry {
 export function getGameTitle(gameId: GameId, locale: Locale): string {
   const entry = getGameCatalogEntry(gameId);
   return getMessages(locale).games[entry.messageKey];
-}
-
-export function getGameChip(gameId: GameId, locale: Locale): string {
-  const entry = getGameCatalogEntry(gameId);
-  return `${entry.chipSymbol} ${getGameTitle(gameId, locale)}`;
 }

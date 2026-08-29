@@ -1,0 +1,81 @@
+{
+  "documentType": "codex-security.hardening-analysis",
+  "schemaVersion": "1.0",
+  "analysisId": "release_and_secrets_20260828",
+  "sourceScan": {
+    "scanId": "574cc239-9a07-4c8d-b25f-0676ba95d11f",
+    "targetRevision": "17049d2704f755a1df85190580027001c0bb6856",
+    "snapshotDigest": "codex-security-snapshot/v1:sha256:d8701aa488a6470a4a2b6878ec08ee7b5cdbd597762a6f02e527c53ef3f5967d",
+    "sourceDrift": "present"
+  },
+  "assessment": {
+    "outcome": "opportunities_identified",
+    "summary": "Release identity, persistent data, runtime secrets, and rollback need one owned boundary before production execution."
+  },
+  "constraints": {
+    "profile": "balanced",
+    "changeHorizons": ["incremental", "medium_term"],
+    "nonNegotiables": ["no-production-action-without-separate-approval", "PostgreSQL-after-Alpha"],
+    "assumptions": ["No measured latency, memory, RPO, or RTO budget was supplied."]
+  },
+  "opportunities": [
+    {
+      "opportunityId": "release-secret-boundary",
+      "title": "Own the release and secret boundary",
+      "summary": "Separate immutable release artifacts from data, secrets, activation, and recovery.",
+      "diagnosis": "Competing production paths and a mutable live directory disperse ownership of release and credential invariants.",
+      "evidence": [
+        {"claimType": "observed", "sourceKind": "finding", "findingId": "SEC-003", "path": "docker-compose.yml", "claim": "The alternative deployment path supplies predictable database and JWT fallback values."},
+        {"claimType": "observed", "sourceKind": "source", "path": "scripts/deploy.sh", "claim": "The script deletes recorded host identity and synchronizes destructively into the live directory."},
+        {"claimType": "inferred", "sourceKind": "source", "path": "scripts/deploy.sh", "claim": "Candidate identity, activation, rollback, and persistent-state ownership are not centralized."}
+      ],
+      "desiredInvariants": [
+        "Every active release maps to one immutable candidate and checksum.",
+        "Missing production secrets stop startup without fallback.",
+        "Application rollback does not overwrite persistent data or secrets."
+      ],
+      "proposalPath": "proposals/release-secret-boundary.md",
+      "options": [
+        {
+          "optionId": "local-guards",
+          "title": "Strengthen current direct-sync scripts",
+          "kind": "baseline",
+          "summary": "Remove unsafe defaults and make checks fatal while preserving the live-directory workflow.",
+          "diagramPaths": {"before": "diagrams/release-secret-boundary-before.mmd", "after": "diagrams/release-secret-boundary-local-guards-after.mmd"},
+          "findingCoverage": [{"findingId": "SEC-003", "effect": "mitigates", "tacticalFixRequired": true, "rationale": "Fallbacks are removed but deployment authority remains dispersed."}],
+          "tradeoffs": [
+            {"dimension": "security", "direction": "improves", "confidence": "high", "basis": "source-derived", "assessment": "Known defaults and host-key deletion can be removed, but future script drift remains.", "validationPlan": "Run configuration failure tests and inspect every production path."},
+            {"dimension": "performance", "direction": "neutral", "confidence": "medium", "basis": "source-derived", "assessment": "No request-path change is introduced.", "validationPlan": "Compare deployment duration and downtime in staging."},
+            {"dimension": "memory", "direction": "neutral", "confidence": "medium", "basis": "source-derived", "assessment": "No persistent process is added.", "validationPlan": "Compare service RSS before and after."},
+            {"dimension": "reliability", "direction": "improves", "confidence": "medium", "basis": "source-derived", "assessment": "Fatal checks reduce false success but partial live mutation remains.", "validationPlan": "Inject transfer and health failures in staging."},
+            {"dimension": "operability", "direction": "improves", "confidence": "low", "basis": "hypothetical", "assessment": "The workflow changes little, but recovery remains manual.", "validationPlan": "Time a rollback rehearsal."},
+            {"dimension": "migration", "direction": "neutral", "confidence": "high", "basis": "source-derived", "assessment": "The current directory model is preserved.", "validationPlan": "Rehearse the patched script on staging."}
+          ],
+          "residualRisks": ["Partial live-directory mutation", "Manual reconstruction of previous release"],
+          "implementationReadiness": {"affectedComponents": ["scripts/deploy.sh", "docker-compose.yml", "apps/server/src/main.ts"], "workPackages": ["Remove fallbacks and unsafe SSH behavior", "Make health checks fatal"], "acceptanceCriteria": ["Unsafe configuration fails closed"], "migrationNotes": [], "rollback": "Revert the focused script and configuration changes."}
+        },
+        {
+          "optionId": "atomic-systemd",
+          "title": "Versioned atomic Systemd and SQLite releases",
+          "kind": "structural",
+          "summary": "Promote immutable artifacts through a scoped identity and atomic activation while data and secrets remain external.",
+          "diagramPaths": {"before": "diagrams/release-secret-boundary-before.mmd", "after": "diagrams/release-secret-boundary-atomic-systemd-after.mmd"},
+          "findingCoverage": [{"findingId": "SEC-003", "effect": "addresses", "tacticalFixRequired": true, "rationale": "One canonical production path is selected; fallback removal and possible rotation still remain."}],
+          "tradeoffs": [
+            {"dimension": "security", "direction": "improves", "confidence": "high", "basis": "source-derived", "assessment": "Release, secret, data, and activation boundaries become explicit.", "validationPlan": "Revalidate SEC-003 and test missing-secret startup."},
+            {"dimension": "performance", "direction": "neutral", "confidence": "medium", "basis": "source-derived", "assessment": "Controls run at release time, not on requests.", "validationPlan": "Measure deployment duration and request latency before and after."},
+            {"dimension": "memory", "direction": "neutral", "confidence": "medium", "basis": "source-derived", "assessment": "Versioned files consume disk but add no resident service.", "validationPlan": "Measure disk retention and service RSS."},
+            {"dimension": "reliability", "direction": "improves", "confidence": "high", "basis": "analogous", "assessment": "Atomic activation contains partial transfer failure and preserves the previous artifact.", "validationPlan": "Inject failures before and after activation and time rollback."},
+            {"dimension": "operability", "direction": "improves", "confidence": "medium", "basis": "hypothetical", "assessment": "Setup is more complex, but candidate and recovery evidence become repeatable.", "validationPlan": "Have an operator execute the staging runbook and record ambiguity."},
+            {"dimension": "migration", "direction": "regresses", "confidence": "high", "basis": "source-derived", "assessment": "Release directories, permissions, service paths, and external state must be introduced.", "validationPlan": "Rehearse transition and reversal without user traffic."}
+          ],
+          "residualRisks": ["Irreversible database migrations can still block application rollback", "Actual credential exposure history remains unknown"],
+          "implementationReadiness": {"affectedComponents": ["scripts/deploy.sh", "scripts/backup-db.sh", "docker-compose.yml", "Caddyfile", "apps/server/src/main.ts"], "workPackages": ["Secret boundary", "Backup and restore proof", "Versioned release implementation", "Staging rehearsal"], "acceptanceCriteria": ["Same validated artifact is activated", "Previous verified release rolls back", "Restore proof succeeds"], "migrationNotes": ["Keep SQLite for Alpha", "Defer PostgreSQL"], "rollback": "Switch the active pointer to the previous verified release; restore data only with separate approval."}
+        }
+      ],
+      "recommendedOptionId": "atomic-systemd",
+      "recommendation": "Use atomic Systemd and SQLite releases for Alpha; defer PostgreSQL to a separate post-Alpha migration."
+    }
+  ],
+  "openQuestions": ["Human secret-store choice", "RPO and RTO", "Production runtime path verification"]
+}

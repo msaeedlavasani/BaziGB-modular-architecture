@@ -12,6 +12,8 @@ AIPDE is human-directed, AI-orchestrated, evidence-driven, lifecycle-complete, s
 
 The system optimizes for durable product capability rather than rapid local output. It fixes a missing shared rule before repeatedly patching symptoms produced by that missing rule.
 
+Active work is organized through the portfolio and lifecycle contract in `ai/WORK_MANAGEMENT.md`. Reports preserve evidence; `ai/work-registry-v1.json` alone owns active state and priority.
+
 Human judgment owns intent, values, risk appetite, budget, irreversible decisions, and final approval. AI owns bounded investigation, synthesis, proposal generation, implementation within approved scope, verification, traceability, and learning capture.
 
 ## Capability architecture
@@ -129,6 +131,12 @@ A pushed Git remote or another independently managed backup preserves committed 
 Important reports are registered under `docs/reports/README.md`. Canonical rules live in their domain document. Architectural decisions use ADRs. Active implementation work belongs in the task backlog. Generated chat text and temporary tool folders are never canonical records.
 
 No report may claim remote protection until its commit is confirmed on the remote. No backup may be called healthy until a restore or retrieval check has succeeded.
+
+### Retrieval and supersession
+
+Routine session entry uses the bounded `ai/current-state.json` and the task-specific route in `ai/retrieval-manifest-v1.json`. Historical reports are not loaded by default and never override the Work Registry. They are retrieved only for provenance, recurrence, source conflict, or an explicit audit request.
+
+Superseded evidence is retained and linked rather than deleted. Canonical contracts may evolve in place; immutable reports receive a supersession relationship. HANDOFF links to active state and must not duplicate the full backlog.
 
 ## Human gates
 

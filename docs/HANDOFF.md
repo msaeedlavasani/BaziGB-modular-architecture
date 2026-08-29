@@ -65,6 +65,7 @@ Active through one shared page tree:
 /fa/leaderboard    /en/leaderboard
 /fa/tournaments    /en/tournaments
 /fa/game/...       /en/game/...
+/fa/games/...      /en/games/...
 /fa/play/...       /en/play/...
 /fa/login          /en/login
 ```
@@ -74,6 +75,7 @@ Active through one shared page tree:
 - Header/Footer emit localized routes,
 - Header exposes FA/EN switching while preserving logical path,
 - local/bot game back navigation now remains inside the active locale,
+- game discovery routes to one shared, locale-aware Game Hub per catalog game,
 - multiplayer game back navigation remains inside the active locale,
 - Admin remains locale-neutral.
 
@@ -113,8 +115,17 @@ Theme exports `shapeScale`. Circles, avatars, game pieces and specialized board 
 
 ## Major UI cleanup completed in code
 
+### Information architecture / Game Hub
+- Lobby is game discovery only; create-room, bot, invite-code and global active-room workflows were removed.
+- `games/[gameId]` is a shared data-driven Hub using the canonical game catalog and room API client.
+- Each Hub offers bot play, online room creation, invite-code entry and only that game's active rooms.
+- Match settings appear only for currently supported Tic-Tac-Toe/Backgammon flows.
+- Active rooms are height-constrained with local scrolling and explicit loading/empty/error states.
+- Middleware and locale/path-preserving language switching cover the new route.
+- Gameplay engines and server realtime protocol were not changed.
+
 ### Global shell / theme
-- Header hardened for ~360px widths.
+- Header is a full-width bottom-border-only AppBar with centered max-width inner toolbar, independent mobile/desktop treatment and fixed physical nav-right/brand-center/controls-left composition.
 - Visible FA/EN switcher preserves logical path.
 - Root no longer imposes duplicate global max-width/padding on every page/game.
 - Persian font stylesheet only loads for Persian requests.
@@ -122,6 +133,7 @@ Theme exports `shapeScale`. Circles, avatars, game pieces and specialized board 
 - Global Button/Card/Paper decorative glow/shadow behavior was reduced.
 - Focus-visible and reduced-motion behavior strengthened.
 - Radius hierarchy normalized.
+- Footer is minimal and mirrored: FA Brand right/legal center/eNamad left; EN is the reverse; mobile stacks. Lobby/Leaderboard/Tournaments links are excluded and eNamad remains in both locales.
 
 ### Lobby
 - canonical `GameCard`, `LoadingSkeleton`, `EmptyState`,
@@ -219,9 +231,21 @@ Do not change dependency/lockfile state blindly in connector-only mode. Verify d
 - `DEBT-016` dead Admin Footer logic: non-blocking cleanup after executable validation.
 - `DEBT-020` MUI/Emotion RTL cache verification: **runtime dependent**.
 - `DEBT-021` oversized radius baseline: **RESOLVED IN CODE / visual validation pending**.
-- `BUG-001` overall runtime/compile validation: outstanding.
-- `BUG-002` stale locale-hook import: **RESOLVED IN CODE**.
+- `BUG-001` overall runtime/compile validation: **RESOLVED; executable checks pass**.
+- `BUG-002` stale locale-hook import: **RESOLVED AND VALIDATED**.
 - `BUG-003` duplicate Backgammon SVG gradient id: **RESOLVED IN CODE**.
+- `BUG-004` pre-package-build web type resolution failure: **RESOLVED by validation ordering**.
+- `BUG-005` Lobby game-card navigation handler was unreliable: **RESOLVED with semantic localized links; end-to-end browser flow passed**.
+- `BUG-006` global spacing scale mismatch (theme 4px vs authored 8px assumptions): **RESOLVED at the design-system/theme source; Lobby/Game Hub use canonical `PageContainer`**.
+- `BUG-007` GameShell visual hierarchy duplicated identity/turn and floated settings: **RESOLVED through the shared composition contract and settings toolbar**.
+- `BUG-008` concurrent `next build`/`next dev` corrupted shared `.next` vendor chunks: **RESOLVED; stop dev before build and restart it afterward**.
+- `BUG-009` settings/board width mismatch created wasted lateral space: **RESOLVED through catalog-owned surface widths and a shared GameShell track**.
+- `BUG-010` screenshot-led/fixed-breakpoint responsive behavior: **RESOLVED at the shared layer; per-game pixel widths were removed in favor of intrinsic ratios, dynamic viewport sizing, container-driven grids and a short-landscape composition**.
+- `ENV-001` root-owned default npm cache: **OPEN local-environment issue**; use `npm ci --cache /private/tmp/bazigb-npm-cache`.
+- `ENV-002` port 3000 occupied: **RESOLVED**; web dev server is now running on 3000.
+- `ENV-003` server watch compile lacks generated Prisma client: **OPEN pre-existing tooling issue**; no server/protocol edits made.
+- `ENV-004` Next dev watcher open-file limit: **RESOLVED at current runtime checkpoint**.
+- `ENV-005` Socket.IO polling proxy resets during repeated responsive-route reloads: **OPEN backend-runtime observation**; HTTP UI routes stayed healthy.
 
 ## Validation infrastructure
 
@@ -255,10 +279,22 @@ The local review should now validate the things static inspection cannot prove:
 
 Do not perform broad redesign during this local pass. Capture concrete visual/runtime defects and place them in the bug ledger for targeted correction.
 
-## Validation status
+## Validation status (2026-08-25)
 
-- Build: NOT CONFIRMED
-- Typecheck: NOT CONFIRMED
+- Dependency install: PASS with temporary npm cache (617 packages; audit reported 31 existing vulnerabilities).
+- Shared package build: PASS.
+- Architecture boundaries: PASS.
+- Web typecheck: PASS after shared package build.
+- Web build: PASS (`next build`, including `/games/[gameId]`).
+- Spacing-system validation: PASS — canonical 8px theme scale; Hub measured at 16px/24px mobile and 32px/48px desktop inline/block spacing.
+- 360px overflow audit: PASS for Lobby, Game Hub, Profile, Leaderboard and Tournaments.
+- Responsive viewport matrix: PASS — 320/360 portrait, 667/844 landscape, 768/1024 medium and 1440 desktop have zero horizontal overflow; Tic-Tac-Toe is fully visible in the initial viewport at both tested landscape-phone sizes.
+- Runtime route smoke: PASS — `/fa/games/chess`, `/en/games/chess`, `/fa/lobby` returned HTTP 200; localized Hub copy verified.
+- Interactive room flow: PASS — Lobby game link → Chess Hub → create room → localized `/play/2AXPF`, connected and waiting for opponent.
+- Server typecheck after Prisma client generation: PASS; existing room API on port 3001 returned HTTP 200.
+- Refresh-ready hot-reload preview: `http://localhost:3000/fa/lobby` (official web dev script; process left running).
+- Web build safety: never run `build:web` while `dev:web` is active in the same checkout; both write `apps/web/.next`.
+- Port-3100 temporary production preview: stopped after the port-3000 dev server passed.
 - Tests: NOT RUN
 - Browser visual verification: NOT RUN
 - Deployment: NOT RUN
@@ -274,3 +310,44 @@ Never report PASS without actual execution.
 - do not duplicate Persian/English app trees,
 - do not make presentation metadata authoritative for game rules/capability,
 - do not destructively delete remaining graveyard candidates before consumer proof + executable validation.
+
+## 2026-08-27 — Current rules/responsive checkpoint
+
+- Canonical rules document: `docs/game-rules-contract.md`.
+- Local Backgammon refresh preserves unresolved dice; browser regression passed.
+- Backgammon rolls are non-undoable by game-owned policy in web and server.
+- Hit/bar state and checker conservation have package regression tests.
+- Persian Vazirmatn is self-hosted from `@fontsource-variable/vazirmatn`; no
+  runtime Google Fonts dependency remains.
+- Header uses equal physical side slots; Footer uses parent container queries.
+- Final package/boundary/typecheck/build suite passed after stopping the web dev
+  server; the refresh-ready dev server was restarted at `http://localhost:3000`.
+
+## 2026-08-27 — Backgammon vertical-slice handoff
+
+- The approved rules-first Backgammon slice is implemented; no branch, merge,
+  deployment, push or gameplay-asset redesign was performed as part of it.
+- Canonical completion is explicit: `playing → roundEnd → acknowledged next game`,
+  or `playing → finished` for a completed match/single game.
+- Local and online paths use the adapter's optional `startNextGame` capability.
+- Undo cannot reverse a roll or cross game/match completion.
+- Target-point settings, score multipliers, cube reset, Crawford and dead-cube
+  restrictions are package-owned and covered by regression tests.
+- Executed validation: Backgammon 29/29; gateway 8/8; package build, boundaries,
+  server/web typechecks, optimized web build, design-system/governance checks and
+  diff whitespace check passed.
+- Runtime smoke: `/fa/game/backgammon` loaded RTL at 1280px with no horizontal
+  overflow or console errors. Dev remains refresh-ready on localhost port 3000.
+- Known test limitation: the complete server suite has two unrelated existing
+  Admin controller failures due to missing `roomService` mocks. Do not report the
+  full server suite as passing.
+- Known rules limitations are versioned in `packages/games/backgammon/RULES.md` and
+  `docs/game-rules-contract.md`; do not market this as complete tournament rules.
+- Next human gate: accept the game-completion/next-game experience, then separately
+  approve either the Header composition track or the next game's rules audit.
+
+## Active-state routing
+
+Do not reconstruct the backlog from this historical handoff. Resume from
+`ai/current-state.json`, select a route in `ai/retrieval-manifest-v1.json`, and
+resolve task state and priority only through `ai/work-registry-v1.json`.

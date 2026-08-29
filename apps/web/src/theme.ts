@@ -47,11 +47,13 @@ const motion = '200ms cubic-bezier(0.4, 0, 0.2, 1)';
 
 export function createBaziGBTheme({
   direction = 'rtl',
-  fontFamily = 'Vazirmatn, "Segoe UI", Tahoma, sans-serif',
+  fontFamily = '"Vazirmatn Variable", Vazirmatn, "Segoe UI", Tahoma, sans-serif',
 }: BaziGBThemeOptions = {}) {
   return createTheme({
     direction,
-    spacing: 4,
+    // Canonical 8px layout scale. Numeric `sx` spacing values across the app
+    // are authored against this base (for example px: 2 = 16px).
+    spacing: 8,
     palette: {
       mode: 'dark',
       primary: {

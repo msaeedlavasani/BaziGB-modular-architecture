@@ -42,7 +42,7 @@ export interface RoomWithParsedData {
 }
 
 /** Allowed best-of-N match lengths. 1 keeps the legacy single-game behavior. */
-export const MATCH_ROUND_OPTIONS = [1, 3, 5] as const;
+export const MATCH_ROUND_OPTIONS = [1, 3, 5, 7, 9, 11, 13] as const;
 export type MaxRounds = (typeof MATCH_ROUND_OPTIONS)[number];
 
 /** Coerce any input to a valid maxRounds value (defaults to 1 = single game). */

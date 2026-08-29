@@ -12,7 +12,11 @@ const requiredFiles = [
   'AI_CONTEXT_MAP.md',
   'ai/CONTROL_PLANE.md',
   'ai/SYSTEM_INTEGRATION.md',
+  'ai/WORK_MANAGEMENT.md',
   'ai/VALIDATION_GATE.md',
+  'ai/current-state.json',
+  'ai/retrieval-manifest-v1.json',
+  'ai/work-registry-v1.json',
   'docs/aipde/system-governance.md',
   'docs/reports/README.md',
   'ai/pilots/control-plane-v1.json',
@@ -35,18 +39,29 @@ const contextMap = read('AI_CONTEXT_MAP.md');
 const governance = read('docs/aipde/system-governance.md');
 const controlPlane = read('ai/CONTROL_PLANE.md');
 const systemIntegration = read('ai/SYSTEM_INTEGRATION.md');
+const workManagement = read('ai/WORK_MANAGEMENT.md');
 const registry = read('docs/reports/README.md');
 const pilotText = read('ai/pilots/control-plane-v1.json');
 const integrationText = read('ai/system-integration-v1.json');
+const currentStateText = read('ai/current-state.json');
+const retrievalText = read('ai/retrieval-manifest-v1.json');
+const workRegistryText = read('ai/work-registry-v1.json');
 
 const requiredWiring = [
   [agents, 'AI_CONTEXT_MAP.md', 'AGENTS must route through AI_CONTEXT_MAP.md'],
   [agents, 'docs/aipde/system-governance.md', 'AGENTS must reference AIPDE Governance'],
   [agents, 'npm run check:governance', 'AGENTS must require the Governance Check'],
+  [agents, 'ai/current-state.json', 'AGENTS must route through Current State'],
+  [agents, 'ai/work-registry-v1.json', 'AGENTS must route active work through the Work Registry'],
+  [agents, 'ai/retrieval-manifest-v1.json', 'AGENTS must route context through the Retrieval Manifest'],
   [contextMap, 'ai/CONTROL_PLANE.md', 'Context Map must route to the Control Plane'],
   [contextMap, 'ai/VALIDATION_GATE.md', 'Context Map must route validation'],
   [contextMap, 'ai/SYSTEM_INTEGRATION.md', 'Context Map must route AIPDE work through System Integration'],
+  [contextMap, 'ai/current-state.json', 'Context Map must begin with Current State'],
+  [contextMap, 'ai/work-registry-v1.json', 'Context Map must use the Work Registry for active status'],
+  [contextMap, 'ai/retrieval-manifest-v1.json', 'Context Map must use the Retrieval Manifest'],
   [controlPlane, 'ai/SYSTEM_INTEGRATION.md', 'Control Plane must connect to System Integration'],
+  [controlPlane, 'ai/WORK_MANAGEMENT.md', 'Control Plane must connect to Work Management'],
   [systemIntegration, 'accepted handoff', 'System Integration must define accepted handoffs'],
   [systemIntegration, 'cross-cutting controls', 'System Integration must define cross-cutting controls'],
   [controlPlane, 'Resource Approval Request', 'Control Plane must define resource approval'],
@@ -56,6 +71,9 @@ const requiredWiring = [
   [governance, 'Off-device layer', 'Governance must define off-device storage'],
   [governance, 'Elevated', 'Governance must define elevated resource use'],
   [governance, 'Intensive', 'Governance must define intensive resource use'],
+  [governance, 'ai/work-registry-v1.json', 'Governance must identify the canonical active Work Registry'],
+  [workManagement, 'Historical reports are excluded by default', 'Work Management must exclude historical reports from default retrieval'],
+  [workManagement, 'Medium and high work require', 'Work Management must require approval for medium and high resource work'],
 ];
 
 for (const [content, marker, message] of requiredWiring) {
@@ -156,6 +174,94 @@ try {
   if (fixture.learningDestination !== 'protocol-invariant-and-regression-suite') failures.push('System Integration fixture must close into a protocol learning destination');
 } catch (error) {
   failures.push(`System Integration JSON is invalid: ${error.message}`);
+}
+
+let workRegistry;
+try {
+  workRegistry = JSON.parse(workRegistryText);
+  const requiredCategories = [
+    'Product Integrity', 'Security and Trust', 'Product Experience',
+    'Design System and Brand', 'Platform Architecture', 'Evaluation and Quality',
+    'Delivery and Operations', 'Governance and Knowledge', 'Evolution',
+  ];
+  const requiredStates = [
+    'observed', 'triaged', 'approved', 'in-progress', 'implemented',
+    'machine-validated', 'human-validation-pending', 'accepted',
+    'operationally-verified', 'learning-captured', 'blocked', 'deferred',
+    'rejected', 'superseded', 'reopened',
+  ];
+  const taskFields = [
+    'id', 'title', 'category', 'domain', 'workstream', 'milestone', 'outcome',
+    'accountable', 'contributors', 'source', 'state', 'priority', 'risk',
+    'dependencies', 'scope', 'exclusions', 'acceptance', 'machineEvidence',
+    'humanEvidence', 'resource', 'approvalGate', 'artifact', 'receiver',
+    'learningDestination', 'related',
+  ];
+  for (const category of requiredCategories) {
+    if (!workRegistry.portfolioOrder?.includes(category)) failures.push(`Work Registry is missing portfolio category: ${category}`);
+  }
+  for (const state of requiredStates) {
+    if (!workRegistry.states?.includes(state)) failures.push(`Work Registry is missing task state: ${state}`);
+  }
+  const taskIds = new Set();
+  const milestoneIds = new Set(workRegistry.milestones?.map(({ id }) => id));
+  for (const task of workRegistry.tasks ?? []) {
+    if (taskIds.has(task.id)) failures.push(`Work Registry task id must be unique: ${task.id}`);
+    taskIds.add(task.id);
+    for (const field of taskFields) {
+      if (task[field] === undefined || task[field] === '') failures.push(`Work Registry task ${task.id ?? 'unknown'} is missing field: ${field}`);
+    }
+    if (!requiredCategories.includes(task.category)) failures.push(`Work Registry task ${task.id} has unknown category: ${task.category}`);
+    if (!requiredStates.includes(task.state)) failures.push(`Work Registry task ${task.id} has unknown state: ${task.state}`);
+    if (!['P0', 'P1', 'P2', 'P3'].includes(task.priority)) failures.push(`Work Registry task ${task.id} has invalid priority: ${task.priority}`);
+    if (!milestoneIds.has(task.milestone)) failures.push(`Work Registry task ${task.id} has unknown milestone: ${task.milestone}`);
+    if (!['low', 'medium', 'high'].includes(task.resource?.band)) failures.push(`Work Registry task ${task.id} has invalid resource band`);
+    if ((task.resource?.band === 'medium' || task.resource?.band === 'high') && typeof task.resource?.approved !== 'boolean') {
+      failures.push(`Work Registry task ${task.id} must record approval for medium/high resource use`);
+    }
+  }
+  if (taskIds.size === 0) failures.push('Work Registry must contain tasks');
+} catch (error) {
+  failures.push(`Work Registry JSON is invalid: ${error.message}`);
+}
+
+try {
+  const currentState = JSON.parse(currentStateText);
+  for (const field of ['version', 'updated', 'repository', 'branch', 'activeMilestone', 'currentGate', 'lastValidation', 'constraints', 'canonical']) {
+    if (!currentState[field]) failures.push(`Current State is missing field: ${field}`);
+  }
+  if (workRegistry && !workRegistry.milestones?.some(({ id }) => id === currentState.activeMilestone)) {
+    failures.push(`Current State has unknown active milestone: ${currentState.activeMilestone}`);
+  }
+  if (workRegistry && !workRegistry.tasks?.some(({ id }) => id === currentState.currentGate?.taskId)) {
+    failures.push(`Current State has unknown gate task: ${currentState.currentGate?.taskId}`);
+  }
+  if (workRegistry && !workRegistry.tasks?.some(({ id }) => id === currentState.nextProposedTask)) {
+    failures.push(`Current State has unknown next proposed task: ${currentState.nextProposedTask}`);
+  }
+} catch (error) {
+  failures.push(`Current State JSON is invalid: ${error.message}`);
+}
+
+try {
+  const retrieval = JSON.parse(retrievalText);
+  for (const entry of ['AGENTS.md', 'AI_CONTEXT_MAP.md', 'ai/current-state.json']) {
+    if (!retrieval.defaultEntry?.includes(entry)) failures.push(`Retrieval Manifest default entry is missing: ${entry}`);
+  }
+  if (retrieval.rules?.historicalReportsDefault !== 'exclude') failures.push('Retrieval Manifest must exclude historical reports by default');
+  const routeIds = new Set();
+  for (const route of retrieval.routes ?? []) {
+    if (!route.id || routeIds.has(route.id)) failures.push(`Retrieval route id must be present and unique: ${route.id ?? 'missing'}`);
+    routeIds.add(route.id);
+    for (const field of ['triggers', 'initialSources', 'expandTo', 'forbiddenDefault']) {
+      if (!Array.isArray(route[field]) || route[field].length === 0) failures.push(`Retrieval route ${route.id ?? 'unknown'} is missing non-empty ${field}`);
+    }
+  }
+  for (const requiredRoute of ['work-state-and-priority', 'game-rules-change', 'frontend-or-design-system', 'security-finding', 'validation-only', 'governance-evolution']) {
+    if (!routeIds.has(requiredRoute)) failures.push(`Retrieval Manifest is missing route: ${requiredRoute}`);
+  }
+} catch (error) {
+  failures.push(`Retrieval Manifest JSON is invalid: ${error.message}`);
 }
 
 const reportLinks = [...registry.matchAll(/\]\((\.\/[^)]+\.md)\)/g)].map((match) => match[1]);

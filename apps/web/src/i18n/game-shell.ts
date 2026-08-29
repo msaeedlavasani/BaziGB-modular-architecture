@@ -13,6 +13,10 @@ export interface GameShellMessages {
   rematch: string;
   backToLobby: string;
   waitingForOpponent: string;
+  settings: string;
+  nextGame: string;
+  youWonGame: string;
+  botWonGame: string;
 }
 
 const GAME_SHELL_MESSAGES: Record<Locale, GameShellMessages> = {
@@ -29,6 +33,10 @@ const GAME_SHELL_MESSAGES: Record<Locale, GameShellMessages> = {
     rematch: 'بازی دوباره',
     backToLobby: 'بازگشت به لابی',
     waitingForOpponent: 'در انتظار حریف… کد اتاق را به اشتراک بگذارید',
+    settings: 'تنظیمات بازی',
+    nextGame: 'شروع دست بعدی',
+    youWonGame: 'شما این دست را بردید',
+    botWonGame: 'ربات این دست را برد',
   },
   en: {
     lobby: 'Lobby',
@@ -43,6 +51,10 @@ const GAME_SHELL_MESSAGES: Record<Locale, GameShellMessages> = {
     rematch: 'Play again',
     backToLobby: 'Back to Lobby',
     waitingForOpponent: 'Waiting for an opponent… Share the room code to invite them.',
+    settings: 'Game settings',
+    nextGame: 'Start next game',
+    youWonGame: 'You won this game',
+    botWonGame: 'The bot won this game',
   },
 };
 

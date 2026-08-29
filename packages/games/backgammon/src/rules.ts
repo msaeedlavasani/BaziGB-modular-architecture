@@ -54,7 +54,12 @@ export const createState = (players: Player[], match?: MatchConfig): BackgammonS
     rolled: false,
     cube: 1,
     cubeOwner: null,
-    doubling: null
+    doubling: null,
+    gameWinner: null,
+    gamePoints: 0,
+    nextStarter: null,
+    crawfordGame: false,
+    crawfordUsed: false,
   };
 };
 
@@ -64,7 +69,7 @@ export const createState = (players: Player[], match?: MatchConfig): BackgammonS
  * ([6,6] → [6,6,6,6]) تا هر حرکت یکی از تاس‌ها را مصرف کند.
  */
 export const rollDiceFor = (state: BackgammonState): BackgammonState => {
-  if (state.rolled) return state;
+  if (state.phase !== 'playing' || state.rolled) throw new Error('Dice roll is not legal in the current state');
   const newState = deepClone(state);
   const [a, b] = rollDicePair();
   newState.dice = a === b ? [a, b, a, b] : [a, b];
@@ -74,7 +79,9 @@ export const rollDiceFor = (state: BackgammonState): BackgammonState => {
 
 export function canOfferDouble(state: BackgammonState, playerId: string): boolean {
   return state.phase === 'playing' && state.turn === playerId && !state.rolled && state.doubling === null
-    && (state.cube ?? 1) < 64 && (state.cubeOwner === null || state.cubeOwner === playerId);
+    && !state.crawfordGame
+    && (state.cube ?? 1) < 64 && (state.cubeOwner === null || state.cubeOwner === playerId)
+    && !(state.match.matchPoint && (state.scores[playerId] ?? 0) + (state.cube ?? 1) >= state.match.targetScore);
 }
 
 export function offerDouble(state: BackgammonState, playerId: string): BackgammonState {
@@ -121,20 +128,49 @@ export function getGameMultiplier(state: BackgammonState, winnerColor: number): 
 function finishRound(state: BackgammonState, winnerId: string, points: number): BackgammonState {
   const result = updateMatchScore('backgammon', state.scores, winnerId, state.match, points);
   state.scores = result.scores;
+  state.gameWinner = winnerId;
+  state.gamePoints = points;
+  state.nextStarter = state.players.find((player) => player.id !== winnerId)?.id ?? state.players[0]?.id ?? null;
+
+  // A single game has a real terminal boundary; it must never silently create
+  // another board just because match-point scoring is disabled.
+  if (!state.match.matchPoint) {
+    state.phase = 'finished';
+    state.winner = winnerId;
+    return state;
+  }
   if (result.matchWinner) {
     state.phase = 'finished';
     state.winner = result.matchWinner;
     return state;
   }
-  // راند بعد — کیوب و مالکش بین راندها منتقل میشوند
-  const nextRoundStarter = state.players.find((p) => p.id !== winnerId)!;
-  const nextState = createState(state.players, state.match);
-  nextState.scores = state.scores;
-  nextState.round = state.round + 1;
-  nextState.turn = nextRoundStarter.id;
-  nextState.cube = state.cube ?? 1;
-  nextState.cubeOwner = state.cubeOwner ?? null;
-  return nextState;
+  state.phase = 'roundEnd';
+  state.winner = null;
+  state.dice = [];
+  state.rolled = false;
+  state.doubling = null;
+  return state;
+}
+
+/** Begin the next game only after the completed-game result is acknowledged. */
+export function startNextGame(state: BackgammonState): BackgammonState {
+  if (state.phase !== 'roundEnd' || !state.nextStarter) {
+    throw new Error('The next game cannot start from the current state');
+  }
+  const next = createState(state.players, state.match);
+  next.scores = { ...state.scores };
+  next.round = state.round + 1;
+  next.turn = state.nextStarter;
+  // Every new game starts with a centered cube at 1.
+  next.cube = 1;
+  next.cubeOwner = null;
+  next.crawfordUsed = state.crawfordUsed;
+  const oneAway = Object.values(next.scores).some((score) => score === next.match.targetScore - 1);
+  if (!next.crawfordUsed && oneAway) {
+    next.crawfordGame = true;
+    next.crawfordUsed = true;
+  }
+  return next;
 }
 
 const getPlayerColor = (state: BackgammonState, playerId: string): number => {
@@ -221,6 +257,7 @@ const isOpponentBlocked = (state: BackgammonState, color: number, to: number): b
  * دریافت لیست تمام حرکت‌های تکی قانونی.
  */
 export const getLegalMoves = (state: BackgammonState): BackgammonMove[] => {
+  if (state.phase !== 'playing') return [];
   if (state.doubling !== null) return [];
   if (!state.rolled) {
     return [{ player: state.turn, kind: 'roll' }];
@@ -258,7 +295,16 @@ export const getLegalMoves = (state: BackgammonState): BackgammonMove[] => {
  */
 export const applyMove = (state: BackgammonState, move: BackgammonMove): BackgammonState => {
   if (state.doubling !== null) throw new Error('Cannot move while double is pending');
+  if (state.phase !== 'playing' || move.player !== state.turn) throw new Error('Move is not legal for the current player');
   if (move.kind === 'roll') return rollDiceFor(state);
+
+  const legal = getLegalMoves(state).some((candidate) =>
+    candidate.kind === move.kind && candidate.player === move.player && candidate.from === move.from
+      && candidate.to === move.to && candidate.amount === move.amount,
+  );
+  if (!legal) throw new Error('Illegal backgammon move');
+
+  const inventoryBefore = checkerInventory(state);
 
   const newState = deepClone(state);
   const color = getPlayerColor(newState, move.player);
@@ -288,13 +334,113 @@ export const applyMove = (state: BackgammonState, move: BackgammonMove): Backgam
   if (dieIndex !== -1) diceArr.splice(dieIndex, 1);
   newState.dice = diceArr;
 
+  const inventoryAfter = checkerInventory(newState);
+  for (const color of [1, -1] as const) {
+    if (inventoryBefore[color] === 15 && inventoryAfter[color] !== 15) {
+      throw new Error('Backgammon checker inventory invariant violated');
+    }
+  }
+
   return newState;
+};
+
+/** Board + bar + borne-off checkers must conserve each player's inventory. */
+export const checkerInventory = (state: BackgammonState): Record<1 | -1, number> => ({
+  1: state.board.reduce((sum, count) => sum + (count > 0 ? count : 0), 0) + (state.bar[1] ?? 0) + (state.off[1] ?? 0),
+  [-1]: state.board.reduce((sum, count) => sum + (count < 0 ? -count : 0), 0) + (state.bar[-1] ?? 0) + (state.off[-1] ?? 0),
+});
+
+export const canUndoMove = (_state: BackgammonState, move: BackgammonMove): boolean => move.kind === 'move';
+
+const sameMove = (left: BackgammonMove, right: BackgammonMove): boolean =>
+  left.kind === right.kind
+  && left.player === right.player
+  && left.from === right.from
+  && left.to === right.to
+  && left.amount === right.amount;
+
+/**
+ * Return every complete move chain that satisfies Backgammon's mandatory dice
+ * use. The caller supplies the immutable rolled state at the start of a turn.
+ * An empty chain means the roll has no legal move and still needs an explicit
+ * turn commit.
+ */
+export const getRequiredMoveChains = (state: BackgammonState): BackgammonMove[][] => {
+  if (state.phase !== 'playing' || !state.rolled || state.doubling !== null) return [];
+
+  const results: BackgammonMove[][] = [];
+  const visit = (current: BackgammonState, path: BackgammonMove[]) => {
+    const legalMoves = getLegalMoves(current);
+    if (legalMoves.length === 0 || (current.dice?.length ?? 0) === 0) {
+      results.push(path);
+      return;
+    }
+    for (const move of legalMoves) visit(applyMove(current, move), [...path, move]);
+  };
+  visit(state, []);
+
+  const maxLength = Math.max(...results.map((chain) => chain.length), 0);
+  let required = results.filter((chain) => chain.length === maxLength);
+
+  // When exactly one of two unequal dice can be played, the higher die is
+  // mandatory. This filter also covers bearing off with either die.
+  const distinctDice = Array.from(new Set(state.dice ?? []));
+  if (maxLength === 1 && distinctDice.length > 1) {
+    const highestPlayable = Math.max(...required.map((chain) => chain[0]?.amount ?? 0));
+    required = required.filter((chain) => chain[0]?.amount === highestPlayable);
+  }
+
+  return required;
+};
+
+/** Whether a draft is a legal prefix of at least one required complete chain. */
+export const isValidTurnDraft = (state: BackgammonState, draft: BackgammonMove[]): boolean =>
+  getRequiredMoveChains(state).some((chain) =>
+    draft.length <= chain.length && draft.every((move, index) => sameMove(move, chain[index])),
+  );
+
+/** Return only moves that keep the current draft on a required complete chain. */
+export const getValidNextTurnMoves = (state: BackgammonState, draft: BackgammonMove[]): BackgammonMove[] => {
+  const nextMoves = getRequiredMoveChains(state)
+    .filter((chain) => draft.length < chain.length && draft.every((move, index) => sameMove(move, chain[index])))
+    .map((chain) => chain[draft.length]);
+  return nextMoves.filter((move, index) => nextMoves.findIndex((candidate) => sameMove(candidate, move)) === index);
+};
+
+/** Apply a legal draft without transferring turn ownership or completing a game. */
+export const applyTurnDraft = (state: BackgammonState, draft: BackgammonMove[]): BackgammonState => {
+  if (!isValidTurnDraft(state, draft)) throw new Error('Invalid Backgammon turn draft');
+  return draft.reduce((current, move) => applyMove(current, move), deepClone(state));
+};
+
+/** A turn can commit only when its draft exactly matches a required chain. */
+export const canCommitTurn = (state: BackgammonState, draft: BackgammonMove[]): boolean =>
+  getRequiredMoveChains(state).some((chain) =>
+    chain.length === draft.length && draft.every((move, index) => sameMove(move, chain[index])),
+  );
+
+/** Atomically validate and commit one complete Backgammon turn. */
+export const commitTurn = (state: BackgammonState, draft: BackgammonMove[]): BackgammonState => {
+  if (!canCommitTurn(state, draft)) throw new Error('Backgammon turn is incomplete');
+  const committed = applyTurnDraft(state, draft);
+  const color = getPlayerColor(committed, state.turn);
+
+  if (committed.off[color] === 15) {
+    const multiplier = getGameMultiplier(committed, color);
+    return finishRound(committed, state.turn, multiplier * (committed.cube ?? 1));
+  }
+
+  committed.turn = switchTurn(committed.turn, committed.players);
+  committed.dice = [];
+  committed.rolled = false;
+  return committed;
 };
 
 /**
  * اعتبارسنجی و اعمال زنجیره‌ای از حرکت‌ها (نوبت کامل).
  */
 export const applyChain = (state: BackgammonState, chain: BackgammonMove[]): BackgammonState => {
+  if (state.phase !== 'playing') throw new Error('Backgammon game is not active');
   let currentState = deepClone(state);
 
   // اگر تاس ریخته نشده و زنجیره با ریختن تاس شروع می‌شود
@@ -375,12 +521,17 @@ export const serialize = (state: BackgammonState) => ({
   rolled: state.rolled,
   cube: state.cube,
   cubeOwner: state.cubeOwner,
-  doubling: state.doubling
+  doubling: state.doubling,
+  gameWinner: state.gameWinner,
+  gamePoints: state.gamePoints,
+  nextStarter: state.nextStarter,
+  crawfordGame: state.crawfordGame,
+  crawfordUsed: state.crawfordUsed,
 });
 
 export const Backgammon: GameAdapter<BackgammonBoard, BackgammonMove> = {
   gameId: 'backgammon',
-  name: 'نرد',
+  name: 'تخته',
   minPlayers: 2,
   maxPlayers: 2,
   createState,
@@ -389,5 +540,7 @@ export const Backgammon: GameAdapter<BackgammonBoard, BackgammonMove> = {
   applyChain,
   isFinished,
   getWinner,
-  serialize
+  serialize,
+  canUndoMove,
+  startNextGame,
 };

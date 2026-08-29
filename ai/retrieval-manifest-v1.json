@@ -1,0 +1,78 @@
+{
+  "version": "1.0.0",
+  "defaultEntry": ["AGENTS.md", "AI_CONTEXT_MAP.md", "ai/current-state.json"],
+  "rules": {
+    "initialSourceLimit": 5,
+    "historicalReportsDefault": "exclude",
+    "rereadUnchangedSource": "only-with-explicit-reason",
+    "expandWhen": ["direct-dependency", "material-uncertainty", "failed-evidence", "source-conflict", "provenance-request"],
+    "historyTriggers": ["provenance-required", "regression-recurrence", "canonical-conflict", "user-requests-history-or-audit"]
+  },
+  "routes": [
+    {
+      "id": "work-state-and-priority",
+      "triggers": ["backlog", "status", "priority", "handoff", "remaining-work"],
+      "initialSources": ["ai/work-registry-v1.json", "ai/WORK_MANAGEMENT.md"],
+      "expandTo": ["evidence-links-on-selected-task"],
+      "forbiddenDefault": ["scan-all-reports", "infer-state-from-progress-narrative"]
+    },
+    {
+      "id": "game-rules-change",
+      "triggers": ["legality", "scoring", "turn", "undo", "randomness", "completion", "game-settings"],
+      "initialSources": ["docs/game-rules-contract.md", "packages/games/{game}/RULES.md", "packages/games/{game}/src/index.ts"],
+      "expandTo": ["packages/games/{game}/src", "packages/games/{game}/test", "packages/engine/src/types.ts"],
+      "conditionalSources": {"online-state-change": ["apps/server/src/game/game.gateway.ts", "apps/server/test/game.gateway.spec.ts"]},
+      "forbiddenDefault": ["other-game-packages", "design-system-reports", "all-platform-history"]
+    },
+    {
+      "id": "frontend-or-design-system",
+      "triggers": ["ui", "responsive", "component", "layout", "brand", "accessibility"],
+      "initialSources": ["DESIGN_SYSTEM.md", "ai/pilots/design-system-v1.json", "selected-component-and-closest-consumer"],
+      "expandTo": ["apps/web/src/design-system", "apps/web/src/components/shared", "relevant-page"],
+      "conditionalSources": {"prior-candidate-provenance": ["docs/reports/aipde/2026-08-26-design-system-live-pilot.md"]},
+      "forbiddenDefault": ["all-pages", "all-screenshots", "all-historical-ui-reports"]
+    },
+    {
+      "id": "security-finding",
+      "triggers": ["authentication", "authorization", "untrusted-input", "abuse", "security-finding"],
+      "initialSources": ["docs/reports/security/2026-08-26-repository-security-audit.md", "selected-finding-files"],
+      "expandTo": ["direct-callers", "guards-or-policy", "targeted-security-tests"],
+      "forbiddenDefault": ["repeat-whole-repository-scan", "unrelated-findings"]
+    },
+    {
+      "id": "platform-architecture",
+      "triggers": ["package-boundary", "adapter", "routing", "persistence", "server-client-ownership"],
+      "initialSources": ["AGENTS.md", "relevant-package-manifests", "closest-public-contract"],
+      "expandTo": ["direct-consumers", "boundary-check", "affected-tests"],
+      "forbiddenDefault": ["repository-wide-refactor", "unrelated-packages"]
+    },
+    {
+      "id": "validation-only",
+      "triggers": ["test", "validate", "build", "release-candidate-evidence"],
+      "initialSources": ["ai/VALIDATION_GATE.md", "selected-task-acceptance-and-evidence"],
+      "expandTo": ["affected-package-scripts", "closest-regression-suite"],
+      "forbiddenDefault": ["browser-acceptance-without-approval", "full-suite-before-targeted-check"]
+    },
+    {
+      "id": "governance-evolution",
+      "triggers": ["policy", "control-plane", "work-registry", "retrieval", "supersession"],
+      "initialSources": ["ai/WORK_MANAGEMENT.md", "ai/CONTROL_PLANE.md", "docs/aipde/system-governance.md"],
+      "expandTo": ["ai/SYSTEM_INTEGRATION.md", "scripts/check-governance.mjs", "scripts/check-governance.test.mjs"],
+      "forbiddenDefault": ["product-code", "all-historical-reports"]
+    },
+    {
+      "id": "delivery-operations",
+      "triggers": ["deploy", "rollback", "backup", "restore", "monitoring", "incident"],
+      "initialSources": ["docs/release-and-secrets-contract.md", "ai/VALIDATION_GATE.md", "selected-task"],
+      "expandTo": ["runtime-config", "operations-scripts", "recovery-evidence"],
+      "forbiddenDefault": ["production-action-without-authority", "claim-backup-without-retrieval-proof"]
+    },
+    {
+      "id": "secrets-lifecycle",
+      "triggers": ["secret", "credential", "token", "rotation", "password-manager", "recovery-key"],
+      "initialSources": ["docs/release-and-secrets-contract.md", "selected-task"],
+      "expandTo": ["redacted-secret-inventory", "direct-runtime-consumers", "credential-recovery-evidence"],
+      "forbiddenDefault": ["read-secret-values", "print-env", "rotate-without-authority", "plaintext-credential-backup"]
+    }
+  ]
+}

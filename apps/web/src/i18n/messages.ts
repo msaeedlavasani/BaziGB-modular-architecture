@@ -107,6 +107,17 @@ export interface AppMessages {
     enter: string;
     playersShort: (current: number, max: number) => string;
   };
+  gameHub: {
+    subtitle: (game: string) => string;
+    playBot: string;
+    playBotDescription: string;
+    createOnline: string;
+    createOnlineDescription: string;
+    joinByCode: string;
+    joinByCodeDescription: string;
+    roomCodeHint: string;
+    invalidGame: string;
+  };
   tournaments: {
     title: string;
     registrationOpen: string;
@@ -132,6 +143,7 @@ export interface AppMessages {
   };
   footer: {
     rules: string;
+    privacy: string;
     contact: string;
   };
 }
@@ -159,7 +171,7 @@ const MESSAGES: Record<Locale, AppMessages> = {
     games: {
       ticTacToe: 'دوز',
       chess: 'شطرنج',
-      backgammon: 'نرد',
+      backgammon: 'تخته',
       vegas: 'وگاس',
     },
     gameShell: {
@@ -210,7 +222,7 @@ const MESSAGES: Record<Locale, AppMessages> = {
     },
     lobby: {
       title: 'لابی BaziGB',
-      subtitle: 'یک اتاق آنلاین بسازید یا با ربات هوشمند تمرین کنید',
+      subtitle: 'بازی موردنظرتان را انتخاب کنید',
       waiting: 'در انتظار',
       inProgress: 'در حال بازی',
       finished: 'پایان‌یافته',
@@ -222,7 +234,7 @@ const MESSAGES: Record<Locale, AppMessages> = {
       loss: 'باخت',
       draw: 'تساوی',
       playAgain: 'بازی دوباره',
-      chooseGame: '۱. انتخاب بازی و تنظیمات',
+      chooseGame: 'انتخاب بازی',
       matchPoints: 'امتیاز نهایی مسابقه',
       singleGame: 'تک‌بازی (۱ امتیاز)',
       bestOf3: 'بهترین از ۳ — اولین نفر با ۲ برد',
@@ -243,6 +255,17 @@ const MESSAGES: Record<Locale, AppMessages> = {
       copyCode: 'کپی کد',
       enter: 'ورود',
       playersShort: (current, max) => `${current}/${max}`,
+    },
+    gameHub: {
+      subtitle: (game) => `روش بازی ${game} را انتخاب کنید`,
+      playBot: 'بازی با ربات',
+      playBotDescription: 'تمرین فوری، بدون انتظار برای حریف',
+      createOnline: 'ایجاد اتاق آنلاین',
+      createOnlineDescription: 'اتاق اختصاصی بسازید و حریف دعوت کنید',
+      joinByCode: 'ورود با کد اتاق',
+      joinByCodeDescription: 'با کد دعوت مستقیماً وارد اتاق شوید',
+      roomCodeHint: 'کد دعوت را وارد کنید',
+      invalidGame: 'این بازی پیدا نشد.',
     },
     tournaments: {
       title: 'تورنمنت‌ها',
@@ -269,6 +292,7 @@ const MESSAGES: Record<Locale, AppMessages> = {
     },
     footer: {
       rules: 'قوانین بازی',
+      privacy: 'حریم خصوصی',
       contact: 'تماس با ما',
     },
   },
@@ -345,7 +369,7 @@ const MESSAGES: Record<Locale, AppMessages> = {
     },
     lobby: {
       title: 'BaziGB Lobby',
-      subtitle: 'Create an online room or practice against the bot',
+      subtitle: 'Choose a game to continue',
       waiting: 'Waiting',
       inProgress: 'In progress',
       finished: 'Finished',
@@ -357,7 +381,7 @@ const MESSAGES: Record<Locale, AppMessages> = {
       loss: 'Loss',
       draw: 'Draw',
       playAgain: 'Play again',
-      chooseGame: '1. Choose game and settings',
+      chooseGame: 'Choose a game',
       matchPoints: 'Match points',
       singleGame: 'Single game (1 point)',
       bestOf3: 'Best of 3 — first to 2',
@@ -378,6 +402,17 @@ const MESSAGES: Record<Locale, AppMessages> = {
       copyCode: 'Copy code',
       enter: 'Join',
       playersShort: (current, max) => `${current}/${max}`,
+    },
+    gameHub: {
+      subtitle: (game) => `Choose how you want to play ${game}`,
+      playBot: 'Play with bot',
+      playBotDescription: 'Start a practice match without waiting',
+      createOnline: 'Create online room',
+      createOnlineDescription: 'Create a private room and invite an opponent',
+      joinByCode: 'Join by room code',
+      joinByCodeDescription: 'Enter an invitation code to join directly',
+      roomCodeHint: 'Enter invite code',
+      invalidGame: 'This game was not found.',
     },
     tournaments: {
       title: 'Tournaments',
@@ -404,6 +439,7 @@ const MESSAGES: Record<Locale, AppMessages> = {
     },
     footer: {
       rules: 'Game rules',
+      privacy: 'Privacy',
       contact: 'Contact us',
     },
   },

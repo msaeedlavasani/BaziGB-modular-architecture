@@ -12,12 +12,13 @@ import { alpha, useTheme } from '@mui/material/styles';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Gamepad2, Swords, Trophy, User, Volume2, VolumeX } from 'lucide-react';
+import { Swords, Trophy, User, Volume2, VolumeX } from 'lucide-react';
 import { soundService } from '@/lib/sound-service';
 import type { Locale } from '@/i18n/config';
 import { getMessages } from '@/i18n/messages';
 import { getLanguageSwitcherMessages } from '@/i18n/language-switcher';
 import { APP_ROUTES, localePath, localizedAppRoute, stripLocale } from '@/i18n/routing';
+import NavigationItem from './NavigationItem';
 
 interface HeaderProps {
   locale?: Locale;
@@ -36,7 +37,6 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
 
   const navLinks = useMemo(
     () => [
-      { route: 'lobby' as const, href: APP_ROUTES.lobby, label: messages.navigation.lobby, icon: Gamepad2 },
       { route: 'leaderboard' as const, href: APP_ROUTES.leaderboard, label: messages.navigation.leaderboard, icon: Trophy },
       { route: 'tournaments' as const, href: APP_ROUTES.tournaments, label: messages.navigation.tournaments, icon: Swords },
     ],
@@ -109,6 +109,8 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
             transform: 'translateY(-50%)',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: { xs: 'space-between', md: 'flex-end' },
+            width: { xs: 120, sm: 136, md: 'min(34vw, 22rem)' },
             gap: { xs: 0.25, sm: 0.75, md: 1.25 },
             direction: theme.direction,
           }}
@@ -117,36 +119,14 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
             const active = routePathname === link.href || routePathname.startsWith(`${link.href}/`);
             return (
               <Tooltip key={link.route} title={link.label}>
-                <Button
-                  component={Link}
-                  href={localizedAppRoute(locale, link.route)}
-                  startIcon={<link.icon size={19} />}
-                  variant={active ? 'contained' : 'text'}
-                  color={active ? 'primary' : 'inherit'}
-                  aria-current={active ? 'page' : undefined}
-                  sx={{
-                    minWidth: { xs: 36, md: 'auto' },
-                    width: { xs: 36, md: 'auto' },
-                    height: { xs: 36, md: 40 },
-                    px: { xs: 0, md: 2.25 },
-                    py: { xs: 0, md: 1 },
-                    borderRadius: { xs: '50%', md: 2.5 },
-                    color: active ? 'secondary.main' : 'text.secondary',
-                    gap: { xs: 0, md: 1.25 },
-                    whiteSpace: 'nowrap',
-                    '& .MuiButton-startIcon': {
-                      margin: 0,
-                    },
-                    '&:hover': {
-                      color: active ? 'secondary.main' : 'primary.main',
-                      bgcolor: active ? 'primary.light' : alpha(theme.palette.primary.main, 0.08),
-                    },
-                  }}
-                >
-                  <Box component="span" sx={{ display: { xs: 'none', md: 'inline' }, fontWeight: 800 }}>
-                    {link.label}
-                  </Box>
-                </Button>
+                <Box component="span" sx={{ display: 'inline-flex' }}>
+                  <NavigationItem
+                    href={localizedAppRoute(locale, link.route)}
+                    label={link.label}
+                    icon={<link.icon size={19} />}
+                    active={active}
+                  />
+                </Box>
               </Tooltip>
             );
           })}
@@ -178,7 +158,7 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
           <Typography
             variant="h5"
             sx={{
-              ml: 1.5,
+              marginInlineStart: 1.5,
               color: 'primary.main',
               fontWeight: 900,
               letterSpacing: '0.02em',
@@ -198,6 +178,8 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
             transform: 'translateY(-50%)',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: { xs: 'space-between', md: 'flex-start' },
+            width: { xs: 120, sm: 136, md: 'min(34vw, 22rem)' },
             gap: { xs: 0.35, sm: 0.75, md: 1 },
             direction: 'ltr',
           }}

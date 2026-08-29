@@ -20,10 +20,10 @@ import { connectSocket, socket, rejoinRoom } from '@/lib/socket';
 import { fetchRoom } from '@/lib/rooms';
 import { localizedAppRoute } from '@/i18n/routing';
 import { getMessages } from '@/i18n/messages';
+import { getGameShellMessages } from '@/i18n/game-shell';
 import { useAppLocale } from '@/hooks/useAppLocale';
 import {
   getGameCatalogEntry,
-  getGameChip,
   getGameTitle,
   isWebGameId,
 } from '@/lib/game-catalog';
@@ -34,6 +34,7 @@ import BackgammonBoard from '@/components/game/BackgammonBoard';
 import ChessBoard from '@/components/game/ChessBoard';
 import ChessInfo from '@/components/game/ChessInfo';
 import VegasBoard from '@/components/game/VegasBoard';
+import StatusPill from '@/components/shared/StatusPill';
 import type { BackgammonMove } from '@bazigb/game-backgammon';
 import type { GameId } from '@bazigb/engine';
 
@@ -45,6 +46,7 @@ export default function PlayPage() {
   const theme = useTheme();
   const locale = useAppLocale();
   const messages = getMessages(locale);
+  const shellMessages = getGameShellMessages(locale);
   const roomCode = (params.roomId ?? '').toUpperCase();
 
   const [room, setRoom] = useState<{
@@ -190,6 +192,7 @@ export default function PlayPage() {
   const isSpectator = spectating || Boolean(room && room.players.length > 0 && myId && !room.players.includes(myId));
   const humanTurn = Boolean(state && state.phase === 'playing' && state.turn === myId && !isSpectator);
   const isFinished = Boolean(state && state.phase === 'finished');
+  const isRoundEnd = gameId === 'backgammon' && state?.phase === 'roundEnd';
 
   const turnRemainingSec =
     turnInfo && state?.phase === 'playing' && state.turn === myId
@@ -251,7 +254,14 @@ export default function PlayPage() {
   const scoreB = playerB ? (scores[playerB.id] ?? 0) : 0;
   const maxRounds = room?.maxRounds ?? 1;
 
-  const winner = isFinished
+  const winner = isRoundEnd
+    ? {
+        label: state.gameWinner === myId ? shellMessages.youWonGame : shellMessages.botWonGame,
+        sub: messages.multiplayer.matchScore(scoreA, scoreB),
+        onRematch: () => socket.emit('nextRound', { room: roomCode }),
+        actionLabel: shellMessages.nextGame,
+      }
+    : isFinished
     ? {
         label: state.winner
           ? state.winner === myId
@@ -275,7 +285,7 @@ export default function PlayPage() {
   return (
     <GameShell
       title={getGameTitle(gameId, locale) || messages.multiplayer.gameFallback}
-      gameChip={getGameChip(gameId, locale)}
+      surfaceRatio={getGameCatalogEntry(gameId).surfaceRatio}
       backHref={localizedAppRoute(locale, 'lobby')}
       connStatus={connected ? 'connected' : 'reconnecting'}
       roomCode={roomCode}
@@ -293,6 +303,7 @@ export default function PlayPage() {
       timerLabel={timerLabel}
       scores={maxRounds > 1 ? { a: scoreA, b: scoreB } : null}
       maxRounds={maxRounds}
+      scoreTitle={gameId === 'backgammon' && maxRounds > 1 ? `${maxRounds} ${messages.gameShell.points}` : undefined}
       winner={winner}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0 }}>
@@ -350,11 +361,9 @@ export default function PlayPage() {
             </Typography>
 
             {room && (
-              <Chip
-                icon={<Users size={15} />}
+              <StatusPill
+                icon={<Users />}
                 label={messages.multiplayer.players(room.players.length, gameCatalog.maxPlayers)}
-                variant="outlined"
-                sx={{ borderColor: 'divider' }}
               />
             )}
 

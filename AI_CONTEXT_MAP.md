@@ -1,12 +1,12 @@
 # BaziGB AI Context Map
 
-**Version:** 2.0.0
+**Version:** 3.0.0
 
 **Role:** Mandatory task-routing map for AI agents.
 
 ## Entry route
 
-Every task begins with `AGENTS.md` and this file from the active branch. Then read only the canonical sources required by the route.
+Every task begins with `AGENTS.md`, this file, and `ai/current-state.json` from the active branch. Select a route from `ai/retrieval-manifest-v1.json`, resolve active state through `ai/work-registry-v1.json`, then read only the canonical sources required by that route.
 
 The lifecycle is:
 
@@ -45,6 +45,10 @@ Record internally or explicitly as the risk requires:
 Use minimum sufficient context. Expand inspection only when dependency, risk, uncertainty, or failed evidence requires it.
 
 Broad scans, multiple independent agents, repeated viewport matrices, large external research, and exhaustive validation are not default. Route them through the Resource Approval Request when they cross into Elevated or Intensive work.
+
+Historical reports are excluded from initial retrieval unless the selected route explicitly requires provenance. Do not infer active status from HANDOFF, progress prose, or audit snapshots. Do not reread an unchanged source in one task without recording the uncertainty, dependency, failed evidence, or conflict that requires it.
+
+For backlog, status, priority, or handoff questions, read Current State and the Work Registry; open evidence linked by selected tasks only when the requested answer needs it.
 
 ## Conflict handling
 

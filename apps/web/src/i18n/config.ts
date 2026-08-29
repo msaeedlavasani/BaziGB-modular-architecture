@@ -21,9 +21,9 @@ const LOCALE_CONFIG: Record<Locale, LocaleConfig> = {
     locale: 'fa',
     htmlLang: 'fa',
     direction: 'rtl',
-    fontFamily: 'Vazirmatn, "Segoe UI", Tahoma, sans-serif',
+    fontFamily: '"Vazirmatn Variable", Vazirmatn, "Segoe UI", Tahoma, sans-serif',
     metadata: {
-      title: 'BaziGB — نرد، دوز، شطرنج و وگاس',
+      title: 'BaziGB — تخته، دوز، شطرنج و وگاس',
       description: 'پلتفرم بازی‌های ایرانی با معماری مدولار',
     },
   },
