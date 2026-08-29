@@ -1,15 +1,16 @@
 /**
- * Leaderboard API client + demo data.
+ * Leaderboard API client.
  *
- *   GET /leaderboard?page=1&pageSize=50  ->  { items, total, page, pageSize, totalPages }
+ *   GET /leaderboard?page=1&pageSize=10  ->  { items, total, page, pageSize, totalPages }
  *
  * The server returns paginated raw entries ({ rank, id, username, rating,
  * wins, losses }); this module normalizes them into the richer shape the UI
- * renders (win rate, totals, etc.) and falls back to a realistic 50-player
- * demo board when the server is unreachable.
+ * renders. Errors are deliberately surfaced to the page: a competitive
+ * ranking must never make demo accounts look like real players.
  */
 
 import { api } from './api';
+import { isLocalUiDemoEnabled } from './local-ui-demo';
 
 export interface LeaderboardEntry {
   rank: number;
@@ -40,13 +41,33 @@ interface ServerLeaderboardPage {
   totalPages: number;
 }
 
-/** Top 50 players, normalized for display. */
-export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
-  try {
-    const page = await api.get<ServerLeaderboardPage>(
-      '/leaderboard?page=1&pageSize=50',
-    );
-    return page.items.map((item) => {
+export interface LeaderboardPage {
+  items: LeaderboardEntry[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  /** True only for explicitly enabled local presentation data. */
+  demo: boolean;
+}
+
+/** A compact, explicit page prevents an unbounded ranking list. */
+export async function fetchLeaderboard(pageNumber = 1, pageSize = 10): Promise<LeaderboardPage> {
+  if (isLocalUiDemoEnabled('leaderboard')) {
+    return buildDemoPage(pageNumber, pageSize);
+  }
+
+  const page = await api.get<ServerLeaderboardPage>(
+    `/leaderboard?page=${pageNumber}&pageSize=${pageSize}`,
+  );
+
+  return {
+    total: page.total,
+    page: page.page,
+    pageSize: page.pageSize,
+    totalPages: page.totalPages,
+    demo: false,
+    items: page.items.map((item) => {
       const gamesPlayed = item.wins + item.losses;
       return {
         rank: item.rank,
@@ -62,55 +83,37 @@ export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
             : 0,
         rating: item.rating,
       };
-    });
-  } catch {
-    return buildDemoLeaderboard();
-  }
+    }),
+  };
 }
 
-/* ------------------------------ demo data -------------------------------- */
-
-const NAME_FIRST = [
-  'Nova', 'Pixel', 'Rook', 'Blitz', 'Dark', 'Tempest', 'Check', 'Iron',
-  'Quantum', 'Shadow', 'Crimson', 'Golden', 'Silent', 'Swift', 'Frost',
-  'Thunder', 'Mystic', 'Solar', 'Lunar', 'Neon', 'Hyper', 'Turbo', 'Mega',
-  'Ultra', 'Cosmic', 'Void', 'Echo', 'Blaze', 'Storm', 'Ghost', 'Phantom',
-  'Cipher', 'Rogue', 'Viper', 'Falcon', 'Raven', 'Wolf', 'Tiger', 'Lion',
-  'Bear', 'Hawk', 'Owl', 'Fox', 'Knight', 'Queen', 'King', 'Bishop', 'Pawn',
-  'Master', 'Grand',
-];
-
-const NAME_LAST = [
-  'King', 'Wolf', 'Warden', 'Knight', 'Bishop', 'Queen', 'Check', 'Mate',
-  'Storm', 'Blaze', 'Frost', 'Ember', 'Shade', 'Spark', 'Rush', 'Wave',
-  'Fury', 'Bolt', 'Pulse', 'Drift', 'Nova', 'Orbit', 'Pilot', 'Runner',
-  'Caster', 'Hunter', 'Slayer', 'Mage', 'Sage', 'Wizard', 'Pro', 'Ace',
-  'One', 'Zero', 'X', 'Lord', 'Ninja', 'Samurai', 'Specter', 'Hawk',
-  'Falcon', 'Viper', 'Cobra', 'Titan', 'Giant', 'Dwarf', 'Elf', 'Orc',
-  'Wraith', 'Reaper',
-];
-
-/** Deterministic 50-player board so the UI renders identically every visit. */
-function buildDemoLeaderboard(): LeaderboardEntry[] {
-  return Array.from({ length: 50 }, (_, i) => {
-    const gamesPlayed = 320 - i * 3 + ((i * 17) % 50);
-    const rawWinRate = 84 - i * 1.2 + ((i * 13) % 7) * 0.25;
-    const winRate = Math.min(99, Math.max(1, rawWinRate));
-    const wins = Math.round((gamesPlayed * winRate) / 100);
-    const draws = (i * 7) % 9;
-    const losses = Math.max(0, gamesPlayed - wins - draws);
-    const rating = 2180 - i * 18 + ((i * 29) % 25);
+/** Explicit local UI fixture; it is unreachable from a production build. */
+function buildDemoPage(pageNumber: number, pageSize: number): LeaderboardPage {
+  const allEntries = Array.from({ length: 30 }, (_, index) => {
+    const gamesPlayed = 45 - index + ((index * 7) % 12);
+    const wins = Math.max(1, Math.round(gamesPlayed * (0.72 - index * 0.008)));
+    const losses = Math.max(0, gamesPlayed - wins);
 
     return {
-      rank: i + 1,
-      userId: `demo-user-${i + 1}`,
-      username: `${NAME_FIRST[i]}${NAME_LAST[(i * 13 + 7) % NAME_LAST.length]}`,
+      rank: index + 1,
+      userId: `local-demo-${index + 1}`,
+      username: `DemoPlayer${String(index + 1).padStart(2, '0')}`,
       wins,
       losses,
-      draws,
+      draws: 0,
       gamesPlayed,
-      winRate: Math.round(winRate * 10) / 10,
-      rating,
-    };
+      winRate: Math.round((wins / gamesPlayed) * 1000) / 10,
+      rating: 1800 - index * 17,
+    } satisfies LeaderboardEntry;
   });
+  const safePage = Math.max(1, Math.min(Math.ceil(allEntries.length / pageSize), pageNumber));
+
+  return {
+    items: allEntries.slice((safePage - 1) * pageSize, safePage * pageSize),
+    total: allEntries.length,
+    page: safePage,
+    pageSize,
+    totalPages: Math.ceil(allEntries.length / pageSize),
+    demo: true,
+  };
 }

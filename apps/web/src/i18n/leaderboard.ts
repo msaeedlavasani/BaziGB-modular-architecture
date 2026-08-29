@@ -14,7 +14,11 @@ export interface LeaderboardMessages {
   fullRankings: string;
   playerCount: (count: number) => string;
   noPlayers: string;
-  noMatch: (query: string) => string;
+  emptyDescription: string;
+  previousPage: string;
+  nextPage: string;
+  page: (current: number, total: number) => string;
+  localDemoNotice: string;
   you: string;
   winsShort: (wins: number) => string;
   lossesShort: (losses: number) => string;
@@ -24,7 +28,7 @@ export interface LeaderboardMessages {
 const LEADERBOARD_MESSAGES: Record<Locale, LeaderboardMessages> = {
   fa: {
     title: 'رتبه‌بندی',
-    subtitle: '۵۰ بازیکن برتر بر اساس امتیاز رقابتی.',
+    subtitle: 'رتبه‌بندی بازیکنان بر اساس امتیاز رقابتی.',
     refresh: 'به‌روزرسانی',
     searchPlaceholder: 'جستجوی بازیکن با نام کاربری…',
     loadError: 'دریافت رتبه‌بندی ممکن نشد.',
@@ -35,8 +39,12 @@ const LEADERBOARD_MESSAGES: Record<Locale, LeaderboardMessages> = {
     rating: 'امتیاز',
     fullRankings: 'رتبه‌بندی کامل',
     playerCount: (count) => `${count} بازیکن`,
-    noPlayers: 'بازیکنی پیدا نشد',
-    noMatch: (query) => `هیچ نام کاربری با «${query}» مطابقت ندارد — عبارت دیگری امتحان کنید.`,
+    noPlayers: 'هنوز بازیکنی در رتبه‌بندی نیست',
+    emptyDescription: 'با ثبت اولین بازی‌های آنلاین، رتبه‌بندی اینجا شکل می‌گیرد.',
+    previousPage: 'قبلی',
+    nextPage: 'بعدی',
+    page: (current, total) => `صفحهٔ ${current} از ${total}`,
+    localDemoNotice: 'دادهٔ نمایشی محلی است و در نسخهٔ منتشرشده نمایش داده نمی‌شود.',
     you: 'شما',
     winsShort: (wins) => `${wins} برد`,
     lossesShort: (losses) => `${losses} باخت`,
@@ -44,7 +52,7 @@ const LEADERBOARD_MESSAGES: Record<Locale, LeaderboardMessages> = {
   },
   en: {
     title: 'Leaderboard',
-    subtitle: 'Top 50 players ranked by competitive rating.',
+    subtitle: 'Players ranked by competitive rating.',
     refresh: 'Refresh',
     searchPlaceholder: 'Search players by username…',
     loadError: 'Could not load the leaderboard.',
@@ -55,8 +63,12 @@ const LEADERBOARD_MESSAGES: Record<Locale, LeaderboardMessages> = {
     rating: 'rating',
     fullRankings: 'Full rankings',
     playerCount: (count) => `${count} ${count === 1 ? 'player' : 'players'}`,
-    noPlayers: 'No players found',
-    noMatch: (query) => `Nobody matches “${query}” — try a different username.`,
+    noPlayers: 'No players are ranked yet',
+    emptyDescription: 'The leaderboard will appear here once the first online games are recorded.',
+    previousPage: 'Previous',
+    nextPage: 'Next',
+    page: (current, total) => `Page ${current} of ${total}`,
+    localDemoNotice: 'This is local demo data and is never shown in a deployed build.',
     you: 'You',
     winsShort: (wins) => `${wins}W`,
     lossesShort: (losses) => `${losses}L`,

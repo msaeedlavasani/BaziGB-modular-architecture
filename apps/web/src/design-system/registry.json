@@ -8,7 +8,7 @@
       "maturity": "Candidate",
       "responsibility": "Own semantic page width, inline gutters, and block padding.",
       "contracts": ["semantic-width", "logical-gutters", "block-rhythm", "no-stacked-page-padding"],
-      "consumers": ["apps/web/src/app/lobby/page.tsx", "apps/web/src/app/games/[gameId]/page.tsx"],
+      "consumers": ["apps/web/src/app/lobby/page.tsx", "apps/web/src/app/games/[gameId]/page.tsx", "apps/web/src/app/leaderboard/page.tsx"],
       "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
     },
     {
@@ -17,7 +17,7 @@
       "maturity": "Candidate",
       "responsibility": "Own page-section rhythm without creating decorative surfaces.",
       "contracts": ["section-gap", "minimum-inline-size", "single-rhythm-owner"],
-      "consumers": ["apps/web/src/app/lobby/page.tsx", "apps/web/src/app/games/[gameId]/page.tsx"],
+      "consumers": ["apps/web/src/app/lobby/page.tsx", "apps/web/src/app/games/[gameId]/page.tsx", "apps/web/src/app/leaderboard/page.tsx"],
       "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
     },
     {
@@ -53,7 +53,7 @@
       "maturity": "Candidate",
       "responsibility": "Own page-title scale, identity, description rhythm, and semantic heading hierarchy.",
       "contracts": ["single-h1", "fluid-title-scale", "bounded-line-length", "identity-proximity"],
-      "consumers": ["apps/web/src/app/lobby/page.tsx", "apps/web/src/app/games/[gameId]/page.tsx"],
+      "consumers": ["apps/web/src/app/lobby/page.tsx", "apps/web/src/app/games/[gameId]/page.tsx", "apps/web/src/app/leaderboard/page.tsx"],
       "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
     },
     {

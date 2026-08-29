@@ -1,13 +1,10 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Box,
   Typography,
   Button,
-  Container,
-  TextField,
-  InputAdornment,
   Paper,
   Stack,
   Avatar,
@@ -17,11 +14,15 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
-import { Crown, Medal, RefreshCw, Search, Trophy } from 'lucide-react';
+import { Crown, Medal, RefreshCw, Trophy } from 'lucide-react';
 import { fetchLeaderboard, LeaderboardEntry } from '../../lib/leaderboard';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppLocale } from '@/hooks/useAppLocale';
 import { getLeaderboardMessages } from '@/i18n/leaderboard';
+import EmptyState from '@/components/shared/EmptyState';
+import PageContainer from '@/components/layout/PageContainer';
+import PageHeader from '@/components/layout/PageHeader';
+import PageStack from '@/components/layout/PageStack';
 
 const RANK_META: Record<number, { ring: string; badge: string; color: string }> = {
   1: { ring: '#fbbf2499', badge: '#EAB308', color: '#EAB308' },
@@ -34,6 +35,8 @@ const MEDAL_ICON: Record<number, React.ReactNode> = {
   2: <Medal size={20} />,
   3: <Medal size={20} />,
 };
+
+const PAGE_SIZE = 10;
 
 function WinRateBar({ value }: { value: number }) {
   return (
@@ -89,7 +92,10 @@ export default function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [demo, setDemo] = useState(false);
 
   const rankLabel = (rank: number): string => {
     if (rank === 1) return messages.gold;
@@ -97,12 +103,16 @@ export default function LeaderboardPage() {
     return messages.bronze;
   };
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (requestedPage: number) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchLeaderboard();
-      setEntries(data);
+      const data = await fetchLeaderboard(requestedPage, PAGE_SIZE);
+      setEntries(data.items);
+      setPage(data.page);
+      setTotal(data.total);
+      setTotalPages(data.totalPages);
+      setDemo(data.demo);
     } catch (e: any) {
       setError(e?.message || messages.loadError);
     } finally {
@@ -111,52 +121,30 @@ export default function LeaderboardPage() {
   }, [messages.loadError]);
 
   useEffect(() => {
-    void load();
+    void load(1);
   }, [load]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return entries;
-    return entries.filter((e) => e.username.toLowerCase().includes(q));
-  }, [entries, query]);
-
-  const top3 = filtered.slice(0, 3);
+  const top3 = page === 1 ? entries.slice(0, 3) : [];
   const podiumOrder = [top3[1], top3[0], top3[2]].filter(Boolean) as LeaderboardEntry[];
 
   return (
     <Box sx={{ flex: 1, bgcolor: 'background.default' }}>
-      <Container maxWidth="md" sx={{ py: 6 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'flex-end',
-            justifyContent: 'space-between',
-            gap: 2,
-            mb: 4,
-          }}
-        >
-          <Box>
-            <Typography
-              variant="h4"
-              component="h1"
-              sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1.5 }}
-            >
-              <Trophy size={32} style={{ color: '#fbbf24' }} />
-              {messages.title}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              {messages.subtitle}
-            </Typography>
-          </Box>
+      <PageContainer width="content">
+        <PageStack>
+          <PageHeader
+            title={messages.title}
+            description={messages.subtitle}
+            identity={<Trophy size={32} aria-hidden="true" />}
+          />
           <Button
             variant="outlined"
-            onClick={() => void load()}
+            onClick={() => void load(page)}
             disabled={loading}
             startIcon={<RefreshCw size={16} className={loading ? 'animate-spin' : ''} />}
             sx={{
               borderColor: 'divider',
               color: 'text.secondary',
+              alignSelf: 'center',
               '&:hover': {
                 borderColor: 'text.primary',
                 color: 'text.primary',
@@ -166,35 +154,21 @@ export default function LeaderboardPage() {
           >
             {messages.refresh}
           </Button>
-        </Box>
-
-        <TextField
-          fullWidth
-          placeholder={messages.searchPlaceholder}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          variant="outlined"
-          sx={{
-            mb: 4,
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 3,
-              bgcolor: alpha(theme.palette.background.default, 0.7),
-              '& fieldset': { borderColor: 'divider' },
-              '&:hover fieldset': { borderColor: alpha(theme.palette.primary.main, 0.5) },
-            },
-          }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search size={18} style={{ color: theme.palette.text.disabled }} />
-              </InputAdornment>
-            ),
-          }}
-        />
 
         {error && (
-          <Alert severity="error" variant="outlined" sx={{ mb: 4, borderRadius: 2 }}>
+          <Alert
+            severity="error"
+            variant="outlined"
+            sx={{ borderRadius: 2 }}
+            action={<Button color="inherit" size="small" onClick={() => void load(page)}>{messages.refresh}</Button>}
+          >
             {error}
+          </Alert>
+        )}
+
+        {demo && (
+          <Alert severity="info" variant="outlined" sx={{ borderRadius: 2 }}>
+            {messages.localDemoNotice}
           </Alert>
         )}
 
@@ -307,28 +281,17 @@ export default function LeaderboardPage() {
               component="span"
               sx={{ marginInlineStart: 1, fontSize: '0.875rem', fontWeight: 500, color: 'text.disabled' }}
             >
-              {loading ? '…' : messages.playerCount(filtered.length)}
+            {loading ? '…' : messages.playerCount(total)}
             </Box>
           </Typography>
 
           {loading ? (
             <SkeletonRows />
-          ) : filtered.length === 0 ? (
-            <Paper
-              variant="outlined"
-              sx={{ p: 6, textAlign: 'center', borderRadius: 4, borderStyle: 'dashed', bgcolor: 'transparent' }}
-            >
-              <Search size={32} style={{ color: theme.palette.text.disabled, margin: '0 auto' }} />
-              <Typography sx={{ mt: 2, fontWeight: 600, color: 'text.secondary' }}>
-                {messages.noPlayers}
-              </Typography>
-              <Typography variant="body2" color="text.disabled" sx={{ mt: 0.5 }}>
-                {messages.noMatch(query)}
-              </Typography>
-            </Paper>
+          ) : error && entries.length === 0 ? null : entries.length === 0 ? (
+            <EmptyState icon={<Trophy size={28} />} title={messages.noPlayers} description={messages.emptyDescription} />
           ) : (
             <Stack spacing={1}>
-              {filtered.map((entry) => {
+              {entries.map((entry) => {
                 const meta = RANK_META[entry.rank];
                 const isMe = user?.id === entry.userId;
                 return (
@@ -445,8 +408,23 @@ export default function LeaderboardPage() {
               })}
             </Stack>
           )}
+
+          {!loading && !error && total > PAGE_SIZE && (
+            <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              <Button variant="outlined" disabled={page <= 1} onClick={() => void load(page - 1)}>
+                {messages.previousPage}
+              </Button>
+              <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700 }}>
+                {messages.page(page, totalPages)}
+              </Typography>
+              <Button variant="outlined" disabled={page >= totalPages} onClick={() => void load(page + 1)}>
+                {messages.nextPage}
+              </Button>
+            </Box>
+          )}
         </Box>
-      </Container>
+        </PageStack>
+      </PageContainer>
     </Box>
   );
 }
