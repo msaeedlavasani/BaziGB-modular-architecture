@@ -11,11 +11,12 @@ reading historical reports by default.
 ## Repository checkpoint
 
 - Repository: `BaziGB-modular-architecture`
-- Branch: `refactor/platform-foundation-i18n-v3`
+- Branch: `codex/release-candidate-preflight`
+- Local candidate commit: `1b97f8d`
 - Protected remote revision: `df7f09547916711d7c3e32e4f75442ecbe937768`
 - Working tree at handoff creation: clean
-- Working tree after this task: approved local dependency-modernization changes,
-  intentionally uncommitted and unpushed under the current-state constraints
+- Working tree after this task: clean after the local candidate commit; the
+  commit is intentionally unpushed under the current-state constraints
 - Production: active version unchanged; no cutover was performed
 - Prepared candidate: the protected revision above was uploaded and verified,
   but was not activated
@@ -80,9 +81,10 @@ commit, push, deployment and production actions each need their own authority.
 
 The local release-candidate preflight is recorded in
 `docs/reports/aipde/2026-08-29-local-release-candidate-preflight.md`.
-Machine evidence is green, but the worktree is dirty and HEAD was detached at
-inspection; it is therefore not a candidate that may be frozen, pushed, or
-activated.
+Machine evidence is green. The preflight observed a dirty, detached worktree;
+that state was then safely preserved in local commit `1b97f8d` on this branch.
+It remains ineligible for activation until separately pushed, protected, and
+passed through the remaining release gates.
 
 ## Initial reading budget
 
