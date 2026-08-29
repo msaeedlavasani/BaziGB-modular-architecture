@@ -1,6 +1,6 @@
 # BaziGB — Collaboration Contract
 
-**Version:** 1.0.0
+**Version:** 1.2.0
 
 This is the canonical operating contract for an AI task. It complements
 `AGENTS.md`; current explicit human direction remains the highest authority.
@@ -33,6 +33,13 @@ dry-runs, diffs, targeted tests, and rollback where appropriate. After three
 documented, meaningfully different attempts at the same verified blocker,
 create a resumable checkpoint and request direction if no safe path remains.
 
+Recurring local-runtime failures or tool-generated working-tree artifacts are
+root-cause signals, not routine cleanup. Keep the current task moving with the
+lowest-risk workaround, then create or update a durable control task with a
+recurrence detector, root-cause analysis, and a permanent containment. Do not
+normalize repeated manual cleanup, repeated server restarts, or repeated test
+spend as the solution.
+
 ## 5. Reuse before reinvention
 
 For a known problem, consult narrowly scoped evidence in this order: official
@@ -49,13 +56,30 @@ reading, run targeted checks before one full gate, and do not repeat unchanged
 checks. A higher-cost model needs an explicit reason and approval; creating a
 new task solely to change models is prohibited.
 
-## 7. Definition of done
+## 7. Git checkpoints and asset protection
+
+Before a material, multi-file, shared-UI, architecture, dependency, data, or
+operations change, inspect the working tree and identify a recoverable Git
+checkpoint boundary. If existing uncommitted work would be mixed with the new
+scope, explicitly tell the human the risk and recommend the smallest safe
+sequence: validate the current slice, create an atomic commit, and push it when
+separately authorized. Do not silently mix scopes because a change is locally
+convenient.
+
+A local commit is a reversible checkpoint; a verified push protects that
+checkpoint remotely. Neither authorizes a merge, deployment, production change,
+or destruction of local work. Commit and push still require explicit authority.
+When a clean checkpoint cannot be made without mixing unrelated work, propose an
+isolated branch or worktree before implementation rather than making rollback
+ambiguous.
+
+## 8. Definition of done
 
 Completion records the technical result, proportional evidence, Git state,
 remaining debt or risk, and the next legitimate step. “Unable to proceed” is
 not valid without cause analysis, alternatives tried, and a safe checkpoint.
 
-## 8. Durable memory
+## 9. Durable memory
 
 Read this file during task entry and link durable changes here or to the
 appropriate canonical contract. Do not copy conversation history into it.

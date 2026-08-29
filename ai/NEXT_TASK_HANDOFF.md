@@ -12,11 +12,11 @@ reading historical reports by default.
 
 - Repository: `BaziGB-modular-architecture`
 - Branch: `codex/release-candidate-preflight`
-- Local candidate commit: `1b97f8d`
-- Protected remote revision: `df7f09547916711d7c3e32e4f75442ecbe937768`
+- Local candidate commit: `a577fe0`
+- Protected remote revision: `a577fe0c3d7810a061a3218a02b2cc9d749f1607`
 - Working tree at handoff creation: clean
-- Working tree after this task: clean after the local candidate commit; the
-  commit is pushed to `origin/codex/release-candidate-preflight`
+- Working tree after the Private Alpha checkpoint: clean; the checkpoint is
+  committed and pushed on this tracked branch, while production remains unchanged
 - Production: active version unchanged; no cutover was performed
 - Prepared candidate: the protected revision above was uploaded and verified,
   but was not activated
@@ -48,6 +48,56 @@ through the documented HTTPS mirror) reported:
 The previously reported server-runner and Vegas test failures do not reproduce
 in the clean, supported-runtime validation described below. They are not
 current machine-validation blockers.
+
+## Current local continuation: Private Alpha scope
+
+The human adjusted the local Alpha scope. The uncommitted implementation keeps
+four games, local bots, invite-code rooms, public room discovery and a public
+leaderboard. Tournament navigation and server APIs remain unavailable. Admin
+operations remain server-protected but are not advertised to Alpha users. The
+lobby presents a small bilingual “Free experimental version” badge.
+
+In a temporary clean installation with Node 24.19.0 and Vitest 1.6.1, the
+new route/capability tests passed (3/3), the server suite passed (21/21), the
+complete workspace suite passed (90/90), and package, server and web builds
+passed. After the scope adjustment, server and web typechecks, updated route
+tests (3/3), and the web build passed. The temporary install was created without scripts; Prisma generation
+could not update a sandboxed cache, so the matching generated client from the
+checkout was used only for the temporary server build.
+
+This scope is machine-validated and human-accepted: the six-item browser
+navigation, room, and tournament-redirect check passed in both locales on
+2026-08-30. The next separate product boundary is `LA-TRUST-001`, which
+requires approval of its legal/support content; do not begin it implicitly.
+
+### 2026-08-30 local Alpha corrections
+
+The following corrections are included in the Private Alpha checkpoint; they
+are not deployed or applied to production:
+
+- The game-hub `Select` now provides a direct array of `MenuItem` children, so
+  the MUI Fragment runtime error no longer blocks Tic-Tac-Toe.
+- The local Prisma schema was created only in the ignored `apps/server/prisma/dev.db`.
+  The local leaderboard is consequently honestly empty until real local games
+  create users; it must not fall back to fake players.
+- The leaderboard requests explicit 10-player pages, shows an honest empty or
+  error state, and uses Previous/Next navigation instead of a long list.
+- UI fixtures for leaderboard and tournaments now require the explicit local
+  `NEXT_PUBLIC_BAZIGB_UI_DEMOS` switch (for example `leaderboard`). They are
+  visibly labelled where rendered and are hard-disabled unless
+  `NODE_ENV=development`; production cannot use them as an API fallback.
+- A room page returns to its own game hub, not directly to the lobby.
+- Leaderboard now uses the shared `PageContainer`, `PageStack`, and
+  `PageHeader`; Header uses flow layout with semantic navigation, centered
+  brand, and one grouped control rail rather than absolute-positioned regions.
+
+Targeted server and web typechecks, guard and local-demo tests, and governance
+validation passed. Read-only requests
+through the local web proxy returned an empty real leaderboard and an active
+public Tic-Tac-Toe room. Human browser validation passed for visual composition,
+room creation, and room navigation. The local web and server processes may be
+present on ports 3000 and 3001, but their terminal lifetime is not durable;
+`DO-ENV-001` remains the P0 root-cause task.
 
 ## Completed bounded task
 

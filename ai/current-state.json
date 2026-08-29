@@ -1,17 +1,17 @@
 {
   "version": "1.0.0",
-  "updated": "2026-08-29",
+  "updated": "2026-08-30",
   "repository": "BaziGB-modular-architecture",
   "branch": "codex/release-candidate-preflight",
   "baseRevision": "d8103f7d50a895e2ccdd299e178066c9d2da04f8",
-  "workingTree": "clean-local-commit-pushed",
+  "workingTree": "clean-after-private-alpha-checkpoint",
   "activeMilestone": "private-alpha-readiness",
   "currentGate": {
-    "taskId": "DO-CONTRACT-001",
+    "taskId": "GK-AGILE-LOOP-001",
     "owner": "Human Direction",
-    "gate": "human-contract-acceptance"
+    "gate": "approve-agile-loop-design-and-local-checkpoint-authority"
   },
-  "nextProposedTask": "LA-RC-001",
+  "nextProposedTask": "GK-AGILE-LOOP-001",
   "dependencySecurityGate": {
     "status": "passed-locally",
     "runtime": "node >=20.19.0",
@@ -27,13 +27,14 @@
   },
   "releaseCandidatePreflight": {
     "status": "local-machine-validation-passed-committed-and-remotely-protected",
-    "head": "1b97f8d",
-    "workingTree": "clean",
+    "head": "a577fe0",
+    "workingTree": "private-alpha-checkpoint-follows-base-candidate",
     "releaseSafety": "8-of-8-passed",
     "report": "docs/reports/aipde/2026-08-29-local-release-candidate-preflight.md"
   },
   "blockers": [
-    "Canonical deployment, observability, restore proof and legal routes are not release-ready"
+    "Local human-test links require the temporary persistent development terminal; DO-ENV-001 is prioritized for a durable solution"
+    ,"Canonical deployment, observability, restore proof and legal routes are not release-ready"
     ,"Production SSH host identity is independently verified, but the server authorizes neither local SSH key; approved key provisioning is required before access"
   ],
   "lastValidation": {
@@ -66,6 +67,20 @@
       "full-governance-check-node24",
       "full-workspace-build-node24",
       "release-safety-contract-tests-8-of-8"
+      ,"private-alpha-route-tests-3-of-3-node24-vitest-1.6.1"
+      ,"private-alpha-server-tests-21-of-21-node24-vitest-1.6.1"
+      ,"private-alpha-web-build-node24"
+      ,"private-alpha-full-workspace-tests-90-of-90-node24-vitest-1.6.1"
+      ,"alpha-scope-adjustment-server-and-web-typecheck-node24"
+      ,"alpha-scope-adjustment-route-tests-3-of-3-node24-vitest-1.6.1"
+      ,"alpha-scope-adjustment-web-build-node24"
+      ,"alpha-ui-corrections-web-typecheck-node24"
+      ,"alpha-ui-corrections-governance-check"
+      ,"local-web-proxy-read-check-leaderboard-and-public-rooms"
+      ,"local-ui-demo-policy-tests-3-of-3-node24-vitest-1.6.1"
+      ,"checkpoint-private-alpha-guard-tests-3-of-3-node24-vitest-1.6.1"
+      ,"checkpoint-local-ui-demo-tests-3-of-3-node24-vitest-1.6.1"
+      ,"checkpoint-server-and-web-typecheck-node24"
     ],
     "notPassing": []
   },
