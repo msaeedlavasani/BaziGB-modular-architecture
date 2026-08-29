@@ -4,7 +4,7 @@
   "repository": "BaziGB-modular-architecture",
   "branch": "codex/release-candidate-preflight",
   "baseRevision": "d8103f7d50a895e2ccdd299e178066c9d2da04f8",
-  "workingTree": "clean-local-commit-no-push",
+  "workingTree": "clean-local-commit-pushed",
   "activeMilestone": "private-alpha-readiness",
   "currentGate": {
     "taskId": "DO-CONTRACT-001",
@@ -26,7 +26,7 @@
     "fullWorkspaceTests": "passed"
   },
   "releaseCandidatePreflight": {
-    "status": "local-machine-validation-passed-committed-not-remotely-protected",
+    "status": "local-machine-validation-passed-committed-and-remotely-protected",
     "head": "1b97f8d",
     "workingTree": "clean",
     "releaseSafety": "8-of-8-passed",
@@ -34,7 +34,6 @@
   },
   "blockers": [
     "Canonical deployment, observability, restore proof and legal routes are not release-ready"
-    ,"Committed local candidate is not yet remotely protected"
     ,"Production SSH host identity is independently verified, but the server authorizes neither local SSH key; approved key provisioning is required before access"
   ],
   "lastValidation": {
