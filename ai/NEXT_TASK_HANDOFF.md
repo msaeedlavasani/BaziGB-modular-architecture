@@ -14,6 +14,8 @@ reading historical reports by default.
 - Branch: `refactor/platform-foundation-i18n-v3`
 - Protected remote revision: `df7f09547916711d7c3e32e4f75442ecbe937768`
 - Working tree at handoff creation: clean
+- Working tree after this task: approved local dependency-modernization changes,
+  intentionally uncommitted and unpushed under the current-state constraints
 - Production: active version unchanged; no cutover was performed
 - Prepared candidate: the protected revision above was uploaded and verified,
   but was not activated
@@ -28,42 +30,71 @@ reading historical reports by default.
 
 ## Current release decision
 
-The candidate is **NO-GO for activation** until the production dependency
-security gate is resolved. The last production dependency audit reported:
+The candidate remains **NO-GO for activation** because release, recovery,
+observability, legal, committed-candidate and human-experience gates remain
+open. The production dependency-security gate and mandatory full workspace
+machine-validation gate now pass locally. No deployment, candidate activation,
+or production change was performed.
 
-- 14 vulnerabilities
-- 5 high
-- 9 moderate
+The refreshed production-only audit (`npm audit --omit=dev --package-lock-only`
+through the documented HTTPS mirror) reported:
+
+- 0 vulnerabilities
+- 0 high
+- 0 moderate
 - 0 critical
 
-These counts are evidence from the previous task and must be revalidated after
-the dependency changes. Do not repeat unrelated architecture or UI audits.
+The previously reported server-runner and Vegas test failures do not reproduce
+in the clean, supported-runtime validation described below. They are not
+current machine-validation blockers.
 
-## Next bounded task
+## Completed bounded task
 
-Perform controlled dependency modernization for the Alpha candidate, focused
-only on the production dependency/security gate:
+Controlled dependency modernization changed only the relevant runtime and
+compatibility surfaces:
 
-1. inspect the exact dependency paths behind the reported findings;
-2. plan the smallest coherent Node/Next/Nest-compatible upgrade set;
-3. change lockfiles/manifests without unrelated refactoring;
-4. run targeted security and compatibility checks first;
-5. run the full required release validation once at the final gate;
-6. update this handoff and the canonical current state;
-7. stop before any production activation and present a GO/NO-GO result.
+- root Node engine: `>=20.19.0`;
+- web: Next.js `16.3.3`, retaining React 18;
+- server: Nest `12.0.1`, Config `12.0.0`, and matching JWT/testing packages;
+- the Next 16 asynchronous `headers()` migration in the root layout and its
+  generated TypeScript configuration changes.
 
-Human experiential browser testing remains assigned to the user.
+Targeted server and web typechecks passed after the normal internal-package
+build and local Prisma generation. The optimized web build and the complete
+workspace typecheck, boundary, governance, and build gates passed. Next 16
+emits a non-blocking deprecation warning for the existing `middleware` file
+convention.
+
+QA-SERVER-001 was then repaired without changing its manifest or Vegas. In a
+temporary copy of the same workspaces, using Node 24.19.0, Liara's npm mirror,
+and scripts disabled for installation, the lockfile was rebuilt surgically:
+only 16 stale server-local Vitest 4/Rolldown entries were removed. The candidate
+lockfile exactly matched that temporary result before transfer. A clean
+installation resolved the server through root Vitest 1.6.1; all 18 server tests
+passed. The one full workspace test gate then passed (including Vegas 10/10),
+as did full typecheck/boundaries, governance, and build.
+
+Do not continue dependency modernization or alter Vegas from this handoff.
+Human experiential browser testing remains assigned to the user; release,
+commit, push, deployment and production actions each need their own authority.
+
+The local release-candidate preflight is recorded in
+`docs/reports/aipde/2026-08-29-local-release-candidate-preflight.md`.
+Machine evidence is green, but the worktree is dirty and HEAD was detached at
+inspection; it is therefore not a candidate that may be frozen, pushed, or
+activated.
 
 ## Initial reading budget
 
 Read only these sources first:
 
 1. `ai/NEXT_TASK_HANDOFF.md`
-2. `ai/retrieval-manifest-v1.json`
-3. `docs/release-and-secrets-contract.md` — only the dependency, candidate and
+2. `ai/COLLABORATION_CONTRACT.md`
+3. `ai/retrieval-manifest-v1.json`
+4. `docs/release-and-secrets-contract.md` — only the dependency, candidate and
    deployment-gate sections
-4. root and affected workspace package manifests/lockfile
-5. the release script only if dependency installation behavior is relevant
+5. root and affected workspace package manifests/lockfile
+6. the release script only if dependency installation behavior is relevant
 
 Do not read the full chat, all reports, `docs/HANDOFF.md`, or the complete work
 registry unless a concrete conflict or missing fact requires expansion.
@@ -88,4 +119,3 @@ Use a balanced coding model with high reasoning for this dependency task. Use a
 frontier/highest-cost model only if a security-sensitive compatibility conflict
 cannot be resolved reliably. Routine documentation, log filtering and targeted
 validation do not justify a frontier model.
-

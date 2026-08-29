@@ -1,6 +1,6 @@
 # BaziGB — AI Engineering & Workflow Standard
 
-**Version:** 8.0.0
+**Version:** 8.0.1
 
 This document defines how AI agents must inspect, reason about, plan, modify, validate, and document work in the BaziGB repository.
 
@@ -11,7 +11,7 @@ It is the mandatory AI entry and engineering-governance document. Product-lifecy
 At the beginning of every task:
 
 1. verify the active repository and branch,
-2. read `AGENTS.md`, `AI_CONTEXT_MAP.md`, and the small `ai/current-state.json` from that working context,
+2. read `AGENTS.md`, `ai/COLLABORATION_CONTRACT.md`, `AI_CONTEXT_MAP.md`, and the small `ai/current-state.json` from that working context,
 3. select the matching route from `ai/retrieval-manifest-v1.json`,
 4. route the task to the relevant AIPDE capabilities and Work Registry task,
 5. read only the canonical sources required by that route,
@@ -380,3 +380,11 @@ A material Control Plane change also requires a Pilot using `ai/CONTROL_PLANE.md
 > Correct the system before repeating symptom patches.
 >
 > Never invent project facts.
+
+## 26. COLLABORATION CONTINUITY
+
+Follow `ai/COLLABORATION_CONTRACT.md`. Within approved scope, own diagnosis
+and the next safe local step: fail-closed protects consequential actions, not
+reversible investigation. A tool, runtime, dependency, lockfile, fixture, or
+local-environment failure must be investigated through proportionate safe
+alternatives before it can become a blocker.

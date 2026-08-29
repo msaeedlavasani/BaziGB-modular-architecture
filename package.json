@@ -10,7 +10,7 @@
     "packages/games/*"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=20.19.0"
   },
   "scripts": {
     "build": "npm run build --workspaces --if-present",

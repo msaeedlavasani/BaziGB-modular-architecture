@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updated": "2026-08-28",
+  "updated": "2026-08-29",
   "repository": "BaziGB-modular-architecture",
   "branch": "refactor/platform-foundation-i18n-v3",
   "baseRevision": "d8103f7d50a895e2ccdd299e178066c9d2da04f8",
@@ -11,16 +11,34 @@
     "owner": "Human Direction",
     "gate": "human-contract-acceptance"
   },
-  "nextProposedTask": "ST-SECRETS-001",
+  "nextProposedTask": "LA-RC-001",
+  "dependencySecurityGate": {
+    "status": "passed-locally",
+    "runtime": "node >=20.19.0",
+    "web": "next 16.3.3 with react 18 retained",
+    "server": "nestjs 12.0.1 with config 12.0.0",
+    "productionAudit": { "total": 0, "high": 0, "moderate": 0, "critical": 0 }
+  },
+  "qaServerGate": {
+    "status": "passed-locally",
+    "runtime": "node 24.19.0",
+    "vitest": "1.6.1",
+    "fullWorkspaceTests": "passed"
+  },
+  "releaseCandidatePreflight": {
+    "status": "local-machine-validation-passed-no-go-for-freeze-or-activation",
+    "head": "21cf30f7f73a51acb55d459063e95fb6541b3437",
+    "workingTree": "dirty",
+    "releaseSafety": "8-of-8-passed",
+    "report": "docs/reports/aipde/2026-08-29-local-release-candidate-preflight.md"
+  },
   "blockers": [
-    "Full server suite has two pre-existing Admin controller mock failures",
-    "Online release remains blocked by validated security findings"
-    ,"Canonical deployment, observability, restore proof and legal routes are not release-ready"
+    "Canonical deployment, observability, restore proof and legal routes are not release-ready"
     ,"Approved working tree is not yet committed or remotely protected"
     ,"Production SSH host identity is independently verified, but the server authorizes neither local SSH key; approved key provisioning is required before access"
   ],
   "lastValidation": {
-    "date": "2026-08-28",
+    "date": "2026-08-29",
     "passed": [
       "backgammon-tests-29-of-29",
       "game-gateway-tests-8-of-8",
@@ -39,9 +57,18 @@
       ,"turn-transaction-targeted-tests-43-of-43"
       ,"forced-bear-off-targeted-tests-45-of-45"
       ,"local-turn-controller-tests-9-of-9"
-      ,"turn-transaction-web-build"
+      ,"turn-transaction-web-build",
+      "production-dependency-audit-0-vulnerabilities",
+      "full-typecheck-and-boundaries",
+      "full-governance-check",
+      "full-workspace-build-next-16.3.3",
+      "full-workspace-tests-node24-vitest-1.6.1",
+      "full-typecheck-and-boundaries-node24",
+      "full-governance-check-node24",
+      "full-workspace-build-node24",
+      "release-safety-contract-tests-8-of-8"
     ],
-    "notPassing": ["full-server-suite-admin-controller-mocks"]
+    "notPassing": []
   },
   "constraints": [
     "no-new-branch",
@@ -58,6 +85,7 @@
     "retrievalManifest": "ai/retrieval-manifest-v1.json",
     "releaseAndSecrets": "docs/release-and-secrets-contract.md",
     "systemIntegration": "ai/SYSTEM_INTEGRATION.md",
-    "governance": "docs/aipde/system-governance.md"
+    "governance": "docs/aipde/system-governance.md",
+    "collaborationContract": "ai/COLLABORATION_CONTRACT.md"
   }
 }

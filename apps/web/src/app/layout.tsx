@@ -8,21 +8,21 @@ import { DEFAULT_LOCALE, getLocaleConfig, isLocale, type Locale } from '../i18n/
 
 const LOCALE_HEADER = 'x-bazigb-locale';
 
-function getRequestLocale(): Locale {
-  const value = headers().get(LOCALE_HEADER);
+async function getRequestLocale(): Promise<Locale> {
+  const value = (await headers()).get(LOCALE_HEADER);
   return value && isLocale(value) ? value : DEFAULT_LOCALE;
 }
 
-export function generateMetadata(): Metadata {
-  const locale = getLocaleConfig(getRequestLocale());
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = getLocaleConfig(await getRequestLocale());
   return {
     title: locale.metadata.title,
     description: locale.metadata.description,
   };
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const locale = getRequestLocale();
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getRequestLocale();
   const config = getLocaleConfig(locale);
 
   return (
