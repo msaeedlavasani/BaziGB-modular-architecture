@@ -28,6 +28,8 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useAppLocale } from '@/hooks/useAppLocale';
 import { getTournamentDetailMessages } from '@/i18n/tournament-detail';
+import PrivateAlphaRedirect from '@/components/alpha/PrivateAlphaRedirect';
+import { PRIVATE_ALPHA } from '@/lib/private-alpha';
 import { localizedAppRoute } from '@/i18n/routing';
 import { getGameTitle, isWebGameId } from '@/lib/game-catalog';
 import EmptyState from '@/components/shared/EmptyState';
@@ -221,6 +223,8 @@ function MatchCard({ match, emptyLabel, liveLabel }: { match: BracketMatch; empt
 }
 
 export default function TournamentDetailPage({ params }: { params: { id: string } }) {
+  if (PRIVATE_ALPHA) return <PrivateAlphaRedirect />;
+
   const { user } = useAuth();
   const theme = useTheme();
   const locale = useAppLocale();

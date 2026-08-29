@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { PrivateAlphaSurfaceGuard } from '../common/private-alpha-surface.guard';
 import { TournamentService } from './tournament.service';
 import { CreateTournamentDto } from './dto/create-tournament.dto';
 import { RegisterPlayersDto } from './dto/register-players.dto';
@@ -16,6 +17,7 @@ import { AdvanceWinnerDto } from './dto/advance-winner.dto';
  *                                        -> record a winner and advance the bracket
  */
 @Controller('tournaments')
+@UseGuards(PrivateAlphaSurfaceGuard)
 export class TournamentsController {
   constructor(private readonly tournamentService: TournamentService) {}
 

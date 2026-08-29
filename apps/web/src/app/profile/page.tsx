@@ -42,6 +42,7 @@ import { getProfileMessages } from '@/i18n/profile';
 import { APP_ROUTES, localizedAppRoute } from '@/i18n/routing';
 import { getGameTitle, isWebGameId } from '@/lib/game-catalog';
 import { api } from '@/lib/api';
+import { PRIVATE_ALPHA } from '@/lib/private-alpha';
 import EmptyState from '@/components/shared/EmptyState';
 
 interface HistoryStats {
@@ -338,7 +339,7 @@ export default function ProfilePage() {
             >
               {messages.backToLobby}
             </Button>
-            {user.role === 'ADMIN' && (
+            {!PRIVATE_ALPHA && user.role === 'ADMIN' && (
               <Button component={Link} href={APP_ROUTES.admin} variant="outlined">
                 {messages.adminPanel}
               </Button>

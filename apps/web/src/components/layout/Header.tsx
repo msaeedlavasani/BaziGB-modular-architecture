@@ -18,6 +18,8 @@ import type { Locale } from '@/i18n/config';
 import { getMessages } from '@/i18n/messages';
 import { getLanguageSwitcherMessages } from '@/i18n/language-switcher';
 import { APP_ROUTES, localePath, localizedAppRoute, stripLocale } from '@/i18n/routing';
+import { PRIVATE_ALPHA_HIDDEN_PATHS } from '@/lib/private-alpha';
+import { layoutContract } from '@/design-system/layout-contract';
 import NavigationItem from './NavigationItem';
 
 interface HeaderProps {
@@ -48,15 +50,13 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
     return soundService.subscribe(() => setMuted(soundService.isMuted()));
   }, []);
 
-  const circleControlSx = {
+  const controlButtonSx = {
     width: { xs: 36, sm: 40 },
     height: { xs: 36, sm: 40 },
     minWidth: { xs: 36, sm: 40 },
     minHeight: { xs: 36, sm: 40 },
     p: 0,
-    borderRadius: '50%',
-    border: '1px solid',
-    borderColor: alpha(theme.palette.primary.main, 0.22),
+    borderRadius: 2,
     color: 'text.secondary',
     flexShrink: 0,
     display: 'inline-flex',
@@ -89,33 +89,31 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
       <Toolbar
         disableGutters
         sx={{
-          position: 'relative',
           width: '100%',
-          maxWidth: 1440,
+          maxWidth: 'lg',
           minHeight: { xs: 64, md: 68 },
           mx: 'auto',
-          px: { xs: 2, sm: 3, md: 6 },
+          px: layoutContract.page.inlineGutter,
           boxSizing: 'border-box',
-          direction: 'ltr',
+          direction: theme.direction,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
         }}
       >
         <Box
           component="nav"
           aria-label={messages.navigation.lobby}
           sx={{
-            position: 'absolute',
-            right: { xs: 8, sm: 12, md: 24 },
-            top: '50%',
-            transform: 'translateY(-50%)',
+            flex: 1,
+            minWidth: 0,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: { xs: 'space-between', md: 'flex-end' },
-            width: { xs: 120, sm: 136, md: 'min(34vw, 22rem)' },
-            gap: { xs: 0.25, sm: 0.75, md: 1.25 },
-            direction: theme.direction,
+            justifyContent: 'flex-start',
+            gap: { xs: 0.5, md: 1 },
           }}
         >
-          {navLinks.map((link) => {
+          {navLinks.filter((link) => !PRIVATE_ALPHA_HIDDEN_PATHS.has(link.href)).map((link) => {
             const active = routePathname === link.href || routePathname.startsWith(`${link.href}/`);
             return (
               <Tooltip key={link.route} title={link.label}>
@@ -136,20 +134,18 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
           href={localizedAppRoute(locale, 'lobby')}
           aria-label="BaziGB"
           style={{
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            transform: 'translate(-50%, -50%)',
             textDecoration: 'none',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
           }}
         >
           <Box
             sx={{
               position: 'relative',
-              width: { xs: 38, md: 34 },
-              height: { xs: 38, md: 34 },
+              width: { xs: 36, md: 34 },
+              height: { xs: 36, md: 34 },
               flexShrink: 0,
             }}
           >
@@ -172,69 +168,79 @@ export default function Header({ locale = 'fa' }: HeaderProps) {
 
         <Box
           sx={{
-            position: 'absolute',
-            left: { xs: 8, sm: 12, md: 24 },
-            top: '50%',
-            transform: 'translateY(-50%)',
+            flex: 1,
+            minWidth: 0,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: { xs: 'space-between', md: 'flex-start' },
-            width: { xs: 120, sm: 136, md: 'min(34vw, 22rem)' },
-            gap: { xs: 0.35, sm: 0.75, md: 1 },
+            justifyContent: 'flex-end',
             direction: 'ltr',
           }}
         >
-          <Tooltip title={messages.navigation.profile}>
-            <IconButton
-              component={Link}
-              href={localizedAppRoute(locale, 'profile')}
-              aria-current={routePathname === APP_ROUTES.profile ? 'page' : undefined}
-              aria-label={messages.navigation.profile}
-              sx={{
-                ...circleControlSx,
-                color: routePathname === APP_ROUTES.profile ? 'primary.main' : 'text.secondary',
-              }}
-            >
-              <User size={19} />
-            </IconButton>
-          </Tooltip>
-
-          <Tooltip title={muted ? messages.sound.enable : messages.sound.disable}>
-            <IconButton
-              onClick={() => soundService.toggleMute()}
-              aria-label={muted ? messages.sound.enable : messages.sound.disable}
-              sx={{
-                ...circleControlSx,
-                color: muted ? 'text.disabled' : 'primary.main',
-              }}
-            >
-              {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-            </IconButton>
-          </Tooltip>
-
-          {!isAdmin && (
-            <Tooltip title={languageMessages.label}>
-              <Button
-                component="a"
-                href={alternateHref}
-                aria-label={languageMessages.label}
+          <Box
+            role="group"
+            aria-label={messages.navigation.profile}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              p: 0.25,
+              gap: 0.25,
+              border: '1px solid',
+              borderColor: alpha(theme.palette.primary.main, 0.22),
+              borderRadius: 2.5,
+              bgcolor: alpha(theme.palette.background.paper, 0.36),
+            }}
+          >
+            <Tooltip title={messages.navigation.profile}>
+              <IconButton
+                component={Link}
+                href={localizedAppRoute(locale, 'profile')}
+                aria-current={routePathname === APP_ROUTES.profile ? 'page' : undefined}
+                aria-label={messages.navigation.profile}
                 sx={{
-                  ...circleControlSx,
-                  fontWeight: 900,
-                  letterSpacing: 0,
-                  fontSize: { xs: '0.72rem', sm: '0.75rem' },
-                  textAlign: 'center',
-                  '&:hover': {
-                    borderColor: alpha(theme.palette.primary.main, 0.5),
-                    bgcolor: alpha(theme.palette.primary.main, 0.08),
-                    color: 'primary.main',
-                  },
+                  ...controlButtonSx,
+                  color: routePathname === APP_ROUTES.profile ? 'primary.main' : 'text.secondary',
                 }}
               >
-                {languageMessages.shortLabel}
-              </Button>
+                <User size={19} />
+              </IconButton>
             </Tooltip>
-          )}
+
+            <Tooltip title={muted ? messages.sound.enable : messages.sound.disable}>
+              <IconButton
+                onClick={() => soundService.toggleMute()}
+                aria-label={muted ? messages.sound.enable : messages.sound.disable}
+                sx={{
+                  ...controlButtonSx,
+                  color: muted ? 'text.disabled' : 'primary.main',
+                }}
+              >
+                {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+              </IconButton>
+            </Tooltip>
+
+            {!isAdmin && (
+              <Tooltip title={languageMessages.label}>
+                <Button
+                  component="a"
+                  href={alternateHref}
+                  aria-label={languageMessages.label}
+                  sx={{
+                    ...controlButtonSx,
+                    fontWeight: 900,
+                    letterSpacing: 0,
+                    fontSize: { xs: '0.72rem', sm: '0.75rem' },
+                    textAlign: 'center',
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.08),
+                      color: 'primary.main',
+                    },
+                  }}
+                >
+                  {languageMessages.shortLabel}
+                </Button>
+              </Tooltip>
+            )}
+          </Box>
         </Box>
       </Toolbar>
     </AppBar>

@@ -12,6 +12,7 @@ import {
 import type { Locale } from '@/i18n/config';
 import { getMessages } from '@/i18n/messages';
 import { localePath, localizedAppRoute, stripLocale } from '@/i18n/routing';
+import { PRIVATE_ALPHA_HIDDEN_PATHS } from '@/lib/private-alpha';
 import TrustSeal from './TrustSeal';
 
 interface FooterProps {
@@ -29,7 +30,7 @@ function localizeManagedHref(locale: Locale, href: string): string {
 export default function Footer({ locale = 'fa' }: FooterProps) {
   const [footer, setFooter] = useState<FooterContent>(FOOTER_DEFAULTS_BY_LOCALE[locale]);
   const messages = getMessages(locale);
-  const excludedShellHrefs = new Set(['/lobby', '/leaderboard', '/tournaments']);
+  const excludedShellHrefs = new Set(['/lobby', ...PRIVATE_ALPHA_HIDDEN_PATHS]);
   const managedLinks = (footer.links ?? []).filter(
     (link) => !excludedShellHrefs.has(stripLocale(link.href).pathname),
   );

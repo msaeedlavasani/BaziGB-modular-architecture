@@ -8,11 +8,13 @@
  *
  * Server shapes differ from what the UI wants (statuses include `seeded`,
  * rounds are 1-based, players are user ids, no prize/date fields), so every
- * fetch goes through a normalizer. When the server is unreachable the
- * fallback demo data is used instead, keeping the pages renderable.
+ * fetch goes through a normalizer. Presentation fixtures are available only
+ * through an explicit development-only switch; deployments surface real API
+ * failures rather than showing fabricated tournaments.
  */
 
 import { api, ApiError } from './api';
+import { isLocalUiDemoEnabled } from './local-ui-demo';
 
 export type TournamentStatus = 'registration' | 'in_progress' | 'completed';
 export type MatchStatus = 'pending' | 'in_progress' | 'completed';
@@ -150,16 +152,16 @@ function normalizeDetail(t: ServerTournamentDetail): TournamentDetail {
 
 /** List tournaments, newest first. */
 export async function fetchTournaments(): Promise<Tournament[]> {
-  try {
-    const data = await api.get<ServerTournament[]>('/tournaments');
-    return data.map(normalizeList);
-  } catch {
-    return DEMO_TOURNAMENTS;
-  }
+  if (isLocalUiDemoEnabled('tournaments')) return DEMO_TOURNAMENTS;
+
+  const data = await api.get<ServerTournament[]>('/tournaments');
+  return data.map(normalizeList);
 }
 
 /** Fetch a single tournament with its full bracket; null when not found. */
 export async function fetchTournament(id: string): Promise<TournamentDetail | null> {
+  if (isLocalUiDemoEnabled('tournaments')) return demoDetail(id);
+
   try {
     const data = await api.get<ServerTournamentDetail>(
       `/tournaments/${encodeURIComponent(id)}`,
@@ -167,7 +169,7 @@ export async function fetchTournament(id: string): Promise<TournamentDetail | nu
     return normalizeDetail(data);
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) return null;
-    return demoDetail(id);
+    throw err;
   }
 }
 
@@ -176,22 +178,18 @@ export async function joinTournament(
   id: string,
   userId?: string,
 ): Promise<JoinResult> {
-  try {
-    await api.post(`/tournaments/${encodeURIComponent(id)}/register`, {
-      playerIds: userId ? [userId] : [],
-    });
-    return { joined: true, demo: false, message: 'You are in!' };
-  } catch (err) {
-    // Server unreachable / endpoint missing -> demo confirmation.
-    if (err instanceof ApiError && err.status === 0) {
-      return {
-        joined: true,
-        demo: true,
-        message: 'Joined (demo mode — connect the server API to go live)',
-      };
-    }
-    throw err;
+  if (isLocalUiDemoEnabled('tournaments')) {
+    return {
+      joined: true,
+      demo: true,
+      message: 'Joined local demo data — no real tournament entry was created.',
+    };
   }
+
+  await api.post(`/tournaments/${encodeURIComponent(id)}/register`, {
+    playerIds: userId ? [userId] : [],
+  });
+  return { joined: true, demo: false, message: 'You are in!' };
 }
 
 /* ------------------------------ demo data -------------------------------- */

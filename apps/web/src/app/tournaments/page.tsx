@@ -29,6 +29,8 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useAppLocale } from '@/hooks/useAppLocale';
 import { getMessages } from '@/i18n/messages';
+import PrivateAlphaRedirect from '@/components/alpha/PrivateAlphaRedirect';
+import { PRIVATE_ALPHA } from '@/lib/private-alpha';
 import { localizedAppRoute, localizedTournamentRoute } from '@/i18n/routing';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingSkeleton from '@/components/shared/LoadingSkeleton';
@@ -81,6 +83,8 @@ function formatDate(iso: string, locale: string): string {
 type Filter = 'all' | TournamentStatus;
 
 export default function TournamentsPage() {
+  if (PRIVATE_ALPHA) return <PrivateAlphaRedirect />;
+
   const { user } = useAuth();
   const theme = useTheme();
   const locale = useAppLocale();

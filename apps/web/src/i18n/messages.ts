@@ -74,6 +74,7 @@ export interface AppMessages {
   lobby: {
     title: string;
     subtitle: string;
+    alphaNotice: string;
     waiting: string;
     inProgress: string;
     finished: string;
@@ -223,6 +224,7 @@ const MESSAGES: Record<Locale, AppMessages> = {
     lobby: {
       title: 'لابی BaziGB',
       subtitle: 'بازی موردنظرتان را انتخاب کنید',
+      alphaNotice: 'نسخهٔ آزمایشی رایگان',
       waiting: 'در انتظار',
       inProgress: 'در حال بازی',
       finished: 'پایان‌یافته',
@@ -370,6 +372,7 @@ const MESSAGES: Record<Locale, AppMessages> = {
     lobby: {
       title: 'BaziGB Lobby',
       subtitle: 'Choose a game to continue',
+      alphaNotice: 'Free experimental version',
       waiting: 'Waiting',
       inProgress: 'In progress',
       finished: 'Finished',
