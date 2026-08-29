@@ -153,6 +153,16 @@ Each backup needs a timestamp, checksum, owner, storage location, retention rule
 
 ## Staging and deployment gates
 
+### Production npm registry dependency
+
+The Production VPS is hosted in Iran. Direct access from that host to the public npm registry has been observed to time out because of external-service and network limitations affecting Iranian servers. Production release installation therefore uses Liara's documented Iranian npm mirror by default:
+
+`https://package-mirror.liara.ir/repository/npm/`
+
+This is an explicit release dependency, not an untracked global server preference. The release command passes the registry URL for that invocation only. `package-lock.json`, npm integrity metadata, the approved Git revision, and the candidate checksum remain mandatory. The registry must use HTTPS, receives no project credential, and a mirror error fails the release closed; scripts must not silently switch registries. Operators may override the endpoint only through the visible `BAZIGB_NPM_REGISTRY` release input and must record the reason in release evidence.
+
+Reference: Liara's official npm mirror documentation at `https://liara.ir/mirrors/npm/`.
+
 The minimum ordered flow is:
 
 1. Freeze the candidate and generate its manifest.

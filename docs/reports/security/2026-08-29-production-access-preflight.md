@@ -86,3 +86,9 @@ The unsafe local release path has now been replaced in the working tree, without
 Validation completed locally: seven release-safety tests pass, all three shell files pass syntax validation, and the scoped diff passes whitespace validation. The exercise did not contact or mutate production.
 
 The next production gate remains explicit: back up the active host, transfer and inspect the controller, run host preparation, upload and verify a real committed candidate, review staged units, approve cutover, verify health and rollback, and only then remove the interim root authorization. The current dirty working tree cannot be a candidate and no production deployment is authorized by this checkpoint.
+
+## Production npm connectivity finding
+
+During isolated candidate preparation, direct HTTPS access from the Iran-hosted Production VPS to `registry.npmjs.org` timed out. The candidate-only `npm ci` process remained blocked on network I/O and was terminated with `SIGTERM`; it never reached verification or activation, and the active services remained unchanged.
+
+Human Direction selected Liara's documented Iranian npm mirror. The endpoint `https://package-mirror.liara.ir/repository/npm/` returned HTTP 200 from the Production VPS. The release script now passes that HTTPS registry explicitly for the candidate install, while retaining the lockfile, npm package integrity verification and fail-closed behaviour. No global npm configuration was changed on the host. The operational reason is recorded as restricted or unreliable access from Iranian servers to the public npm registry.

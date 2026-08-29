@@ -6,6 +6,7 @@ set -euo pipefail
 PROD_HOST="${PROD_HOST:-bazigb-deploy@193.151.153.204}"
 RELEASE_ROOT="${BAZIGB_RELEASE_ROOT:-/srv/bazigb}"
 SSH_KEY="${BAZIGB_SSH_KEY:-${HOME}/.ssh/bazigb_production_ed25519}"
+NPM_REGISTRY="${BAZIGB_NPM_REGISTRY:-https://package-mirror.liara.ir/repository/npm/}"
 RELEASE_ID="${RELEASE_ID:-}"
 CANDIDATE_APPROVED="${CANDIDATE_APPROVED:-}"
 ACTIVATE_APPROVED="${ACTIVATE_APPROVED:-}"
@@ -20,6 +21,7 @@ die() {
 [[ "${CANDIDATE_APPROVED}" == "${RELEASE_ID}" ]] || die 'CANDIDATE_APPROVED must exactly equal RELEASE_ID.'
 [[ -z "${ACTIVATE_APPROVED}" || "${ACTIVATE_APPROVED}" == "${RELEASE_ID}" ]] || die 'ACTIVATE_APPROVED must be empty or exactly equal RELEASE_ID.'
 [[ -f "${SSH_KEY}" ]] || die "SSH key not found: ${SSH_KEY}"
+[[ "${NPM_REGISTRY}" == https://* ]] || die 'BAZIGB_NPM_REGISTRY must use HTTPS.'
 
 GIT_REVISION="$(git rev-parse HEAD)"
 [[ "${GIT_REVISION}" == "${RELEASE_ID}" ]] || die 'RELEASE_ID does not equal the checked-out Git revision.'
@@ -54,6 +56,8 @@ rsync -az -e "${RSYNC_SSH}" "${MANIFEST}" "${PROD_HOST}:${CANDIDATE_PATH}/releas
 printf 'Installing locked production dependencies inside the candidate...\n'
 "${SSH[@]}" "${PROD_HOST}" npm ci \
   --prefix "${CANDIDATE_PATH}" \
+  --registry "${NPM_REGISTRY}" \
+  --fetch-retries 2 --fetch-timeout 120000 \
   --omit=dev --workspaces --include-workspace-root
 
 printf 'Verifying immutable candidate metadata...\n'

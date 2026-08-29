@@ -61,6 +61,8 @@ test('deploy preserves pinned SSH trust and avoids root defaults', () => {
   assert.match(source, /bazigb-deploy@193\.151\.153\.204/);
   assert.match(source, /CANDIDATE_APPROVED/);
   assert.match(source, /ACTIVATE_APPROVED/);
+  assert.match(source, /https:\/\/package-mirror\.liara\.ir\/repository\/npm\//);
+  assert.match(source, /BAZIGB_NPM_REGISTRY must use HTTPS/);
 });
 
 test('release controller uses isolated releases and mandatory health checks', () => {
