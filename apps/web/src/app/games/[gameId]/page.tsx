@@ -125,10 +125,10 @@ export default function GameHubPage() {
                     ? BACKGAMMON_RULES_PROFILE.targetScores.map((points) => (
                         <MenuItem key={points} value={points}>{points} {messages.gameShell.points}</MenuItem>
                       ))
-                    : <>
-                        <MenuItem value={3}>{messages.lobby.bestOf3}</MenuItem>
-                        <MenuItem value={5}>{messages.lobby.bestOf5}</MenuItem>
-                      </>}
+                    : [
+                        <MenuItem key="best-of-3" value={3}>{messages.lobby.bestOf3}</MenuItem>,
+                        <MenuItem key="best-of-5" value={5}>{messages.lobby.bestOf5}</MenuItem>,
+                      ]}
                 </Select>
               </FormControl>
             )}
@@ -177,6 +177,7 @@ export default function GameHubPage() {
             </Box>
           )}
         </Box>
+
         </PageStack>
       </PageContainer>
     </Box>

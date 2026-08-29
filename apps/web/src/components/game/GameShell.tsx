@@ -46,6 +46,7 @@ interface Props {
   title: string;
   surfaceRatio?: number;
   backHref?: string;
+  backLabel?: string;
   onBack?: () => void;
   turnText?: string | null;
   timerLabel?: string | null;
@@ -67,6 +68,7 @@ export default function GameShell({
   title,
   surfaceRatio,
   backHref = '/lobby',
+  backLabel,
   onBack,
   turnText,
   timerLabel,
@@ -164,7 +166,7 @@ export default function GameShell({
               },
             }}
           >
-            {messages.lobby}
+            {backLabel ?? messages.lobby}
           </Button>
 
           <Box
@@ -370,7 +372,7 @@ export default function GameShell({
                 </Button>
               )}
               <Button component={Link} href={backHref} variant="outlined" sx={{ fontWeight: 800 }}>
-                {messages.backToLobby}
+                {backLabel ?? messages.backToLobby}
               </Button>
             </Box>
           </Paper>

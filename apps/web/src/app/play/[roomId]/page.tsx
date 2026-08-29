@@ -18,7 +18,7 @@ import { Play, Share2, Undo2, Users } from 'lucide-react';
 
 import { connectSocket, socket, rejoinRoom } from '@/lib/socket';
 import { fetchRoom } from '@/lib/rooms';
-import { localizedAppRoute } from '@/i18n/routing';
+import { localizedGameHubRoute } from '@/i18n/routing';
 import { getMessages } from '@/i18n/messages';
 import { getGameShellMessages } from '@/i18n/game-shell';
 import { useAppLocale } from '@/hooks/useAppLocale';
@@ -286,7 +286,8 @@ export default function PlayPage() {
     <GameShell
       title={getGameTitle(gameId, locale) || messages.multiplayer.gameFallback}
       surfaceRatio={getGameCatalogEntry(gameId).surfaceRatio}
-      backHref={localizedAppRoute(locale, 'lobby')}
+      backHref={localizedGameHubRoute(locale, gameId)}
+      backLabel={messages.common.back}
       connStatus={connected ? 'connected' : 'reconnecting'}
       roomCode={roomCode}
       onCopyRoom={handleCopy}
