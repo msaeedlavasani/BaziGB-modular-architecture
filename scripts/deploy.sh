@@ -7,7 +7,8 @@ PROD_HOST="${PROD_HOST:-bazigb-deploy@193.151.153.204}"
 RELEASE_ROOT="${BAZIGB_RELEASE_ROOT:-/srv/bazigb}"
 SSH_KEY="${BAZIGB_SSH_KEY:-${HOME}/.ssh/bazigb_production_ed25519}"
 RELEASE_ID="${RELEASE_ID:-}"
-DEPLOY_APPROVED="${DEPLOY_APPROVED:-}"
+CANDIDATE_APPROVED="${CANDIDATE_APPROVED:-}"
+ACTIVATE_APPROVED="${ACTIVATE_APPROVED:-}"
 
 die() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -16,7 +17,8 @@ die() {
 
 [[ -n "${RELEASE_ID}" ]] || die 'RELEASE_ID is required and must name the approved Git revision.'
 [[ "${RELEASE_ID}" =~ ^[0-9a-f]{7,40}$ ]] || die 'RELEASE_ID must be a 7-40 character lowercase Git revision.'
-[[ "${DEPLOY_APPROVED}" == "${RELEASE_ID}" ]] || die 'DEPLOY_APPROVED must exactly equal RELEASE_ID.'
+[[ "${CANDIDATE_APPROVED}" == "${RELEASE_ID}" ]] || die 'CANDIDATE_APPROVED must exactly equal RELEASE_ID.'
+[[ -z "${ACTIVATE_APPROVED}" || "${ACTIVATE_APPROVED}" == "${RELEASE_ID}" ]] || die 'ACTIVATE_APPROVED must be empty or exactly equal RELEASE_ID.'
 [[ -f "${SSH_KEY}" ]] || die "SSH key not found: ${SSH_KEY}"
 
 GIT_REVISION="$(git rev-parse HEAD)"
@@ -56,6 +58,11 @@ printf 'Installing locked production dependencies inside the candidate...\n'
 
 printf 'Verifying immutable candidate metadata...\n'
 "${SSH[@]}" "${PROD_HOST}" sudo /usr/local/sbin/bazigb-release verify "${RELEASE_ID}" "${LOCK_SHA256}"
+
+if [[ -z "${ACTIVATE_APPROVED}" ]]; then
+  printf 'Candidate %s is verified and awaiting separate production activation approval.\n' "${RELEASE_ID}"
+  exit 0
+fi
 
 printf 'Activating with rollback-on-failure...\n'
 "${SSH[@]}" "${PROD_HOST}" sudo /usr/local/sbin/bazigb-release activate "${RELEASE_ID}" "${LOCK_SHA256}"

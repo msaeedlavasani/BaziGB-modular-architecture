@@ -14,7 +14,13 @@ const backupPath = new URL('./sqlite-backup.py', import.meta.url);
 function runDeploy(env = {}) {
   return spawnSync('bash', [deployPath.pathname], {
     cwd: new URL('..', import.meta.url).pathname,
-    env: { ...process.env, RELEASE_ID: '', DEPLOY_APPROVED: '', ...env },
+    env: {
+      ...process.env,
+      RELEASE_ID: '',
+      CANDIDATE_APPROVED: '',
+      ACTIVATE_APPROVED: '',
+      ...env,
+    },
     encoding: 'utf8',
   });
 }
@@ -26,15 +32,25 @@ test('deploy refuses a missing release identity before network access', () => {
 });
 
 test('deploy refuses path-like release identities', () => {
-  const result = runDeploy({ RELEASE_ID: '../../active', DEPLOY_APPROVED: '../../active' });
+  const result = runDeploy({ RELEASE_ID: '../../active', CANDIDATE_APPROVED: '../../active' });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /7-40 character lowercase Git revision/);
 });
 
 test('deploy requires approval for the exact candidate', () => {
-  const result = runDeploy({ RELEASE_ID: 'abcdef1', DEPLOY_APPROVED: 'abcdef2' });
+  const result = runDeploy({ RELEASE_ID: 'abcdef1', CANDIDATE_APPROVED: 'abcdef2' });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /must exactly equal RELEASE_ID/);
+  assert.match(result.stderr, /CANDIDATE_APPROVED must exactly equal RELEASE_ID/);
+});
+
+test('deploy rejects activation approval for a different candidate', () => {
+  const result = runDeploy({
+    RELEASE_ID: 'abcdef1',
+    CANDIDATE_APPROVED: 'abcdef1',
+    ACTIVATE_APPROVED: 'abcdef2',
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /ACTIVATE_APPROVED must be empty or exactly equal RELEASE_ID/);
 });
 
 test('deploy preserves pinned SSH trust and avoids root defaults', () => {
@@ -43,7 +59,8 @@ test('deploy preserves pinned SSH trust and avoids root defaults', () => {
   assert.doesNotMatch(source, /root@193\.151\.153\.204/);
   assert.match(source, /StrictHostKeyChecking=yes/);
   assert.match(source, /bazigb-deploy@193\.151\.153\.204/);
-  assert.match(source, /DEPLOY_APPROVED/);
+  assert.match(source, /CANDIDATE_APPROVED/);
+  assert.match(source, /ACTIVATE_APPROVED/);
 });
 
 test('release controller uses isolated releases and mandatory health checks', () => {
