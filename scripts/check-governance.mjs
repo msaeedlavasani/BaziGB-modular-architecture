@@ -11,6 +11,7 @@ const requiredFiles = [
   'AGENTS.md',
   'AI_CONTEXT_MAP.md',
   'ai/CONTROL_PLANE.md',
+  'ai/COLLABORATION_CONTRACT.md',
   'ai/SYSTEM_INTEGRATION.md',
   'ai/WORK_MANAGEMENT.md',
   'ai/VALIDATION_GATE.md',
@@ -41,6 +42,7 @@ const agents = read('AGENTS.md');
 const contextMap = read('AI_CONTEXT_MAP.md');
 const governance = read('docs/aipde/system-governance.md');
 const controlPlane = read('ai/CONTROL_PLANE.md');
+const collaboration = read('ai/COLLABORATION_CONTRACT.md');
 const systemIntegration = read('ai/SYSTEM_INTEGRATION.md');
 const workManagement = read('ai/WORK_MANAGEMENT.md');
 const registry = read('docs/reports/README.md');
@@ -78,6 +80,9 @@ const requiredWiring = [
   [governance, 'ai/work-registry-v1.json', 'Governance must identify the canonical active Work Registry'],
   [workManagement, 'Historical reports are excluded by default', 'Work Management must exclude historical reports from default retrieval'],
   [workManagement, 'Medium and high work require', 'Work Management must require approval for medium and high resource work'],
+  [workManagement, 'Bundled Approval', 'Work Management must define Bundled Approval'],
+  [collaboration, 'fetch without prune', 'Collaboration Contract must allow bounded fetch without prune'],
+  [collaboration, 'do not fragment that authority into repetitive micro-approvals', 'Collaboration Contract must prohibit micro-approval fragmentation'],
 ];
 
 for (const [content, marker, message] of requiredWiring) {

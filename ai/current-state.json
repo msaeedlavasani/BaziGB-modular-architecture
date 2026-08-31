@@ -2,21 +2,24 @@
   "version": "1.0.0",
   "updated": "2026-08-31",
   "repository": "BaziGB-modular-architecture",
-  "branch": "codex/release-candidate-preflight",
-  "baseRevision": "d8103f7d50a895e2ccdd299e178066c9d2da04f8",
-  "workingTree": "checkpointed-GK-BRANCH-slice",
+  "branch": "main",
+  "baseRevision": "8bb0a72434d1a91e18983139fb76a1967861df8c",
+  "workingTree": "checkpointed-governance-closure-on-main",
   "activeMilestone": "private-alpha-readiness",
   "currentGate": {
-    "taskId": "GK-BRANCH-001",
+    "taskId": "PX-HEADER-001",
     "owner": "Human Direction",
-    "gate": "approve-main-fast-forward-after-verified-remote-head"
+    "gate": "approve-bundled-navigation-implementation-checkpoint-and-push"
   },
-  "nextProposedTask": "GK-BRANCH-001",
+  "nextProposedTask": "PX-HEADER-001",
   "branchControl": {
     "canonicalDeploySource": "main",
-    "interimWorkingReceiver": "codex/release-candidate-preflight",
-    "decision": "approved-plan-and-remotely-protected-checkpoint-awaiting-separate-main-fast-forward-and-cleanup-authority",
-    "catanHistory": "disposable-failed-automation-prototype-no-code-transfer-required"
+    "head": "8bb0a72434d1a91e18983139fb76a1967861df8c",
+    "remoteBranchCount": 1,
+    "recoveryTag": "archive/ai-governance-pre-main-2026-08-31",
+    "recoveryTarget": "c361b5e2dd41f963f98b4b34e9d851c04b16760f",
+    "decision": "accepted-main-only-remote-with-tagged-legacy-recovery",
+    "catanHistory": "deleted-failed-automation-prototype-no-code-transfer-required"
   },
   "dependencySecurityGate": {
     "status": "passed-locally",
@@ -39,14 +42,12 @@
     "report": "docs/reports/aipde/2026-08-29-local-release-candidate-preflight.md"
   },
   "blockers": [
-    "GitHub branch plan is approved and checkpoint da71182 is remotely protected; main is the canonical deploy source and remains 141 commits behind pending separate fast-forward and cleanup authority"
-    ,
     "Local human-test links require the temporary persistent development terminal; DO-ENV-001 is prioritized for a durable solution"
     ,"Canonical deployment, observability, restore proof and legal routes are not release-ready"
     ,"Production SSH host identity is independently verified, but the server authorizes neither local SSH key; approved key provisioning is required before access"
   ],
   "lastValidation": {
-    "date": "2026-08-29",
+    "date": "2026-08-31",
     "passed": [
       "backgammon-tests-29-of-29",
       "game-gateway-tests-8-of-8",
@@ -93,6 +94,9 @@
       ,"branch-health-live-remote-inventory-fail-closed-candidate-140-ahead-of-main"
       ,"branch-health-authorized-fetch-and-complete-remote-unique-commit-proof"
       ,"GK-BRANCH-checkpoint-da71182-remotely-protected-and-hash-verified"
+      ,"GitHub-main-only-at-8bb0a72434d1a91e18983139fb76a1967861df8c"
+      ,"legacy-governance-recovery-tag-peels-to-c361b5e2dd41f963f98b4b34e9d851c04b16760f"
+      ,"branch-health-main-only-remote-pass"
       ,"governance-check-with-branch-lifecycle-pilot"
       ,"governance-fail-closed-tests-with-branch-lifecycle-wiring"
     ],

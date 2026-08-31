@@ -1,6 +1,6 @@
 # BaziGB — Collaboration Contract
 
-**Version:** 1.2.0
+**Version:** 1.3.0
 
 This is the canonical operating contract for an AI task. It complements
 `AGENTS.md`; current explicit human direction remains the highest authority.
@@ -19,11 +19,20 @@ Do not send raw logs, repetitive status, or tool narration.
 
 ## 3. Approval boundary
 
-Stop only for fresh authority over production or deployment, destructive or
-hard-to-reverse work, secret disclosure or mutation, a material new cost or
-scope, a consequential product choice, or a move to a higher-cost model. At
-that boundary provide the result so far, risk, recommended default, and one
-precise decision request.
+Use **Bundled Approval**: one approved objective authorizes its explicitly
+bounded sequence of read-only inspection, fetch without prune, targeted tests,
+dry-runs, and reversible local edits. Advance through those internal steps
+without command-by-command confirmation and report at meaningful checkpoints.
+
+Stop for one consolidated decision only when work reaches a consequential
+product or architecture choice, exceeds the approved resource band, materially
+changes scope, or requires an external, destructive, hard-to-reverse,
+production, deployment, secret, merge, push, delete, tag, migration, or similar
+high-risk action not already enumerated in the approved bundle. A bundle may
+explicitly enumerate several such actions and receive one approval for the
+whole stage; do not fragment that authority into repetitive micro-approvals.
+At the boundary provide the result so far, risk, recommended default, exact
+actions covered, rollback or recovery path, and one decision request.
 
 ## 4. Persistence and safe experiments
 
@@ -68,7 +77,9 @@ convenient.
 
 A local commit is a reversible checkpoint; a verified push protects that
 checkpoint remotely. Neither authorizes a merge, deployment, production change,
-or destruction of local work. Commit and push still require explicit authority.
+or destruction of local work. Commit and push require explicit authority, but
+that authority may be granted once as an enumerated part of a Bundled Approval;
+do not ask again for each command inside the approved checkpoint sequence.
 When a clean checkpoint cannot be made without mixing unrelated work, propose an
 isolated branch or worktree before implementation rather than making rollback
 ambiguous.

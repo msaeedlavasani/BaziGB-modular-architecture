@@ -83,9 +83,10 @@ write('AGENTS.md', 'AI_CONTEXT_MAP.md docs/aipde/system-governance.md npm run ch
 write('AGENTS.md', 'AI_CONTEXT_MAP.md docs/aipde/system-governance.md npm run check:governance ai/current-state.json ai/work-registry-v1.json ai/retrieval-manifest-v1.json');
 write('AI_CONTEXT_MAP.md', 'ai/CONTROL_PLANE.md ai/SYSTEM_INTEGRATION.md ai/VALIDATION_GATE.md ai/current-state.json ai/work-registry-v1.json ai/retrieval-manifest-v1.json');
 write('ai/CONTROL_PLANE.md', 'Resource Approval Request Pilot protocol ai/SYSTEM_INTEGRATION.md ai/WORK_MANAGEMENT.md');
+write('ai/COLLABORATION_CONTRACT.md', 'Bundled Approval fetch without prune do not fragment that authority into repetitive micro-approvals');
 write('ai/SYSTEM_INTEGRATION.md', 'accepted handoff cross-cutting controls');
 write('ai/VALIDATION_GATE.md', 'PASS FAIL NOT RUN BLOCKED');
-write('ai/WORK_MANAGEMENT.md', 'Historical reports are excluded by default. Medium and high work require approval.');
+write('ai/WORK_MANAGEMENT.md', 'Historical reports are excluded by default. Medium and high work require approval. Bundled Approval');
 write('ai/pilots/control-plane-v1.json', JSON.stringify(pilot));
 write('ai/pilots/branch-lifecycle-v1.json', JSON.stringify({
   rootLayer: 'branch-lifecycle-and-release-authority-control',
@@ -119,6 +120,14 @@ if (valid.status !== 0) {
   console.error(valid.stdout, valid.stderr);
   throw new Error('Expected the valid control-plane fixture to pass');
 }
+
+write('ai/COLLABORATION_CONTRACT.md', 'command-by-command approvals only');
+const invalidBundledApproval = run();
+if (invalidBundledApproval.status === 0 || !invalidBundledApproval.stderr.includes('Collaboration Contract must allow bounded fetch without prune')) {
+  console.error(invalidBundledApproval.stdout, invalidBundledApproval.stderr);
+  throw new Error('Expected missing Bundled Approval control to fail closed');
+}
+write('ai/COLLABORATION_CONTRACT.md', 'Bundled Approval fetch without prune do not fragment that authority into repetitive micro-approvals');
 
 fs.rmSync(path.join(fixtureRoot, 'ai/VALIDATION_GATE.md'));
 const invalid = run();
@@ -154,4 +163,4 @@ if (invalidRetrieval.status === 0 || !invalidRetrieval.stderr.includes('Retrieva
 }
 
 fs.rmSync(fixtureRoot, { recursive: true, force: true });
-console.log('Governance checker tests passed: valid fixture accepted; broken files, capability, Current State, and retrieval policy rejected.');
+console.log('Governance checker tests passed: valid fixture accepted; broken files, Bundled Approval, capability, Current State, and retrieval policy rejected.');

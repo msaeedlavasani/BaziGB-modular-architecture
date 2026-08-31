@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 const repositoryRoot = process.env.BAZIGB_BRANCH_HEALTH_ROOT
   ? path.resolve(process.env.BAZIGB_BRANCH_HEALTH_ROOT)
   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const canonicalBranch = process.env.BAZIGB_CANONICAL_BRANCH ?? 'codex/release-candidate-preflight';
+const canonicalBranch = process.env.BAZIGB_CANONICAL_BRANCH ?? 'main';
 const mainBranch = process.env.BAZIGB_MAIN_BRANCH ?? 'main';
 const staleDays = Number.parseInt(process.env.BAZIGB_STALE_BRANCH_DAYS ?? '30', 10);
 const maxAhead = Number.parseInt(process.env.BAZIGB_MAX_MAIN_DIVERGENCE ?? '0', 10);
@@ -28,11 +28,7 @@ const remoteTrackingMainRef = `refs/remotes/origin/${mainBranch}`;
 const violations = [];
 const warnings = [];
 
-if (!refExists(canonicalRef)) violations.push(`Canonical branch is missing: ${canonicalBranch}`);
-
 const activeBranch = git(['symbolic-ref', '--quiet', '--short', 'HEAD'], { allowFailure: true }).stdout || null;
-if (!activeBranch) violations.push('The inspected worktree has a detached HEAD');
-else if (activeBranch !== canonicalBranch) violations.push(`Active branch ${activeBranch} is not canonical branch ${canonicalBranch}`);
 
 const parseRefs = () => {
   const output = git([
@@ -58,6 +54,14 @@ const remoteHeads = remoteResult?.status === 0
   : [];
 if (inspectRemote && remoteResult?.status !== 0) warnings.push(`Remote inventory failed: ${remoteResult.stderr}`);
 const remoteMain = remoteHeads.find(({ ref }) => ref === `refs/heads/${mainBranch}`);
+const remoteCanonical = remoteHeads.find(({ ref }) => ref === `refs/heads/${canonicalBranch}`);
+const canonicalComparisonRef = refExists(canonicalRef)
+  ? canonicalRef
+  : remoteCanonical && git(['cat-file', '-e', `${remoteCanonical.tip}^{commit}`], { allowFailure: true }).status === 0
+    ? remoteCanonical.tip
+    : null;
+if (!canonicalComparisonRef) violations.push(`Canonical history is unavailable locally: ${canonicalBranch}`);
+if (inspectRemote && !remoteCanonical) violations.push(`Canonical branch is missing from origin: ${canonicalBranch}`);
 const mainComparisonRef = refExists(mainRef)
   ? mainRef
   : refExists(remoteTrackingMainRef)
@@ -66,9 +70,16 @@ const mainComparisonRef = refExists(mainRef)
       ? remoteMain.tip
       : null;
 if (!mainComparisonRef) violations.push(`Main history is unavailable locally: ${mainBranch}`);
-const canonicalTip = refExists(canonicalRef) ? git(['rev-parse', canonicalRef]).stdout : null;
+const canonicalTip = canonicalComparisonRef ? git(['rev-parse', canonicalComparisonRef]).stdout : null;
+const activeTip = git(['rev-parse', 'HEAD'], { allowFailure: true }).stdout || null;
+if (!activeBranch) violations.push('The inspected worktree has a detached HEAD');
+else if (activeBranch !== canonicalBranch && activeTip !== canonicalTip) violations.push(`Active branch ${activeBranch} differs from canonical branch ${canonicalBranch}`);
+else if (activeBranch !== canonicalBranch) warnings.push(`Active local branch ${activeBranch} is non-canonical but points at the canonical tip`);
+const availableRemoteRefs = inspectRemote ? remoteHeads : refs.filter(({ ref }) => ref.startsWith('refs/remotes/'));
 const identicalRemoteTips = canonicalTip
-  ? refs.filter(({ ref, tip }) => ref.startsWith('refs/remotes/') && tip === canonicalTip).map(({ name }) => name)
+  ? availableRemoteRefs
+      .filter(({ name, tip }) => name !== `origin/${canonicalBranch}` && tip === canonicalTip)
+      .map(({ name }) => name)
   : [];
 if (identicalRemoteTips.length > 1) warnings.push(`Multiple remote branches share the canonical tip: ${identicalRemoteTips.join(', ')}`);
 const duplicateRemoteTipGroups = [...remoteHeads.reduce((groups, head) => {
@@ -82,8 +93,8 @@ const duplicateRemoteTipGroups = [...remoteHeads.reduce((groups, head) => {
 if (duplicateRemoteTipGroups.length > 0) warnings.push(`${duplicateRemoteTipGroups.length} duplicate remote tip group(s) detected`);
 
 let mainDistance = null;
-if (refExists(canonicalRef) && mainComparisonRef) {
-  const [mainOnly, canonicalOnly] = git(['rev-list', '--left-right', '--count', `${mainComparisonRef}...${canonicalRef}`]).stdout
+if (canonicalComparisonRef && mainComparisonRef) {
+  const [mainOnly, canonicalOnly] = git(['rev-list', '--left-right', '--count', `${mainComparisonRef}...${canonicalComparisonRef}`]).stdout
     .split(/\s+/)
     .map(Number);
   mainDistance = { canonicalBehindMain: mainOnly, canonicalAheadOfMain: canonicalOnly };
@@ -97,8 +108,9 @@ const staleBranches = refs
   .map(({ name, tip, committedAt }) => ({ name, tip, committedAt }));
 if (staleBranches.length > 0) warnings.push(`${staleBranches.length} branch ref(s) exceed the ${staleDays}-day stale threshold`);
 
-const comparisonRefs = [refExists(canonicalRef) ? canonicalRef : null, mainComparisonRef].filter(Boolean);
-const analysisRefs = [...new Map([...refs, ...remoteHeads].map((entry) => [entry.name, entry])).values()];
+const comparisonRefs = [canonicalComparisonRef, mainComparisonRef].filter(Boolean);
+const locallyRelevantRefs = inspectRemote ? refs.filter(({ ref }) => ref.startsWith('refs/heads/')) : refs;
+const analysisRefs = [...new Map([...locallyRelevantRefs, ...remoteHeads].map((entry) => [entry.name, entry])).values()];
 const excludedComparisonNames = new Set([
   canonicalBranch,
   mainBranch,

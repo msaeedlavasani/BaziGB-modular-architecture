@@ -59,7 +59,7 @@ git('switch', 'main');
 git('branch', '-D', 'candidate');
 const missingCanonical = inspect('--enforce');
 assert.equal(missingCanonical.status, 1, 'missing canonical branch must fail closed');
-assert.match(`${missingCanonical.stdout}\n${missingCanonical.stderr}`, /Canonical branch is missing/);
+assert.match(`${missingCanonical.stdout}\n${missingCanonical.stderr}`, /Canonical history is unavailable/);
 
 fs.rmSync(fixtureRoot, { recursive: true, force: true });
 console.log('Branch health tests passed: duplicate tips, divergence, unique commits, and missing canonical authority are detected.');

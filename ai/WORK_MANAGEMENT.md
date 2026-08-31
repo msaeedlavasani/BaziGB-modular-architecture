@@ -127,6 +127,21 @@ Historical evidence is immutable. A newer artifact does not erase it.
 
 ## Resource and cost gate
 
+### Bundled Approval
+
+An approved work package covers its bounded reversible internal sequence:
+read-only discovery, fetch without prune, proportional tests, dry-runs, and
+local edits. These steps do not create separate approval gates. Reconfirm only
+for a meaningful decision, material scope change, resource-band overrun, or an
+external or high-risk action not explicitly included in the package.
+
+When a stage needs multiple consequential actions, enumerate their exact scope,
+recovery path, and exclusions in one decision-ready bundle. One human approval
+authorizes that bundle; implementation must not convert it into repeated
+command-level confirmations. Authority for one bundle never implies authority
+for later deployment, production mutation, secret change, migration, or cleanup
+outside its enumerated targets.
+
 Each task has an estimated usage band:
 
 - `low`: under 3% of the user's five-hour usage window;
