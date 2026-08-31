@@ -87,7 +87,18 @@ write('ai/SYSTEM_INTEGRATION.md', 'accepted handoff cross-cutting controls');
 write('ai/VALIDATION_GATE.md', 'PASS FAIL NOT RUN BLOCKED');
 write('ai/WORK_MANAGEMENT.md', 'Historical reports are excluded by default. Medium and high work require approval.');
 write('ai/pilots/control-plane-v1.json', JSON.stringify(pilot));
+write('ai/pilots/branch-lifecycle-v1.json', JSON.stringify({
+  rootLayer: 'branch-lifecycle-and-release-authority-control',
+  decisionClass: 'Material',
+  firstAction: 'inventory-refs-divergence-unique-commits-and-worktrees',
+  forbiddenFirstAction: 'merge-delete-or-deploy-from-branch-name-assumption',
+  humanGate: 'approve-canonical-branch-and-cleanup-plan',
+  evidence: ['duplicate-tip-fixture', 'divergence-threshold-fixture', 'unique-commit-retention-check'],
+  releaseRequires: ['one-identified-immutable-revision', 'explicit-deploy-authority', 'separate-cleanup-authority'],
+}));
 write('ai/system-integration-v1.json', JSON.stringify(integration));
+write('scripts/check-branch-health.mjs', 'branch health fixture');
+write('scripts/check-branch-health.test.mjs', 'branch health test fixture');
 write('docs/aipde/system-governance.md', 'Working layer History layer Off-device layer Elevated Intensive ai/work-registry-v1.json');
 const categories = ['Product Integrity', 'Security and Trust', 'Product Experience', 'Design System and Brand', 'Platform Architecture', 'Evaluation and Quality', 'Delivery and Operations', 'Governance and Knowledge', 'Evolution'];
 const states = ['observed', 'triaged', 'approved', 'in-progress', 'implemented', 'machine-validated', 'human-validation-pending', 'accepted', 'operationally-verified', 'learning-captured', 'blocked', 'deferred', 'rejected', 'superseded', 'reopened'];

@@ -1,0 +1,31 @@
+{
+  "id": "branch-lifecycle-v1-release-drift-route",
+  "input": "The release candidate is ahead of main, historical remote refs share tips, and the active work must remain recoverable.",
+  "lifecycleStage": "Delivery",
+  "capabilities": [
+    "Governance and Versioning",
+    "Delivery and Operations",
+    "AI Orchestration",
+    "Evaluation and Quality",
+    "Human Direction"
+  ],
+  "rootLayer": "branch-lifecycle-and-release-authority-control",
+  "decisionClass": "Material",
+  "resourceClass": "Standard",
+  "firstAction": "inventory-refs-divergence-unique-commits-and-worktrees",
+  "forbiddenFirstAction": "merge-delete-or-deploy-from-branch-name-assumption",
+  "humanGate": "approve-canonical-branch-and-cleanup-plan",
+  "evidence": [
+    "branch-health-check",
+    "duplicate-tip-fixture",
+    "divergence-threshold-fixture",
+    "unique-commit-retention-check",
+    "active-worktree-inventory"
+  ],
+  "releaseRequires": [
+    "one-identified-immutable-revision",
+    "explicit-deploy-authority",
+    "separate-cleanup-authority"
+  ],
+  "learningDestination": "release-governance-and-recurrence-control"
+}

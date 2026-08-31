@@ -142,3 +142,11 @@ Exact token attribution is reported only when telemetry exists. Otherwise label 
 ## Closure and learning
 
 Task closure requires the applicable evidence and gate. A structurally repeatable failure also requires a changed shared control and recurrence detector. The visible defect may close before all optional evolution work, but the learning task remains linked and explicitly prioritized.
+
+## Branch lifecycle and release-drift control
+
+A branch is temporary work state, not permanent project memory. Before creating a branch, record its owner, purpose, base, intended receiver, and closure condition. Reuse the current approved branch when isolation is not required. A completed checkpoint must explicitly choose one outcome: merge, retain with a dated reason, archive after tagging, or delete after proving that no unique commits will be lost.
+
+At every material checkpoint and handoff, automatically report: the canonical branch, its ahead/behind distance from `main`, remote branches with identical tips, stale branches, unique unmerged commits, and active worktrees. Branch creation is forbidden when the canonical branch is ambiguous or an earlier temporary branch has no recorded closure decision, unless isolation is required to protect unrelated work and the exception is recorded.
+
+Branch health affects priority. Ambiguous release authority, a materially diverged `main`, or an unidentified deploy source is a P0 release-control risk. Cosmetic branch clutter with a proven canonical source is P2. Atomic deployment consumes one immutable commit artifact and never infers production intent from a branch name; it does not replace branch closure, small release cadence, or merge discipline.

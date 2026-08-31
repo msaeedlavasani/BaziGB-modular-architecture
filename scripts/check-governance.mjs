@@ -20,7 +20,10 @@ const requiredFiles = [
   'docs/aipde/system-governance.md',
   'docs/reports/README.md',
   'ai/pilots/control-plane-v1.json',
+  'ai/pilots/branch-lifecycle-v1.json',
   'ai/system-integration-v1.json',
+  'scripts/check-branch-health.mjs',
+  'scripts/check-branch-health.test.mjs',
 ];
 
 const read = (relativePath) => {
@@ -42,6 +45,7 @@ const systemIntegration = read('ai/SYSTEM_INTEGRATION.md');
 const workManagement = read('ai/WORK_MANAGEMENT.md');
 const registry = read('docs/reports/README.md');
 const pilotText = read('ai/pilots/control-plane-v1.json');
+const branchPilotText = read('ai/pilots/branch-lifecycle-v1.json');
 const integrationText = read('ai/system-integration-v1.json');
 const currentStateText = read('ai/current-state.json');
 const retrievalText = read('ai/retrieval-manifest-v1.json');
@@ -101,6 +105,23 @@ try {
   if (pilot.forbiddenFirstAction !== 'page-specific-breakpoint-patch') failures.push('Pilot must reject page-specific breakpoint tuning as the first action');
 } catch (error) {
   failures.push(`Pilot JSON is invalid: ${error.message}`);
+}
+
+try {
+  const branchPilot = JSON.parse(branchPilotText);
+  if (branchPilot.rootLayer !== 'branch-lifecycle-and-release-authority-control') failures.push('Branch lifecycle Pilot must identify the shared release-authority control');
+  if (branchPilot.decisionClass !== 'Material') failures.push('Branch lifecycle Pilot must be Material');
+  if (branchPilot.firstAction !== 'inventory-refs-divergence-unique-commits-and-worktrees') failures.push('Branch lifecycle Pilot must inventory recoverability before action');
+  if (branchPilot.forbiddenFirstAction !== 'merge-delete-or-deploy-from-branch-name-assumption') failures.push('Branch lifecycle Pilot must reject consequential action inferred from a branch name');
+  if (branchPilot.humanGate !== 'approve-canonical-branch-and-cleanup-plan') failures.push('Branch lifecycle Pilot must require human approval for canonical authority and cleanup');
+  for (const evidence of ['duplicate-tip-fixture', 'divergence-threshold-fixture', 'unique-commit-retention-check']) {
+    if (!branchPilot.evidence?.includes(evidence)) failures.push(`Branch lifecycle Pilot is missing evidence: ${evidence}`);
+  }
+  for (const requirement of ['one-identified-immutable-revision', 'explicit-deploy-authority', 'separate-cleanup-authority']) {
+    if (!branchPilot.releaseRequires?.includes(requirement)) failures.push(`Branch lifecycle Pilot is missing release requirement: ${requirement}`);
+  }
+} catch (error) {
+  failures.push(`Branch lifecycle Pilot JSON is invalid: ${error.message}`);
 }
 
 try {
