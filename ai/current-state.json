@@ -4,18 +4,18 @@
   "repository": "BaziGB-modular-architecture",
   "branch": "codex/release-candidate-preflight",
   "baseRevision": "d8103f7d50a895e2ccdd299e178066c9d2da04f8",
-  "workingTree": "clean-after-local-GK-BRANCH-checkpoint",
+  "workingTree": "checkpointed-GK-BRANCH-slice",
   "activeMilestone": "private-alpha-readiness",
   "currentGate": {
     "taskId": "GK-BRANCH-001",
     "owner": "Human Direction",
-    "gate": "approve-push-GK-BRANCH-checkpoint"
+    "gate": "approve-main-fast-forward-after-verified-remote-head"
   },
   "nextProposedTask": "GK-BRANCH-001",
   "branchControl": {
     "canonicalDeploySource": "main",
     "interimWorkingReceiver": "codex/release-candidate-preflight",
-    "decision": "approved-plan-and-local-checkpoint-created-awaiting-separate-push-merge-and-cleanup-authority",
+    "decision": "approved-plan-and-remotely-protected-checkpoint-awaiting-separate-main-fast-forward-and-cleanup-authority",
     "catanHistory": "disposable-failed-automation-prototype-no-code-transfer-required"
   },
   "dependencySecurityGate": {
@@ -39,7 +39,7 @@
     "report": "docs/reports/aipde/2026-08-29-local-release-candidate-preflight.md"
   },
   "blockers": [
-    "GitHub branch plan is approved but actions remain gated: main is the canonical deploy source; release candidate is the interim receiver and will be 141 commits ahead after the local GK-BRANCH checkpoint pending separate push, fast-forward and cleanup authority"
+    "GitHub branch plan is approved and checkpoint da71182 is remotely protected; main is the canonical deploy source and remains 141 commits behind pending separate fast-forward and cleanup authority"
     ,
     "Local human-test links require the temporary persistent development terminal; DO-ENV-001 is prioritized for a durable solution"
     ,"Canonical deployment, observability, restore proof and legal routes are not release-ready"
@@ -92,6 +92,7 @@
       ,"branch-health-fixtures-duplicate-divergence-unique-and-missing-canonical"
       ,"branch-health-live-remote-inventory-fail-closed-candidate-140-ahead-of-main"
       ,"branch-health-authorized-fetch-and-complete-remote-unique-commit-proof"
+      ,"GK-BRANCH-checkpoint-da71182-remotely-protected-and-hash-verified"
       ,"governance-check-with-branch-lifecycle-pilot"
       ,"governance-fail-closed-tests-with-branch-lifecycle-wiring"
     ],
