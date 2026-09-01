@@ -35,6 +35,7 @@ export interface WinnerBanner {
   sub?: string;
   onRematch?: () => void;
   actionLabel?: string;
+  actionDisabled?: boolean;
   secondaryHref?: string;
   secondaryLabel?: string;
 }
@@ -374,7 +375,7 @@ export default function GameShell({
             sx={{
               alignSelf: 'center',
               width: '100%',
-              maxWidth: 680,
+              maxWidth: layoutContract.game.supportInlineSize,
               p: { xs: 3, sm: 4 },
               bgcolor: alpha(theme.palette.primary.main, 0.12),
               color: 'text.primary',
@@ -399,7 +400,12 @@ export default function GameShell({
             )}
             <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
               {winner.onRematch && (
-                <Button variant="contained" onClick={winner.onRematch} sx={{ fontWeight: 800 }}>
+                <Button
+                  variant="contained"
+                  onClick={winner.onRematch}
+                  disabled={winner.actionDisabled}
+                  sx={{ fontWeight: 800 }}
+                >
                   {winner.actionLabel ?? messages.rematch}
                 </Button>
               )}

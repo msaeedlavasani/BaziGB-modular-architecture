@@ -58,20 +58,22 @@ write('ai/pilots/design-system-v1.json', JSON.stringify({
   renderedMatrix: [{ horizontalOverflow: false }],
   learningDestination: 'DESIGN_SYSTEM.md-and-executable-component-registry',
 }));
-write('apps/web/src/design-system/layout-contract.ts', 'inlineGutter blockPadding section compact standard action threeSlotTrack publicNavigationTrack gameSurfaceTrack');
+write('apps/web/src/design-system/layout-contract.ts', 'inlineGutter blockPadding section compact standard action threeSlotTrack publicNavigationTrack gameSurfaceTrack supportInlineSize');
 for (const name of componentNames) {
   let source = `export const ${name} = '${name}';`;
   if (name === 'ResponsiveGrid') source += ' itemSize';
   if (name === 'GameCard') source += " overflow: 'hidden' maxInlineSize";
-  if (name === 'GameShell') source += ' gameSurfaceTrack StatusCluster StatusPill';
+  if (name === 'GameShell') source += ' gameSurfaceTrack StatusCluster StatusPill layoutContract.game.supportInlineSize';
   if (name === 'PageHeader') source += ' parentNavigation parentNavigation.href';
   if (name === 'Header') source += " NavigationItem gridTemplateColumns: layoutContract.header.threeSlotTrack gridTemplateColumns: layoutContract.header.publicNavigationTrack borderInlineEnd: '1px solid' data-header-slot=\"language\" data-header-slot=\"brand\" data-header-slot=\"primary-utility\" messages.navigation.games messages.navigation.leaderboard 'location' as const";
   write(componentPaths[name], source);
   write(consumers[name], `import '${name}';`);
 }
-write('apps/web/src/components/layout/Footer.tsx', 'TrustSeal');
+write('apps/web/src/components/layout/Footer.tsx', "TrustSeal display: 'block'");
+write('apps/web/src/components/game/ParticipantStrip.tsx', 'ParticipantStrip layoutContract.game.supportInlineSize');
 write('apps/web/src/app/games/[gameId]/page.tsx', 'PageContainer PageStack ActionCard ActionDeck PageHeader GameIdentityMark parentNavigation={{ messages.gameHub.backToGames');
 write('apps/web/src/app/game/[gameId]/page.tsx', "GameShell GameSettingsToolbar localizedGameHubRoute settingsPresentation={gameId === 'tic-tac-toe' ? 'collapsed' soundService.hasSoundChoice() messages.sound.consentTitle markCount === previous.markCount");
+write('apps/web/src/app/play/[roomId]/page.tsx', 'soundService.hasSoundChoice() messages.sound.consentTitle layoutContract.game.supportInlineSize');
 write('apps/web/src/lib/sound-service.ts', "STORAGE_CONSENT_VERSION_KEY SOUND_CONSENT_VERSION this.state.consent !== 'enabled' || !this.hasSoundChoice()");
 write('apps/web/src/lib/game-catalog.ts', 'catalog without presentation symbols');
 write('apps/web/src/components/game/BackgammonBoard.tsx', 'fluid checker containment');

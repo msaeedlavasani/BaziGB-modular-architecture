@@ -81,7 +81,7 @@ export interface AppMessages {
     player: string;
     spectator: string;
     participants: string;
-    reconnectingPlayer: (name: string) => string;
+    reconnectingPlayer: (name: string, seconds?: number) => string;
     playerReconnected: (name: string) => string;
     exitTitle: string;
     exitCreatorBody: string;
@@ -93,6 +93,9 @@ export interface AppMessages {
     endedAfterDisconnect: string;
     backToLobby: string;
     playSameGame: string;
+    requestRematch: string;
+    acceptRematch: string;
+    waitingForRematch: string;
     reactions: string;
   };
   lobby: {
@@ -256,7 +259,9 @@ const MESSAGES: Record<Locale, AppMessages> = {
       player: 'بازیکن',
       spectator: 'تماشاچی',
       participants: 'افراد حاضر در اتاق',
-      reconnectingPlayer: (name) => `اتصال ${name} قطع شده؛ برای بازگشت او کمی صبر می‌کنیم`,
+      reconnectingPlayer: (name, seconds) => seconds === undefined
+        ? `اتصال ${name} قطع شده؛ برای بازگشت او کمی صبر می‌کنیم`
+        : `اتصال ${name} قطع شده؛ تا ${seconds} ثانیه برای بازگشت او صبر می‌کنیم`,
       playerReconnected: (name) => `${name} دوباره متصل شد`,
       exitTitle: 'از بازی خارج می‌شوید؟',
       exitCreatorBody: 'با خروج شما بازی برای همه تمام می‌شود و افراد حاضر باخبر خواهند شد.',
@@ -268,6 +273,9 @@ const MESSAGES: Record<Locale, AppMessages> = {
       endedAfterDisconnect: 'بازیکن در زمان تعیین‌شده برنگشت؛ بازی پایان یافت.',
       backToLobby: 'بازگشت به لابی',
       playSameGame: 'شروع یک دوز دیگر',
+      requestRematch: 'درخواست یک دوز دیگر',
+      acceptRematch: 'قبول بازی دوباره',
+      waitingForRematch: 'منتظر تأیید حریف',
       reactions: 'واکنش سریع',
     },
     lobby: {
@@ -429,7 +437,9 @@ const MESSAGES: Record<Locale, AppMessages> = {
       player: 'Player',
       spectator: 'Spectator',
       participants: 'People in this room',
-      reconnectingPlayer: (name) => `${name} lost connection; we are giving them a moment to return`,
+      reconnectingPlayer: (name, seconds) => seconds === undefined
+        ? `${name} lost connection; we are giving them a moment to return`
+        : `${name} lost connection; waiting up to ${seconds} seconds for their return`,
       playerReconnected: (name) => `${name} reconnected`,
       exitTitle: 'Leave this game?',
       exitCreatorBody: 'Leaving will end the game for everyone and notify the people in the room.',
@@ -441,6 +451,9 @@ const MESSAGES: Record<Locale, AppMessages> = {
       endedAfterDisconnect: 'The player did not return in time, so the game has ended.',
       backToLobby: 'Back to Lobby',
       playSameGame: 'Start another Tic-Tac-Toe',
+      requestRematch: 'Request another game',
+      acceptRematch: 'Accept rematch',
+      waitingForRematch: 'Waiting for opponent',
       reactions: 'Quick reaction',
     },
     lobby: {

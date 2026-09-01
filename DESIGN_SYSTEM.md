@@ -275,6 +275,10 @@ secondary game information
 - The catalog may declare only intrinsic `surfaceRatio` geometry. GameShell derives the rendered track from available inline/block space and a shared comfort cap; it must not contain game-specific pixel widths.
 - Settings and the primary surface share the derived track in vertical mode. In short landscape mode, settings become the supporting region beside the visually primary board.
 - The toolbar fills the selected game track, wraps responsively, and keeps one surface/border/radius treatment across games.
+- Presence, connection notices, waiting state, result actions and chat share one
+  support-track inline size. A feature page must not assign competing local
+  widths to these stacked surfaces; their vertical edges remain aligned as the
+  viewport changes.
 - Board geometry and game-art styling stay game-specific and visually primary.
 - Game settings use `GameSettingsToolbar`. Options and actions are separate
   semantic regions with consistent control height and an intentional reflow;
@@ -392,7 +396,7 @@ itself when it is not part of the same transition.
 
 ### Footer contract
 
-The footer belongs to Lobby and trust/legal pages only. It is absent from gameplay and other task-focused routes and from the mobile shell. On desktop it remains in normal document flow below primary content; it must not compete with the first-view CTA. Brand, links, trust seal and copyright use caption/body scale rather than promotional headline scale.
+The footer belongs to Lobby and trust/legal pages only and is absent from gameplay and other task-focused routes. On every viewport it remains in normal document flow below primary content, so legal/support links remain reachable without competing with the first-view CTA. Mobile uses the same restrained stacked composition rather than hiding access. Brand, links, trust seal and copyright use caption/body scale rather than promotional headline scale.
 
 ### Cross-game visual language
 

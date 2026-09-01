@@ -32,6 +32,7 @@ export const layoutContract = {
     squareComfortInlineSize: '40rem',
     reservedBlockSize: 'clamp(8rem, 24dvb, 15rem)',
     titleSize: 'clamp(1.4rem, 2.5vw, 1.75rem)',
+    supportInlineSize: '42.5rem',
   },
 } as const;
 

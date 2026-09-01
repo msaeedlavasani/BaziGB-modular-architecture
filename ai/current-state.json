@@ -1,20 +1,21 @@
 {
   "version": "1.0.0",
-  "updated": "2026-09-01",
+  "updated": "2026-09-02",
   "repository": "BaziGB-modular-architecture",
-  "branch": "main",
-  "baseRevision": "8bb0a72434d1a91e18983139fb76a1967861df8c",
-  "workingTree": "local-product-experience-pilot-approved-with-uncommitted-checkpoint",
+  "branch": "codex/bazigb-integrated-recovery",
+  "baseRevision": "c04d37c87debd2c68406b22dbabf8437bc9bcf4e",
+  "workingTree": "local-session-presence-pilot-implemented-human-validation-pending",
   "activeMilestone": "private-alpha-readiness",
   "currentGate": {
-    "taskId": "PX-SOUND-001",
+    "taskId": "PX-SESSION-001",
     "owner": "Human Direction",
-    "gate": "human-retest-de-duplicated-tic-tac-toe-robot-and-terminal-cues"
+    "gate": "human-retest-corrected-sound-layout-mobile-footer-room-discovery-and-start-flow"
   },
   "nextProposedTask": "PX-SESSION-001",
   "branchControl": {
     "canonicalDeploySource": "main",
-    "head": "8bb0a72434d1a91e18983139fb76a1967861df8c",
+    "head": "c04d37c87debd2c68406b22dbabf8437bc9bcf4e",
+    "remoteMain": "15f14aa94ff0569e9a13160719a23b059fe253f6",
     "remoteBranchCount": 1,
     "recoveryTag": "archive/ai-governance-pre-main-2026-08-31",
     "recoveryTarget": "c361b5e2dd41f963f98b4b34e9d851c04b16760f",
@@ -42,13 +43,12 @@
     "report": "docs/reports/aipde/2026-08-29-local-release-candidate-preflight.md"
   },
   "blockers": [
-    "Local human-test links require the temporary persistent development terminal; DO-ENV-001 is prioritized for a durable solution"
-    ,"The local development database currently lacks the Room table; diagnose the intended disposable local database setup before the online Tic-tac-toe pilot and do not infer production migration authority"
+    "Local human-test links require temporary persistent terminals; the Nest 12 ESM package currently needs Node's require-module compatibility flag because the server still emits CommonJS. DO-ENV-001 owns the durable runtime fix"
     ,"Canonical deployment, observability, restore proof and legal routes are not release-ready"
     ,"Production SSH host identity is independently verified, but the server authorizes neither local SSH key; approved key provisioning is required before access"
   ],
   "lastValidation": {
-    "date": "2026-09-01",
+    "date": "2026-09-02",
     "passed": [
       "backgammon-tests-29-of-29",
       "game-gateway-tests-8-of-8",
@@ -106,6 +106,16 @@
       ,"design-system-checker-tests-with-fail-closed-fixtures"
       ,"governance-check-after-human-pilot-approval"
       ,"tic-tac-toe-audio-collision-web-typecheck-and-diff-check"
+      ,"session-presence-pilot-server-and-web-typecheck"
+      ,"session-presence-gateway-tests-14-of-14"
+      ,"local-room-database-synced-with-existing-schema-no-migration"
+      ,"session-presence-pilot-server-and-web-build"
+      ,"governance-check-after-session-presence-state-update"
+      ,"corrected-session-gateway-tests-15-of-15"
+      ,"corrected-session-server-and-web-typecheck"
+      ,"shared-support-track-design-system-check-and-checker-tests"
+      ,"mobile-LAN-page-and-room-API-200"
+      ,"corrected-session-server-and-isolated-web-build"
     ],
     "notPassing": []
   },

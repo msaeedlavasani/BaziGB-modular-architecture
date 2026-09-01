@@ -39,7 +39,7 @@ const STORAGE_MUTED_KEY = 'bazigb:sound:muted';
 const STORAGE_VOLUME_KEY = 'bazigb:sound:volume';
 const STORAGE_CONSENT_KEY = 'bazigb:sound:consent';
 const STORAGE_CONSENT_VERSION_KEY = 'bazigb:sound:consent-version';
-const SOUND_CONSENT_VERSION = 'game-entry-v1';
+const SOUND_CONSENT_VERSION = 'shared-game-entry-v2';
 
 const DEFAULT_VOLUME = 0.6;
 

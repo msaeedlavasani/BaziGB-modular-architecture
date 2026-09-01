@@ -22,7 +22,7 @@ Public discovery
 │   ├── Game Hub: Chess
 │   ├── Game Hub: Vegas
 │   ├── Per-game Leaderboards
-│   └── Trust links (desktop footer)
+│   └── Trust links (responsive footer)
 │       ├── Rules
 │       ├── Privacy
 │       └── Contact
@@ -51,10 +51,10 @@ Tournament and Admin are outside the public Alpha navigation boundary.
 
 | Surface | Canonical locale routes | Index | Shell |
 |---|---|---:|---|
-| Lobby | `/fa/lobby`, `/en/lobby` | Yes | public header + desktop footer |
+| Lobby | `/fa/lobby`, `/en/lobby` | Yes | public header + responsive footer |
 | Game Hub | `/fa/games/{game}`, `/en/games/{game}` | Yes | public header |
 | Leaderboard | `/fa/leaderboard`, `/en/leaderboard` | Yes | public header |
-| Rules / Privacy / Contact | localized routes | After approved content exists | public header + desktop footer |
+| Rules / Privacy / Contact | localized routes | After approved content exists | public header + responsive footer |
 | Login / Profile | localized routes | No | internal header |
 | Local game | `/[locale]/game/{game}` | No | focused game header |
 | Online room | `/[locale]/play/{room}` | No | focused game header + safe exit |
@@ -110,7 +110,7 @@ Password and avatar upload are not Alpha concepts.
 | Reconnecting | affected name + grace status | reconnect on success | wait / safe exit | everyone sees same status |
 | Explicit exit | consequence before action | none | stay / exit | remaining users get reason |
 | Timeout | who failed to return + outcome | result | Lobby / same game | terminal state broadcast |
-| Natural finish | result and score | win/loss | rematch / Lobby | same result for all roles |
+| Natural finish | result and score | win/loss | request/accept rematch / Lobby | same result for all roles |
 | Spectating | spectator role and live state | optional result | Lobby / invite | no state mutation rights |
 
 ## 6. Presence and community model
@@ -140,6 +140,13 @@ Sound rules:
 4. Never make sound the sole carrier of state.
 5. Human listening acceptance covers loudness, fatigue, cultural fit and two-device overlap.
 
+### Shared-session authority
+
+- Chat, reactions and continuation actions are accepted only from sockets that currently belong to the room.
+- Only seated players may start a next round or request a rematch; spectators are read-only.
+- A finished shared game never restarts from one player's click. One player requests the rematch, the other accepts it, and the server starts the new game only after both active seats consent.
+- The waiting player sees an explicit pending state and can still return to the Game Hub or Lobby.
+
 ## 8. Leaderboard and future recap data
 
 Alpha displays one selected game at a time. Ordering is deterministic: wins, win rate, games played, account age, username. Rankings are derived from authoritative completed-match history and exclude deactivated or anonymous identities.
@@ -157,7 +164,7 @@ Future outputs may include yearly recaps, player archetypes and skill/luck highl
 ## 9. Responsive shell decisions
 
 - Mobile is the primary product context.
-- Footer is absent from mobile and appears only on Lobby/trust pages on desktop, below primary content.
+- A restrained footer appears below primary content on Lobby/trust pages at every viewport so legal and support destinations remain reachable.
 - Bottom mobile space remains available for game actions; exploration stays in the upper navigation.
 - Profile stays on one physical side across mobile and desktop.
 - Focused game pages remove Leaderboard/Profile discovery controls.
@@ -183,7 +190,7 @@ Tic-tac-toe is the reference pilot. Before cross-game rollout, test in Persian a
 5. disconnect timeout;
 6. Back and centered-brand exit confirmation;
 7. creator and non-creator explicit exit messages;
-8. natural win, draw, rematch, same-game and Lobby actions;
+8. natural win, draw, mutual rematch request/accept, same-game and Lobby actions;
 9. invalid room recovery;
 10. keyboard/focus and 360px overflow.
 

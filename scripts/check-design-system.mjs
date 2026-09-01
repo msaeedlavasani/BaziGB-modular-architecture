@@ -76,7 +76,7 @@ try {
   failures.push(`Design System Pilot is invalid JSON: ${error.message}`);
 }
 
-for (const marker of ['inlineGutter', 'blockPadding', 'section', 'compact', 'standard', 'action', 'threeSlotTrack', 'publicNavigationTrack', 'gameSurfaceTrack']) {
+for (const marker of ['inlineGutter', 'blockPadding', 'section', 'compact', 'standard', 'action', 'threeSlotTrack', 'publicNavigationTrack', 'gameSurfaceTrack', 'supportInlineSize']) {
   if (!contract.includes(marker)) failures.push(`Layout contract is missing semantic control: ${marker}`);
 }
 
@@ -92,6 +92,10 @@ const gameShell = read('apps/web/src/components/game/GameShell.tsx');
 if (!gameShell.includes('gameSurfaceTrack')) failures.push('GameShell must use the shared game surface track');
 if (!gameShell.includes('StatusCluster')) failures.push('GameShell must use the shared status composition');
 if (!gameShell.includes('StatusPill')) failures.push('GameShell status anatomy must use the direction-safe StatusPill');
+if (!gameShell.includes('layoutContract.game.supportInlineSize')) failures.push('GameShell result/support panels must use the shared support track');
+
+const participantStrip = read('apps/web/src/components/game/ParticipantStrip.tsx');
+if (!participantStrip.includes('layoutContract.game.supportInlineSize')) failures.push('ParticipantStrip must align to the shared game support track');
 
 const backgammonBoard = read('apps/web/src/components/game/BackgammonBoard.tsx');
 if (/minWidth:\s*2[4-9]/.test(backgammonBoard)) failures.push('Backgammon checkers must not declare a narrow-screen pixel minimum');
@@ -114,6 +118,7 @@ const pageHeader = read('apps/web/src/components/layout/PageHeader.tsx');
 if (!pageHeader.includes('parentNavigation') || !pageHeader.includes('parentNavigation.href')) failures.push('PageHeader must own the reusable direct-parent navigation contract');
 const footer = read('apps/web/src/components/layout/Footer.tsx');
 if (!footer.includes('TrustSeal')) failures.push('Footer must use the resilient trust-seal composition');
+if (/display:\s*\{\s*xs:\s*['"]none['"]/.test(footer)) failures.push('Lobby/trust footer links must remain reachable on mobile');
 const gameHub = read('apps/web/src/app/games/[gameId]/page.tsx');
 if (!gameHub.includes('ActionDeck')) failures.push('Game Hub must use the hierarchical action composition');
 if (!gameHub.includes('PageHeader')) failures.push('Game Hub must use the shared page-title hierarchy');
@@ -126,6 +131,10 @@ if (!localGame.includes('soundService.hasSoundChoice()') || !localGame.includes(
 if (!ticTacToeBoard.includes("soundService.play('move')")) failures.push('Tic-tac-toe pilot must wire real move feedback to the sound service');
 if (!ticTacToeBoard.includes("state.phase !== 'finished'")) failures.push('A terminal Tic-tac-toe transition must prefer the result cue over a stacked move cue');
 if (!localGame.includes('markCount === previous.markCount')) failures.push('A robot move must not stack move and your-turn cues in one Tic-tac-toe transition');
+const onlineGame = read('apps/web/src/app/play/[roomId]/page.tsx');
+if (!onlineGame.includes('soundService.hasSoundChoice()') || !onlineGame.includes('messages.sound.consentTitle')) failures.push('Direct online room entry must preserve the explicit sound-choice gate');
+if (!onlineGame.includes('layoutContract.game.supportInlineSize')) failures.push('Online room support panels must align to the shared support track');
+if (/maxWidth:\s*(520|620|680)/.test(onlineGame)) failures.push('Online room support panels must not declare competing local widths');
 const soundService = read('apps/web/src/lib/sound-service.ts');
 if (!soundService.includes('STORAGE_CONSENT_VERSION_KEY') || !soundService.includes('SOUND_CONSENT_VERSION')) failures.push('Sound consent must distinguish an explicit game-entry choice from legacy mute state');
 if (!soundService.includes("this.state.consent !== 'enabled' || !this.hasSoundChoice()")) failures.push('Sound playback must remain blocked until explicit versioned entry consent');

@@ -56,7 +56,7 @@ export default function Footer({ locale = 'fa' }: FooterProps) {
     <Box
       component="footer"
       sx={{
-        display: { xs: 'none', md: 'block' },
+        display: 'block',
         mt: 'auto',
         borderTop: '1px solid',
         borderColor: 'divider',

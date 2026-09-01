@@ -133,7 +133,7 @@
       "path": "apps/web/src/components/game/GameShell.tsx",
       "maturity": "Candidate",
       "responsibility": "Own game-screen hierarchy, status composition, settings track, and short-landscape composition.",
-      "contracts": ["single-game-identity", "shared-surface-track", "status-cluster", "short-landscape", "logical-navigation"],
+      "contracts": ["single-game-identity", "shared-surface-track", "shared-support-track", "status-cluster", "short-landscape", "logical-navigation"],
       "consumers": ["apps/web/src/app/game/[gameId]/page.tsx", "apps/web/src/app/play/[roomId]/page.tsx"],
       "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
     },
@@ -142,7 +142,7 @@
       "path": "apps/web/src/components/game/ParticipantStrip.tsx",
       "maturity": "Candidate",
       "responsibility": "Keep creator, player, spectator, self, turn and reconnecting identity legible without competing with the game board.",
-      "contracts": ["minimum-identity", "role-attribution", "turn-without-color-only", "subtle-reconnecting-state", "board-subordination"],
+      "contracts": ["minimum-identity", "role-attribution", "turn-without-color-only", "subtle-reconnecting-state", "board-subordination", "shared-support-track"],
       "consumers": ["apps/web/src/app/play/[roomId]/page.tsx"],
       "evaluation": ["presence-contract-tests", "typecheck", "build", "human-two-player-and-spectator-pilot"]
     }

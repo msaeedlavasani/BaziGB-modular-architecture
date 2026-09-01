@@ -23,6 +23,7 @@ import {
   leaveRoomSchema,
   reactionSchema,
   makeMoveSchema,
+  newGameSchema,
   nextRoundSchema,
   undoSchema,
   doubleSchema,
@@ -77,6 +78,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly socketRooms = new Map<string, Set<string>>();
   private readonly roomSpectators = new Map<string, Set<string>>();
   private readonly reconnectTimers = new Map<string, NodeJS.Timeout>();
+  private readonly rematchVotes = new Map<string, Set<string>>();
 
   constructor(
     private readonly roomService: RoomService,
@@ -144,6 +146,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     rooms?.delete(roomCode);
     if (rooms?.size === 0) this.socketRooms.delete(socketId);
     this.roomSpectators.get(roomCode)?.delete(socketId);
+    this.rematchVotes.get(roomCode)?.delete(socketId);
+  }
+
+  private isRoomMember(socketId: string, roomCode: string): boolean {
+    return this.socketRooms.get(socketId)?.has(roomCode) ?? false;
   }
 
   private participantName(socketId: string, fallback: string): string {
@@ -811,6 +818,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const room = await this.roomService.getRoom(parsed.data.room);
       if (!room || room.status !== 'playing') return;
+      if (!this.isRoomMember(client.id, room.code) || !room.players.includes(client.id)) {
+        throw new BadRequestException('فقط بازیکنان این اتاق می‌توانند بازی را ادامه دهند');
+      }
       if (room.gameType === 'backgammon') {
         const current = room.currentState as GameState | null;
         if (!current || current.phase !== 'roundEnd') {
@@ -833,16 +843,42 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('newGame')
-  async handleNewGame(@ConnectedSocket() client: Socket, @MessageBody() payload: { roomCode: string }) {
+  async handleNewGame(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
+    const parsed = newGameSchema.safeParse(payload);
+    if (!parsed.success) return;
     try {
-      const room = await this.roomService.getRoom(payload.roomCode);
+      const room = await this.roomService.getRoom(parsed.data.roomCode);
       if (!room) throw new BadRequestException('اتاق یافت نشد');
+      if (!this.isRoomMember(client.id, room.code) || !room.players.includes(client.id)) {
+        throw new BadRequestException('فقط بازیکنان این اتاق می‌توانند درخواست بازی دوباره بدهند');
+      }
+
+      if (room.gameType === 'tic-tac-toe') {
+        if (room.status !== 'finished' && room.currentState?.phase !== 'finished') {
+          throw new BadRequestException('بازی فعلی هنوز تمام نشده است');
+        }
+        const votes = this.rematchVotes.get(room.code) ?? new Set<string>();
+        votes.add(client.id);
+        this.rematchVotes.set(room.code, votes);
+        const requiredPlayers = room.players.filter((playerId) => this.isRoomMember(playerId, room.code));
+        const accepted = requiredPlayers.length >= 2 && requiredPlayers.every((playerId) => votes.has(playerId));
+        this.server.to(room.code).emit('rematchUpdate', {
+          requesterId: client.id,
+          voterIds: [...votes],
+          required: requiredPlayers.length,
+          status: accepted ? 'accepted' : 'waiting',
+        });
+        if (!accepted) return;
+      }
+
       const state = this.initialState(room);
-      const updated = await this.roomService.startGame(payload.roomCode, state, { resetScores: true });
-      this.server.to(payload.roomCode).emit('gameState', state);
-      this.server.to(payload.roomCode).emit('roomUpdate', updated);
-      this.emitSystemMessage(payload.roomCode, 'بازی جدید شروع شد');
-      this.scheduleTurnTimer(payload.roomCode, state);
+      const updated = await this.roomService.startGame(room.code, state, { resetScores: true });
+      this.rematchVotes.delete(room.code);
+      this.server.to(room.code).emit('gameState', state);
+      this.server.to(room.code).emit('roomUpdate', updated);
+      this.server.to(room.code).emit('sessionNotice', { kind: 'game-started' });
+      this.emitSystemMessage(room.code, 'بازی جدید شروع شد');
+      this.scheduleTurnTimer(room.code, state);
     } catch (error) {
       client.emit('error', { message: error instanceof Error ? error.message : 'خطا' });
     }
@@ -875,6 +911,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const parsed = chatSchema.safeParse(payload);
     if (!parsed.success) return;
     const { room: roomCode, message } = parsed.data;
+    if (!this.isRoomMember(client.id, roomCode)) return;
     if (!message || message.trim().length === 0) return;
     const trimmed = message.trim().slice(0, MAX_CHAT_LENGTH);
     this.server.to(roomCode).emit('systemMessage', {

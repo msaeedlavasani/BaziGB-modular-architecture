@@ -6,6 +6,7 @@ import Paper from '@mui/material/Paper';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
+import { layoutContract } from '@/design-system/layout-contract';
 import { Crown, Eye, WifiOff } from 'lucide-react';
 
 export interface RoomParticipant {
@@ -45,7 +46,7 @@ export default function ParticipantStrip({ participants, currentTurnId, myId, la
       elevation={0}
       sx={{
         width: '100%',
-        maxWidth: 680,
+        maxWidth: layoutContract.game.supportInlineSize,
         mx: 'auto',
         px: { xs: 1, sm: 1.5 },
         py: 1,

@@ -317,4 +317,99 @@ describe('GameGateway Unit Tests', () => {
       reaction: '👏',
     }));
   });
+
+  it('12. ignores chat sent by a socket that is not a member of the room', async () => {
+    const client: any = { id: 'outsider' };
+
+    await gateway.handleChatMessage(client, { room: 'ROOM1', message: 'hello' });
+
+    expect(server.to).not.toHaveBeenCalled();
+  });
+
+  it('13. requires both seated Tic-tac-toe players to accept a rematch', async () => {
+    const room: any = {
+      code: 'TTT03',
+      gameType: 'tic-tac-toe',
+      status: 'finished',
+      players: ['p1', 'p2'],
+      ownerId: 'p1',
+      currentState: { phase: 'finished', winner: 'p1' },
+      scores: { p1: 1, p2: 0 },
+      maxRounds: 1,
+    };
+    roomService.getRoom.mockResolvedValue(room);
+    roomService.startGame.mockResolvedValue({ ...room, status: 'playing' });
+    vi.spyOn(gateway as any, 'initialState').mockReturnValue({ phase: 'playing', turn: 'p1' });
+    (gateway as any).socketRooms.set('p1', new Set([room.code]));
+    (gateway as any).socketRooms.set('p2', new Set([room.code]));
+    const player1: any = { id: 'p1', emit: vi.fn() };
+    const player2: any = { id: 'p2', emit: vi.fn() };
+
+    await gateway.handleNewGame(player1, { roomCode: room.code });
+
+    expect(roomService.startGame).not.toHaveBeenCalled();
+    expect(server.to().emit).toHaveBeenCalledWith('rematchUpdate', expect.objectContaining({
+      voterIds: ['p1'],
+      required: 2,
+      status: 'waiting',
+    }));
+
+    await gateway.handleNewGame(player2, { roomCode: room.code });
+
+    expect(roomService.startGame).toHaveBeenCalledWith(
+      room.code,
+      expect.objectContaining({ phase: 'playing' }),
+      { resetScores: true },
+    );
+    expect(server.to().emit).toHaveBeenCalledWith('rematchUpdate', expect.objectContaining({
+      voterIds: ['p1', 'p2'],
+      status: 'accepted',
+    }));
+  });
+
+  it('14. rejects a spectator rematch request', async () => {
+    const room: any = {
+      code: 'TTT04',
+      gameType: 'tic-tac-toe',
+      status: 'finished',
+      players: ['p1', 'p2'],
+      currentState: { phase: 'finished' },
+    };
+    roomService.getRoom.mockResolvedValue(room);
+    (gateway as any).socketRooms.set('viewer', new Set([room.code]));
+    const client: any = { id: 'viewer', emit: vi.fn() };
+
+    await gateway.handleNewGame(client, { roomCode: room.code });
+
+    expect(roomService.startGame).not.toHaveBeenCalled();
+    expect(client.emit).toHaveBeenCalledWith('error', {
+      message: 'فقط بازیکنان این اتاق می‌توانند درخواست بازی دوباره بدهند',
+    });
+  });
+
+  it('15. lets the creator start a full Backgammon room', async () => {
+    const room: any = {
+      code: 'BGSTART',
+      gameType: 'backgammon',
+      status: 'waiting',
+      players: ['p1', 'p2'],
+      ownerId: 'p1',
+      currentState: null,
+      scores: {},
+      maxRounds: 1,
+    };
+    roomService.getRoom.mockResolvedValue(room);
+    roomService.startGame.mockResolvedValue({ ...room, status: 'playing' });
+    const client: any = { id: 'p1', emit: vi.fn() };
+
+    await gateway.handleStartGame(client, { roomCode: room.code });
+
+    expect(roomService.startGame).toHaveBeenCalledWith(
+      room.code,
+      expect.objectContaining({ phase: 'playing' }),
+      { resetScores: true },
+    );
+    expect(server.to().emit).toHaveBeenCalledWith('sessionNotice', { kind: 'game-started' });
+    expect(client.emit).not.toHaveBeenCalledWith('error', expect.anything());
+  });
 });

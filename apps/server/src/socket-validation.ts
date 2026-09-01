@@ -51,6 +51,10 @@ export const nextRoundSchema = z.object({
   room: z.string(),
 });
 
+export const newGameSchema = z.object({
+  roomCode: z.string().min(1).max(16),
+});
+
 export const doubleSchema = z.object({
   room: z.string(),
 });

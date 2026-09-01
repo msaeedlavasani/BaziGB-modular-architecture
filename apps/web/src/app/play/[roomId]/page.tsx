@@ -39,6 +39,7 @@ import StatusPill from '@/components/shared/StatusPill';
 import Modal from '@/components/shared/Modal';
 import EmptyState from '@/components/shared/EmptyState';
 import { soundService } from '@/lib/sound-service';
+import { layoutContract } from '@/design-system/layout-contract';
 import type { BackgammonMove } from '@bazigb/game-backgammon';
 import type { GameId } from '@bazigb/engine';
 
@@ -50,7 +51,7 @@ type SessionNoticeKind =
   | 'game-ended-by-player'
   | 'game-ended-after-disconnect';
 
-type SessionNotice = { kind: SessionNoticeKind; participantId?: string };
+type SessionNotice = { kind: SessionNoticeKind; participantId?: string; reconnectBy?: number };
 
 /** Room-based multiplayer page using the shared BaziGB realtime protocol. */
 export default function PlayPage() {
@@ -84,6 +85,8 @@ export default function PlayPage() {
   const [spectating, setSpectating] = useState(false);
   const [participants, setParticipants] = useState<RoomParticipant[]>([]);
   const [sessionNotice, setSessionNotice] = useState<SessionNotice | null>(null);
+  const [rematchVoterIds, setRematchVoterIds] = useState<string[]>([]);
+  const [soundPromptOpen, setSoundPromptOpen] = useState(false);
   const [pendingExitHref, setPendingExitHref] = useState<string | null>(null);
   const [roomLookupFailed, setRoomLookupFailed] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
@@ -94,16 +97,28 @@ export default function PlayPage() {
     typeof value === 'string' && isWebGameId(value) ? value : 'tic-tac-toe';
 
   useEffect(() => {
-    if (!turnInfo) return;
+    if (!turnInfo && sessionNotice?.kind !== 'player-reconnecting') return;
     const interval = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(interval);
-  }, [turnInfo]);
+  }, [sessionNotice?.kind, turnInfo]);
+
+  useEffect(() => {
+    if (!soundService.hasSoundChoice()) setSoundPromptOpen(true);
+  }, []);
+
+  const completeSoundChoice = (enabled: boolean) => {
+    soundService.chooseSound(enabled);
+    setSoundPromptOpen(false);
+  };
 
   useEffect(() => {
     connectSocket();
 
     const handlers: Record<string, (payload: any) => void> = {
-      gameState: (nextState) => setState(nextState),
+      gameState: (nextState) => {
+        setState(nextState);
+        if (nextState?.phase === 'playing') setRematchVoterIds([]);
+      },
       roomUpdate: (nextRoom) => {
         setRoomLookupFailed(false);
         setRoom({
@@ -165,6 +180,9 @@ export default function PlayPage() {
         if (notice?.kind === 'game-started') soundService.play('game-start');
         if (notice?.kind === 'player-reconnected') soundService.play('reconnected');
         if (notice?.kind && notice.kind !== 'game-started') setSessionNotice(notice);
+      },
+      rematchUpdate: ({ voterIds }) => {
+        setRematchVoterIds(Array.isArray(voterIds) ? voterIds : []);
       },
       reaction: ({ username, reaction }) => {
         setChatMessages((previous) => [
@@ -346,6 +364,8 @@ export default function PlayPage() {
   const scoreA = playerA ? (scores[playerA.id] ?? 0) : 0;
   const scoreB = playerB ? (scores[playerB.id] ?? 0) : 0;
   const maxRounds = room?.maxRounds ?? 1;
+  const hasRequestedRematch = rematchVoterIds.includes(myId);
+  const opponentRequestedRematch = rematchVoterIds.some((id) => id !== myId);
 
   const winner = isRoundEnd
     ? {
@@ -365,7 +385,14 @@ export default function PlayPage() {
           : messages.gameShell.draw,
         sub: maxRounds > 1 ? messages.multiplayer.matchScore(scoreA, scoreB) : undefined,
         onRematch: () => socket.emit('newGame', { roomCode }),
-        actionLabel: gameId === 'tic-tac-toe' ? messages.multiplayer.playSameGame : undefined,
+        actionLabel: gameId === 'tic-tac-toe'
+          ? hasRequestedRematch
+            ? messages.multiplayer.waitingForRematch
+            : opponentRequestedRematch
+              ? messages.multiplayer.acceptRematch
+              : messages.multiplayer.requestRematch
+          : undefined,
+        actionDisabled: gameId === 'tic-tac-toe' && hasRequestedRematch,
         secondaryHref: lobbyHref,
         secondaryLabel: messages.multiplayer.backToLobby,
       }
@@ -383,8 +410,14 @@ export default function PlayPage() {
   const noticeParticipant = sessionNotice?.participantId
     ? participants.find((participant) => participant.id === sessionNotice.participantId)
     : null;
+  const reconnectRemainingSec = sessionNotice?.kind === 'player-reconnecting' && sessionNotice.reconnectBy
+    ? Math.max(0, Math.ceil((sessionNotice.reconnectBy - nowMs) / 1000))
+    : undefined;
   const noticeText = sessionNotice?.kind === 'player-reconnecting'
-    ? messages.multiplayer.reconnectingPlayer(noticeParticipant?.name ?? messages.multiplayer.player)
+    ? messages.multiplayer.reconnectingPlayer(
+        noticeParticipant?.name ?? messages.multiplayer.player,
+        reconnectRemainingSec,
+      )
     : sessionNotice?.kind === 'player-reconnected'
       ? messages.multiplayer.playerReconnected(noticeParticipant?.name ?? messages.multiplayer.player)
       : sessionNotice?.kind === 'game-ended-by-creator'
@@ -449,7 +482,7 @@ export default function PlayPage() {
         )}
 
         {noticeText && (
-          <Alert severity={sessionNotice?.kind === 'player-reconnected' ? 'success' : sessionNotice?.kind === 'player-reconnecting' ? 'warning' : 'info'} sx={{ width: '100%', maxWidth: 680, mx: 'auto' }}>
+          <Alert severity={sessionNotice?.kind === 'player-reconnected' ? 'success' : sessionNotice?.kind === 'player-reconnecting' ? 'warning' : 'info'} sx={{ width: '100%', maxWidth: layoutContract.game.supportInlineSize, mx: 'auto' }}>
             {noticeText}
           </Alert>
         )}
@@ -487,7 +520,7 @@ export default function PlayPage() {
             elevation={0}
             sx={{
               width: '100%',
-              maxWidth: 620,
+              maxWidth: layoutContract.game.supportInlineSize,
               mx: 'auto',
               p: { xs: 3, sm: 4 },
               borderRadius: 4,
@@ -522,9 +555,17 @@ export default function PlayPage() {
               >
                 {copied ? messages.multiplayer.copied : messages.multiplayer.copyCode}
               </Button>
-              {room && room.players.length >= 2 && isOwner && (
-                <Button variant="contained" onClick={startGame} startIcon={<Play size={16} />} sx={{ fontWeight: 900 }}>
-                  {messages.multiplayer.startGame}
+              {room && isOwner && (
+                <Button
+                  variant="contained"
+                  onClick={startGame}
+                  startIcon={<Play size={16} />}
+                  disabled={room.players.length < 2}
+                  sx={{ fontWeight: 900 }}
+                >
+                  {room.players.length < 2
+                    ? messages.multiplayer.waitingForOpponent
+                    : messages.multiplayer.startGame}
                 </Button>
               )}
             </Box>
@@ -548,7 +589,7 @@ export default function PlayPage() {
           elevation={0}
           sx={{
             width: '100%',
-            maxWidth: 520,
+            maxWidth: layoutContract.game.supportInlineSize,
             mx: 'auto',
             borderRadius: 3,
             bgcolor: alpha(theme.palette.background.paper, 0.5),
@@ -630,6 +671,16 @@ export default function PlayPage() {
           {error}
         </Alert>
       </Snackbar>
+      <Modal
+        open={soundPromptOpen}
+        title={messages.sound.consentTitle}
+        onClose={() => completeSoundChoice(false)}
+        closeLabel={messages.sound.continueSilent}
+        confirmLabel={messages.sound.playWithSound}
+        onConfirm={() => completeSoundChoice(true)}
+      >
+        {messages.sound.consentBody}
+      </Modal>
       <Modal
         open={Boolean(pendingExitHref)}
         title={messages.multiplayer.exitTitle}
