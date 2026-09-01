@@ -51,17 +51,26 @@
       "name": "PageHeader",
       "path": "apps/web/src/components/layout/PageHeader.tsx",
       "maturity": "Candidate",
-      "responsibility": "Own page-title scale, identity, description rhythm, and semantic heading hierarchy.",
-      "contracts": ["single-h1", "fluid-title-scale", "bounded-line-length", "identity-proximity"],
+      "responsibility": "Own page-title scale, identity, description rhythm, semantic heading hierarchy, and the optional direct-parent escape for descendant pages.",
+      "contracts": ["single-h1", "fluid-title-scale", "bounded-line-length", "identity-proximity", "direct-parent-navigation", "direction-correct-back-icon"],
       "consumers": ["apps/web/src/app/lobby/page.tsx", "apps/web/src/app/games/[gameId]/page.tsx", "apps/web/src/app/leaderboard/page.tsx"],
       "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
+    },
+    {
+      "name": "Header",
+      "path": "apps/web/src/components/layout/Header.tsx",
+      "maturity": "Candidate",
+      "responsibility": "Keep the brand mathematically centered, place independent utilities at opposite physical edges, and expose only meaningful peer navigation.",
+      "contracts": ["three-independent-slots", "exact-brand-center", "physical-edge-utilities", "two-equal-peer-segments", "subtle-peer-divider", "contextual-game-controls"],
+      "consumers": ["apps/web/src/app/layout.tsx"],
+      "evaluation": ["static-contract", "typecheck", "build", "human-rendered-pilot"]
     },
     {
       "name": "NavigationItem",
       "path": "apps/web/src/components/layout/NavigationItem.tsx",
       "maturity": "Candidate",
       "responsibility": "Keep header icon and label as one directional, proximity-controlled navigation object.",
-      "contracts": ["icon-label-proximity", "single-direction-owner", "active-state", "mobile-icon-mode"],
+      "contracts": ["icon-label-proximity", "single-direction-owner", "page-versus-location-current-state", "mobile-label-discoverability"],
       "consumers": ["apps/web/src/components/layout/Header.tsx"],
       "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
     },
@@ -127,6 +136,15 @@
       "contracts": ["single-game-identity", "shared-surface-track", "status-cluster", "short-landscape", "logical-navigation"],
       "consumers": ["apps/web/src/app/game/[gameId]/page.tsx", "apps/web/src/app/play/[roomId]/page.tsx"],
       "evaluation": ["static-contract", "typecheck", "build", "targeted-render"]
+    },
+    {
+      "name": "ParticipantStrip",
+      "path": "apps/web/src/components/game/ParticipantStrip.tsx",
+      "maturity": "Candidate",
+      "responsibility": "Keep creator, player, spectator, self, turn and reconnecting identity legible without competing with the game board.",
+      "contracts": ["minimum-identity", "role-attribution", "turn-without-color-only", "subtle-reconnecting-state", "board-subordination"],
+      "consumers": ["apps/web/src/app/play/[roomId]/page.tsx"],
+      "evaluation": ["presence-contract-tests", "typecheck", "build", "human-two-player-and-spectator-pilot"]
     }
   ]
 }

@@ -310,6 +310,15 @@ minimal, recognizable and brand-coherent.
 
 ### Navigation composition
 
+#### Pre-implementation composition gate
+
+A material shared-UI change does not move directly from approved prose to code.
+Before implementation, its pilot must record one compact composition map that
+shows: semantic regions, exact primary CTA, initial-viewport priority, grouping
+rationale, responsive reflow, and the invariant visual anchor. Approval of
+individual requirements is not approval of an unreviewed composition assembled
+from them. Typecheck, build and overflow checks cannot substitute for this gate.
+
 Header navigation uses `NavigationItem`. Icon and label form one proximity group
 with a single direction owner. Do not combine MUI `startIcon` spacing, manual
 logical margins and direction overrides in the same navigation item.
@@ -318,6 +327,72 @@ One prominent destination should have one primary affordance in the same header.
 The centered BaziGB brand is the Lobby/Home entry point, so a second Lobby icon is
 not rendered beside Leaderboard and Tournaments. Visual symmetry is not a reason
 to duplicate information architecture.
+
+Header anatomy is contextual:
+
+- Lobby and ordinary internal pages may expose discovery destinations plus Profile and language.
+- Active game pages remove discovery and Profile destinations. Language and game sound occupy opposite utility edges; the centered brand remains the sole Lobby affordance.
+- Moving from an active multiplayer session through the brand, contextual Back action or another app route must enter the shared safe-exit confirmation. Browser unload keeps a native warning as a last resort.
+- Profile remains on the same physical side at all supported widths. Responsive layout must not swap its side merely to fill space.
+
+The Header uses exactly three independent top-row slots: left utility, centered
+brand and right utility. The brand occupies the mathematical center of the
+available header width regardless of utility content width. Utility controls sit
+at opposite container edges and never share the brand link, brand safety area or
+a common outlined surface with unrelated controls. Proximity is evaluated from
+the rendered result, not merely from DOM ownership.
+
+A tab-like navigation row represents peer destinations and therefore renders at
+least two meaningful choices with one clear current state. A single destination
+must remain a standalone navigation action; it must not occupy a full strip or
+use selected-tab styling. For the Alpha public shell, `Games` and `Leaderboard`
+are the peer destinations. The brand remains the universal Home escape while
+`Games` communicates the current information-architecture section.
+The two public peers split the full navigation row into equal target areas. A
+single subtle divider separates them and the active indicator belongs to the
+full selected segment, preventing the row from collapsing into a dense cluster
+under the centered brand.
+
+Context navigation describes meaningful product levels (`Lobby → game hub → room`), not every URL segment. Its Back destination must be predictable. A transition that ends or abandons shared state explains the consequence before navigation and announces the resulting state to people who remain.
+
+Global and local navigation have separate jobs. A global destination stays
+visually active while the user is inside one of its descendants; it must not be
+disabled, because disabled means unavailable rather than “current section”. A
+descendant page exposes one subdued parent link in its canonical page header
+(for example `Back to all games`). At one level of depth, do not add a second
+navigation bar or a full breadcrumb trail. Semantically, an exact global match
+uses `aria-current="page"`; an active ancestor uses
+`aria-current="location"`. New hierarchical pages must declare this parent
+relationship before implementation.
+
+### Participant presence
+
+Multiplayer surfaces must feel inhabited without surrounding the board with social chrome:
+
+- identify creator, seated players and spectators;
+- identify self and current turn without color alone;
+- attribute chat and reactions to a participant;
+- show reconnecting state beside the affected identity with subdued text/icon treatment;
+- never present a connection delay as a broken control or deliberate stalling;
+- retain no presence history by default.
+
+The participant strip is subordinate to the board. Connection trouble may use warning tone but must not take the result or primary-action visual level.
+
+### Game sound contract
+
+Sound is gameplay feedback, not Lobby decoration. Before entering a game for the first time, offer an explicit choice between sound and silent play. Only a choice made through that game-entry prompt counts as consent; a legacy mute value or interaction with a mute control must not silently bypass the prompt. Direct game URLs must preserve the same gate. Mute is available only on game surfaces and the explicit choice persists locally.
+
+The canonical cue vocabulary is: game start, own turn, time warning, move, capture, dice/random action, reconnect, win, loss and draw. Declaring a cue is incomplete until the pilot game proves that its real state transition triggers it. Every cue has a visible/text equivalent. Music, lobby autoplay and sound before consent are prohibited. New audio assets require a human listening pass for loudness, repetition fatigue and brand fit.
+
+One atomic state transition emits one dominant cue. Do not stack `move` with
+`your-turn` when the opponent's move immediately returns control, and do not
+stack a terminal `move` with `win`, `loss` or `draw`. Priority is result over
+action over turn notification; a delayed independent event may still announce
+itself when it is not part of the same transition.
+
+### Footer contract
+
+The footer belongs to Lobby and trust/legal pages only. It is absent from gameplay and other task-focused routes and from the mobile shell. On desktop it remains in normal document flow below primary content; it must not compete with the first-view CTA. Brand, links, trust seal and copyright use caption/body scale rather than promotional headline scale.
 
 ### Cross-game visual language
 

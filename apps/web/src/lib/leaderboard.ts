@@ -22,8 +22,6 @@ export interface LeaderboardEntry {
   gamesPlayed: number;
   /** Win rate as a percentage 0..100. */
   winRate: number;
-  /** Competitive rating used to sort the board. */
-  rating: number;
 }
 
 interface ServerLeaderboardPage {
@@ -31,9 +29,11 @@ interface ServerLeaderboardPage {
     rank: number;
     id: string;
     username: string;
-    rating: number;
     wins: number;
     losses: number;
+    draws: number;
+    gamesPlayed: number;
+    winRate: number;
   }>;
   total: number;
   page: number;
@@ -52,13 +52,13 @@ export interface LeaderboardPage {
 }
 
 /** A compact, explicit page prevents an unbounded ranking list. */
-export async function fetchLeaderboard(pageNumber = 1, pageSize = 10): Promise<LeaderboardPage> {
+export async function fetchLeaderboard(game = 'tic-tac-toe', pageNumber = 1, pageSize = 10): Promise<LeaderboardPage> {
   if (isLocalUiDemoEnabled('leaderboard')) {
-    return buildDemoPage(pageNumber, pageSize);
+    return buildDemoPage(game, pageNumber, pageSize);
   }
 
   const page = await api.get<ServerLeaderboardPage>(
-    `/leaderboard?page=${pageNumber}&pageSize=${pageSize}`,
+    `/leaderboard?game=${encodeURIComponent(game)}&page=${pageNumber}&pageSize=${pageSize}`,
   );
 
   return {
@@ -68,27 +68,22 @@ export async function fetchLeaderboard(pageNumber = 1, pageSize = 10): Promise<L
     totalPages: page.totalPages,
     demo: false,
     items: page.items.map((item) => {
-      const gamesPlayed = item.wins + item.losses;
       return {
         rank: item.rank,
         userId: item.id,
         username: item.username,
         wins: item.wins,
         losses: item.losses,
-        draws: 0,
-        gamesPlayed,
-        winRate:
-          gamesPlayed > 0
-            ? Math.round((item.wins / gamesPlayed) * 1000) / 10
-            : 0,
-        rating: item.rating,
+        draws: item.draws,
+        gamesPlayed: item.gamesPlayed,
+        winRate: item.winRate,
       };
     }),
   };
 }
 
 /** Explicit local UI fixture; it is unreachable from a production build. */
-function buildDemoPage(pageNumber: number, pageSize: number): LeaderboardPage {
+function buildDemoPage(_game: string, pageNumber: number, pageSize: number): LeaderboardPage {
   const allEntries = Array.from({ length: 30 }, (_, index) => {
     const gamesPlayed = 45 - index + ((index * 7) % 12);
     const wins = Math.max(1, Math.round(gamesPlayed * (0.72 - index * 0.008)));
@@ -103,7 +98,6 @@ function buildDemoPage(pageNumber: number, pageSize: number): LeaderboardPage {
       draws: 0,
       gamesPlayed,
       winRate: Math.round((wins / gamesPlayed) * 1000) / 10,
-      rating: 1800 - index * 17,
     } satisfies LeaderboardEntry;
   });
   const safePage = Math.max(1, Math.min(Math.ceil(allEntries.length / pageSize), pageNumber));

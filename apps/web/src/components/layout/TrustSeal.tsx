@@ -23,11 +23,11 @@ export default function TrustSeal({ locale }: { locale: Locale }) {
       referrerPolicy="origin"
       aria-label={label}
       sx={{
-        inlineSize: 116,
-        minBlockSize: 72,
-        px: 1.5,
-        py: 1,
-        borderRadius: 3,
+        inlineSize: 92,
+        minBlockSize: 56,
+        px: 1,
+        py: 0.75,
+        borderRadius: 2.5,
         border: '1px solid',
         borderColor: 'divider',
         bgcolor: 'rgba(0,0,0,0.2)',
@@ -41,7 +41,7 @@ export default function TrustSeal({ locale }: { locale: Locale }) {
     >
       {!loaded && (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, textAlign: 'center' }}>
-          <ShieldCheck size={24} />
+          <ShieldCheck size={19} />
           <Typography variant="caption" sx={{ fontWeight: 800, lineHeight: 1.3 }}>
             {label}
           </Typography>
@@ -54,7 +54,7 @@ export default function TrustSeal({ locale }: { locale: Locale }) {
         referrerPolicy="origin"
         onLoad={() => setLoaded(true)}
         onError={() => setLoaded(false)}
-        sx={{ display: loaded ? 'block' : 'none', maxInlineSize: '100%', blockSize: 52, objectFit: 'contain' }}
+        sx={{ display: loaded ? 'block' : 'none', maxInlineSize: '100%', blockSize: 42, objectFit: 'contain' }}
       />
     </Box>
   );

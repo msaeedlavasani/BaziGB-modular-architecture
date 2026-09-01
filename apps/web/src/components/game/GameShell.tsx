@@ -35,6 +35,8 @@ export interface WinnerBanner {
   sub?: string;
   onRematch?: () => void;
   actionLabel?: string;
+  secondaryHref?: string;
+  secondaryLabel?: string;
 }
 
 export interface MatchScores {
@@ -59,6 +61,7 @@ interface Props {
   scoreTitle?: string;
   roundNotice?: string | null;
   settings?: React.ReactNode;
+  settingsPresentation?: 'responsive' | 'collapsed';
   winner?: WinnerBanner | null;
   children: React.ReactNode;
 }
@@ -81,6 +84,7 @@ export default function GameShell({
   scoreTitle,
   roundNotice,
   settings,
+  settingsPresentation = 'responsive',
   winner,
   children,
 }: Props) {
@@ -151,7 +155,11 @@ export default function GameShell({
           <Button
             component={Link}
             href={backHref}
-            onClick={onBack}
+            onClick={(event) => {
+              if (!onBack) return;
+              event.preventDefault();
+              onBack();
+            }}
             startIcon={<BackIcon size={18} />}
             sx={{
               flexShrink: 0,
@@ -291,7 +299,31 @@ export default function GameShell({
           </StatusCluster>
         </Box>
 
-        {settings && (
+        {settings && settingsPresentation === 'collapsed' && (
+          <Paper
+            component="details"
+            elevation={0}
+            sx={{
+              gridArea: 'shellSettings',
+              width: '100%',
+              maxWidth: surfaceInlineSize,
+              alignSelf: 'center',
+              minWidth: 0,
+              borderRadius: 3,
+              border: '1px solid',
+              borderColor: 'divider',
+              bgcolor: alpha(theme.palette.background.paper, 0.32),
+              '& > summary': { cursor: 'pointer', listStylePosition: 'inside', px: 1.5, py: 1, fontWeight: 800 },
+              '&[open] > summary': { borderBottom: '1px solid', borderBottomColor: 'divider' },
+              '& > div': { p: 1.25 },
+            }}
+          >
+            <Typography component="summary" variant="body2">{messages.settings}</Typography>
+            <Box>{settings}</Box>
+          </Paper>
+        )}
+
+        {settings && settingsPresentation === 'responsive' && (
           <Paper
             component="details"
             elevation={0}
@@ -314,7 +346,7 @@ export default function GameShell({
           </Paper>
         )}
 
-        {settings && (
+        {settings && settingsPresentation === 'responsive' && (
           <Paper
             elevation={0}
             sx={{
@@ -374,6 +406,11 @@ export default function GameShell({
               <Button component={Link} href={backHref} variant="outlined" sx={{ fontWeight: 800 }}>
                 {backLabel ?? messages.backToLobby}
               </Button>
+              {winner.secondaryHref && winner.secondaryLabel && (
+                <Button component={Link} href={winner.secondaryHref} variant="text" sx={{ fontWeight: 800 }}>
+                  {winner.secondaryLabel}
+                </Button>
+              )}
             </Box>
           </Paper>
         ) : (

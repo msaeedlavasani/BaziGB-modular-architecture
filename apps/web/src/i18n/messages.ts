@@ -3,6 +3,7 @@ import type { Locale } from './config';
 export interface AppMessages {
   navigation: {
     lobby: string;
+    games: string;
     leaderboard: string;
     tournaments: string;
     profile: string;
@@ -14,10 +15,15 @@ export interface AppMessages {
     refresh: string;
     back: string;
     newGame: string;
+    startWithSettings: string;
   };
   sound: {
     enable: string;
     disable: string;
+    consentTitle: string;
+    consentBody: string;
+    playWithSound: string;
+    continueSilent: string;
   };
   games: {
     ticTacToe: string;
@@ -70,6 +76,24 @@ export interface AppMessages {
     system: string;
     messagePlaceholder: string;
     send: string;
+    you: string;
+    creator: string;
+    player: string;
+    spectator: string;
+    participants: string;
+    reconnectingPlayer: (name: string) => string;
+    playerReconnected: (name: string) => string;
+    exitTitle: string;
+    exitCreatorBody: string;
+    exitPlayerBody: string;
+    stayInGame: string;
+    confirmExit: string;
+    endedByCreator: string;
+    endedByPlayer: string;
+    endedAfterDisconnect: string;
+    backToLobby: string;
+    playSameGame: string;
+    reactions: string;
   };
   lobby: {
     title: string;
@@ -109,6 +133,7 @@ export interface AppMessages {
     playersShort: (current: number, max: number) => string;
   };
   gameHub: {
+    backToGames: string;
     subtitle: (game: string) => string;
     playBot: string;
     playBotDescription: string;
@@ -153,6 +178,7 @@ const MESSAGES: Record<Locale, AppMessages> = {
   fa: {
     navigation: {
       lobby: 'لابی',
+      games: 'بازی‌ها',
       leaderboard: 'رتبه‌بندی',
       tournaments: 'تورنمنت',
       profile: 'پروفایل',
@@ -164,10 +190,15 @@ const MESSAGES: Record<Locale, AppMessages> = {
       refresh: 'به‌روزرسانی',
       back: 'بازگشت',
       newGame: 'بازی جدید',
+      startWithSettings: 'شروع با تنظیمات جدید',
     },
     sound: {
       enable: 'فعال‌سازی صدا',
       disable: 'قطع صدا',
+      consentTitle: 'بازی با صدا؟',
+      consentBody: 'صداها شروع بازی، نوبت شما، هشدار زمان و نتیجه را زنده‌تر می‌کنند. هر زمان خواستید از هدر بازی قطعشان کنید.',
+      playWithSound: 'بازی با صدا',
+      continueSilent: 'ادامه بدون صدا',
     },
     games: {
       ticTacToe: 'دوز',
@@ -220,6 +251,24 @@ const MESSAGES: Record<Locale, AppMessages> = {
       system: 'سیستم',
       messagePlaceholder: 'پیام…',
       send: 'ارسال',
+      you: 'شما',
+      creator: 'سازنده',
+      player: 'بازیکن',
+      spectator: 'تماشاچی',
+      participants: 'افراد حاضر در اتاق',
+      reconnectingPlayer: (name) => `اتصال ${name} قطع شده؛ برای بازگشت او کمی صبر می‌کنیم`,
+      playerReconnected: (name) => `${name} دوباره متصل شد`,
+      exitTitle: 'از بازی خارج می‌شوید؟',
+      exitCreatorBody: 'با خروج شما بازی برای همه تمام می‌شود و افراد حاضر باخبر خواهند شد.',
+      exitPlayerBody: 'با خروج شما بازی تمام می‌شود و نتیجه برای افراد حاضر نمایش داده خواهد شد.',
+      stayInGame: 'ماندن در بازی',
+      confirmExit: 'خروج از بازی',
+      endedByCreator: 'بازی توسط سازنده پایان یافت.',
+      endedByPlayer: 'یکی از بازیکنان از بازی خارج شد؛ بازی پایان یافت.',
+      endedAfterDisconnect: 'بازیکن در زمان تعیین‌شده برنگشت؛ بازی پایان یافت.',
+      backToLobby: 'بازگشت به لابی',
+      playSameGame: 'شروع یک دوز دیگر',
+      reactions: 'واکنش سریع',
     },
     lobby: {
       title: 'لابی BaziGB',
@@ -259,6 +308,7 @@ const MESSAGES: Record<Locale, AppMessages> = {
       playersShort: (current, max) => `${current}/${max}`,
     },
     gameHub: {
+      backToGames: 'بازگشت به همهٔ بازی‌ها',
       subtitle: (game) => `روش بازی ${game} را انتخاب کنید`,
       playBot: 'بازی با ربات',
       playBotDescription: 'تمرین فوری، بدون انتظار برای حریف',
@@ -293,7 +343,7 @@ const MESSAGES: Record<Locale, AppMessages> = {
       viewResults: 'مشاهده نتایج',
     },
     footer: {
-      rules: 'قوانین بازی',
+      rules: 'قوانین استفاده',
       privacy: 'حریم خصوصی',
       contact: 'تماس با ما',
     },
@@ -301,6 +351,7 @@ const MESSAGES: Record<Locale, AppMessages> = {
   en: {
     navigation: {
       lobby: 'Lobby',
+      games: 'Games',
       leaderboard: 'Leaderboard',
       tournaments: 'Tournaments',
       profile: 'Profile',
@@ -312,10 +363,15 @@ const MESSAGES: Record<Locale, AppMessages> = {
       refresh: 'Refresh',
       back: 'Back',
       newGame: 'New game',
+      startWithSettings: 'Start with new settings',
     },
     sound: {
       enable: 'Enable sound',
       disable: 'Mute sound',
+      consentTitle: 'Play with sound?',
+      consentBody: 'Sound makes game start, your turn, time warnings and results feel alive. You can mute it from the game header at any time.',
+      playWithSound: 'Play with sound',
+      continueSilent: 'Continue silently',
     },
     games: {
       ticTacToe: 'Tic-Tac-Toe',
@@ -368,6 +424,24 @@ const MESSAGES: Record<Locale, AppMessages> = {
       system: 'System',
       messagePlaceholder: 'Message…',
       send: 'Send',
+      you: 'You',
+      creator: 'Creator',
+      player: 'Player',
+      spectator: 'Spectator',
+      participants: 'People in this room',
+      reconnectingPlayer: (name) => `${name} lost connection; we are giving them a moment to return`,
+      playerReconnected: (name) => `${name} reconnected`,
+      exitTitle: 'Leave this game?',
+      exitCreatorBody: 'Leaving will end the game for everyone and notify the people in the room.',
+      exitPlayerBody: 'Leaving will end the game and show the result to everyone still in the room.',
+      stayInGame: 'Stay in game',
+      confirmExit: 'Leave game',
+      endedByCreator: 'The creator ended the game.',
+      endedByPlayer: 'A player left, so the game has ended.',
+      endedAfterDisconnect: 'The player did not return in time, so the game has ended.',
+      backToLobby: 'Back to Lobby',
+      playSameGame: 'Start another Tic-Tac-Toe',
+      reactions: 'Quick reaction',
     },
     lobby: {
       title: 'BaziGB Lobby',
@@ -407,6 +481,7 @@ const MESSAGES: Record<Locale, AppMessages> = {
       playersShort: (current, max) => `${current}/${max}`,
     },
     gameHub: {
+      backToGames: 'Back to all games',
       subtitle: (game) => `Choose how you want to play ${game}`,
       playBot: 'Play with bot',
       playBotDescription: 'Start a practice match without waiting',
@@ -441,7 +516,7 @@ const MESSAGES: Record<Locale, AppMessages> = {
       viewResults: 'View results',
     },
     footer: {
-      rules: 'Game rules',
+      rules: 'Terms',
       privacy: 'Privacy',
       contact: 'Contact us',
     },

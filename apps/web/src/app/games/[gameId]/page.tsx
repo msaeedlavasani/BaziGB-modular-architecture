@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Bot, Plus, RefreshCw, Users } from 'lucide-react';
 import Alert from '@mui/material/Alert';
@@ -23,11 +23,13 @@ import ActionCard from '@/components/shared/ActionCard';
 import ActionDeck from '@/components/layout/ActionDeck';
 import PageHeader from '@/components/layout/PageHeader';
 import GameIdentityMark from '@/components/game/GameIdentityMark';
+import Modal from '@/components/shared/Modal';
 import { useAppLocale } from '@/hooks/useAppLocale';
 import { getMessages } from '@/i18n/messages';
 import { localizedAppRoute, localizedGameRoute, localizedPlayRoute } from '@/i18n/routing';
-import { getGameCatalogEntry, getGameTitle, isWebGameId } from '@/lib/game-catalog';
+import { getGameCatalogEntry, getGameSummary, getGameTitle, isWebGameId } from '@/lib/game-catalog';
 import { createRoom, fetchRooms, type Room } from '@/lib/rooms';
+import { soundService } from '@/lib/sound-service';
 import { BACKGAMMON_RULES_PROFILE } from '@bazigb/game-backgammon';
 
 const REFRESH_INTERVAL_MS = 5000;
@@ -54,14 +56,33 @@ export default function GameHubPage() {
   const [code, setCode] = useState('');
   const [joinError, setJoinError] = useState<string | null>(null);
   const [maxRounds, setMaxRounds] = useState<number>(1);
+  const [soundPromptOpen, setSoundPromptOpen] = useState(false);
+  const pendingEntryRef = useRef<(() => void) | null>(null);
+
+  const requestGameEntry = (action: () => void) => {
+    if (soundService.hasSoundChoice()) {
+      action();
+      return;
+    }
+    pendingEntryRef.current = action;
+    setSoundPromptOpen(true);
+  };
+
+  const completeSoundChoice = (enabled: boolean) => {
+    soundService.chooseSound(enabled);
+    setSoundPromptOpen(false);
+    const action = pendingEntryRef.current;
+    pendingEntryRef.current = null;
+    action?.();
+  };
 
   const loadRooms = useCallback(async () => {
     if (!validGameId) return;
     try {
       setRooms(await fetchRooms(undefined, validGameId));
       setLoadError(null);
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : messages.lobby.loadRoomsError);
+    } catch {
+      setLoadError(messages.lobby.loadRoomsError);
     } finally {
       setLoading(false);
     }
@@ -105,14 +126,23 @@ export default function GameHubPage() {
       setJoinError(messages.lobby.enterRoomCode);
       return;
     }
-    router.push(localizedPlayRoute(locale, roomCode));
+    requestGameEntry(() => router.push(localizedPlayRoute(locale, roomCode)));
   };
 
   return (
     <Box sx={{ flex: 1 }}>
       <PageContainer width="wide">
         <PageStack>
-        <PageHeader title={title} description={messages.gameHub.subtitle(title)} identity={<GameIdentityMark gameId={validGameId} size="large" />} />
+        <PageHeader
+          title={title}
+          description={getGameSummary(validGameId, locale)}
+          identity={<GameIdentityMark gameId={validGameId} size="large" />}
+          parentNavigation={{
+            href: localizedAppRoute(locale, 'lobby'),
+            label: messages.gameHub.backToGames,
+            direction: locale === 'fa' ? 'rtl' : 'ltr',
+          }}
+        />
 
         <ActionDeck
           primary={<ActionCard emphasis="primary" title={messages.gameHub.createOnline} description={messages.gameHub.createOnlineDescription} icon={<GameIdentityMark gameId={validGameId} />}>
@@ -133,12 +163,12 @@ export default function GameHubPage() {
               </FormControl>
             )}
             {createError && <Alert severity="error">{createError}</Alert>}
-            <Button fullWidth variant="contained" size="large" startIcon={<Plus size={20} />} disabled={creating} onClick={() => void handleCreate()} sx={{ ...logicalIconSx, mt: 'auto', fontWeight: 900 }}>
+            <Button fullWidth variant="contained" size="large" startIcon={<Plus size={20} />} disabled={creating} onClick={() => requestGameEntry(() => void handleCreate())} sx={{ ...logicalIconSx, mt: 'auto', fontWeight: 900 }}>
               {messages.gameHub.createOnline}
             </Button>
           </ActionCard>}
           secondary={<ActionCard title={messages.gameHub.playBot} description={messages.gameHub.playBotDescription} icon={<Bot size={24} />}>
-            <Button fullWidth variant="outlined" size="large" startIcon={<Bot size={20} />} onClick={() => router.push(localizedGameRoute(locale, validGameId))} sx={{ ...logicalIconSx, fontWeight: 900 }}>
+            <Button fullWidth variant="outlined" size="large" startIcon={<Bot size={20} />} onClick={() => requestGameEntry(() => router.push(localizedGameRoute(locale, validGameId)))} sx={{ ...logicalIconSx, fontWeight: 900 }}>
               {messages.gameHub.playBot}
             </Button>
           </ActionCard>}
@@ -161,7 +191,7 @@ export default function GameHubPage() {
           ) : loading ? (
             <LoadingSkeleton count={3} height={76} columns={{ xs: 1, sm: 1, md: 1 }} />
           ) : activeRooms.length === 0 ? (
-            <EmptyState compact icon={<Users size={24} />} title={messages.lobby.noActiveRooms} actionLabel={messages.gameHub.createOnline} onAction={() => void handleCreate()} />
+            <EmptyState compact icon={<Users size={24} />} title={messages.lobby.noActiveRooms} actionLabel={messages.gameHub.createOnline} onAction={() => requestGameEntry(() => void handleCreate())} />
           ) : (
             <Box sx={{ maxBlockSize: 'min(24rem, 45dvb)', overflowY: 'auto', overscrollBehavior: 'contain', pr: 0.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               {activeRooms.map((room) => (
@@ -171,7 +201,7 @@ export default function GameHubPage() {
                     <Typography dir="ltr" sx={{ fontFamily: 'monospace', fontWeight: 900 }}>{room.code}</Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>{messages.lobby.playersShort(room.players.length, game.maxPlayers)}</Typography>
                   </Box>
-                  <Button variant="outlined" onClick={() => router.push(localizedPlayRoute(locale, room.code))}>{messages.lobby.enter}</Button>
+                  <Button variant="outlined" onClick={() => requestGameEntry(() => router.push(localizedPlayRoute(locale, room.code)))}>{messages.lobby.enter}</Button>
                 </Paper>
               ))}
             </Box>
@@ -180,6 +210,16 @@ export default function GameHubPage() {
 
         </PageStack>
       </PageContainer>
+      <Modal
+        open={soundPromptOpen}
+        title={messages.sound.consentTitle}
+        onClose={() => completeSoundChoice(false)}
+        closeLabel={messages.sound.continueSilent}
+        confirmLabel={messages.sound.playWithSound}
+        onConfirm={() => completeSoundChoice(true)}
+      >
+        {messages.sound.consentBody}
+      </Modal>
     </Box>
   );
 }

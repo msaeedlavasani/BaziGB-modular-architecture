@@ -1,6 +1,6 @@
 {
   "id": "design-system-v1-live-pilot",
-  "status": "second-human-gate-rejected-correction-loop-active",
+  "status": "human-approved-with-required-refinements-implemented",
   "intent": "Prove that recurring responsive and consistency defects can be corrected through reusable Design System controls rather than page-specific geometry patches.",
   "lifecycleStage": "Design",
   "capabilities": [
@@ -18,7 +18,7 @@
   "rootLayer": "design-system-contract-and-conformance-control",
   "decisionClass": "Material",
   "resourceClass": "Standard",
-  "humanApproval": "Approved in conversation before shared-control implementation.",
+  "humanApproval": "The corrected Tic-tac-toe pilot was approved on 2026-09-01 with two required refinements: explicit sound choice before robot play and a full-width two-segment public navigation row with a subtle center divider.",
   "sharedControls": [
     "semantic-layout-contract",
     "page-container",
@@ -28,6 +28,14 @@
     "status-cluster",
     "game-media-containment",
     "game-surface-track",
+    "pre-implementation-composition-gate",
+    "three-slot-header-track",
+    "peer-navigation-minimum",
+    "equal-peer-navigation-track",
+    "global-section-current-plus-local-parent-escape",
+    "versioned-explicit-sound-consent",
+    "first-view-primary-task",
+    "tic-tac-toe-event-sound-wiring",
     "component-maturity-registry",
     "fail-closed-design-system-check"
   ],
@@ -35,12 +43,12 @@
     {
       "name": "game-screen",
       "route": "/fa/game/tic-tac-toe",
-      "claims": ["shared-toolbar-and-board-track", "logical-status-spacing", "short-landscape-primary-board", "no-horizontal-overflow"]
+      "claims": ["exact-centered-brand", "opposite-edge-language-and-sound", "collapsed-settings", "board-in-initial-viewport", "real-move-and-result-sound", "predictable-game-hub-back", "no-horizontal-overflow"]
     },
     {
       "name": "non-game-discovery-and-action",
-      "routes": ["/fa/lobby", "/fa/games/backgammon"],
-      "claims": ["semantic-page-geometry", "container-driven-repeated-items", "contained-game-media", "cta-hierarchy", "no-horizontal-overflow"]
+      "routes": ["/fa/lobby", "/fa/games/tic-tac-toe"],
+      "claims": ["three-independent-header-slots", "games-and-leaderboard-peer-navigation", "games-remains-section-current-on-game-hub", "subdued-return-to-all-games", "primary-cta-in-initial-viewport", "localized-actionable-error", "no-horizontal-overflow"]
     }
   ],
   "evaluation": {
@@ -51,18 +59,18 @@
     "boundaryCheck": "PASS",
     "webBuild": "PASS_WITH_EXTERNAL_FONT_OPTIMIZATION_WARNING",
     "runtimeConsoleErrors": "PASS_NONE_OBSERVED",
-    "targetedRenderedEvaluation": "PASS_THIRD_CORRECTION_CANDIDATE",
-    "humanVisualGate": "REJECTED"
+    "targetedRenderedEvaluation": "HUMAN_APPROVED_WITH_REQUIRED_REFINEMENTS_2026_09_01",
+    "humanVisualGate": "APPROVED_WITH_REFINEMENTS"
   },
   "renderedMatrix": [
     {"case":"lobby","viewport":"360x800","horizontalOverflow":false,"result":"PASS"},
     {"case":"lobby","viewport":"800x360","horizontalOverflow":false,"result":"PASS"},
     {"case":"lobby","viewport":"1440x900","horizontalOverflow":false,"result":"PASS"},
-    {"case":"game-hub","viewport":"360x800","horizontalOverflow":false,"result":"PASS"},
-    {"case":"game-hub","viewport":"800x360","horizontalOverflow":false,"result":"PASS"},
-    {"case":"game-hub","viewport":"1440x900","horizontalOverflow":false,"result":"PASS"},
-    {"case":"game-shell","viewport":"360x800","horizontalOverflow":false,"result":"PASS"},
-    {"case":"game-shell","viewport":"800x360","horizontalOverflow":false,"primaryBoardInInitialViewport":true,"result":"PASS"}
+    {"case":"game-hub","viewport":"360x800","horizontalOverflow":false,"result":"SUPERSEDED_PRODUCT_HIERARCHY_REJECTED"},
+    {"case":"game-hub","viewport":"800x360","horizontalOverflow":false,"result":"SUPERSEDED_PRODUCT_HIERARCHY_REJECTED"},
+    {"case":"game-hub","viewport":"1440x900","horizontalOverflow":false,"result":"SUPERSEDED_HEADER_COMPOSITION_REJECTED"},
+    {"case":"game-shell","viewport":"360x800","horizontalOverflow":false,"result":"SUPERSEDED_HEADER_AND_TASK_PRIORITY_REJECTED"},
+    {"case":"game-shell","viewport":"800x360","horizontalOverflow":false,"primaryBoardInInitialViewport":false,"result":"SUPERSEDED_SETTINGS_DISPLACED_BOARD"}
   ],
   "forbiddenRegression": [
     "feature-page-min-item-width",
@@ -87,6 +95,14 @@
       ,"duplicate-board-score"
       ,"duplicate-lobby-destination"
       ,"game-mark-recognizability"
+      ,"approved-prose-was-not-converted-to-a-composition-map"
+      ,"machine-validation-was-misreported-as-product-design-conformance"
+      ,"single-destination-tab-strip"
+      ,"brand-and-sound-failed-rendered-proximity"
+      ,"header-brand-not-mathematically-centered"
+      ,"tic-tac-toe-sound-vocabulary-not-wired-to-game-events"
+      ,"desktop-settings-displaced-the-primary-game-surface"
+      ,"raw-server-error-reached-localized-ui"
     ],
     "newControls": [
       "quality-heuristics-beyond-geometry",
@@ -103,6 +119,15 @@
       ,"board-fluid-piece-containment"
       ,"single-lobby-entry-point"
       ,"cross-game-art-direction-concept-gate"
+      ,"pre-implementation-composition-gate"
+      ,"three-slot-header-track"
+      ,"two-peer-public-navigation"
+      ,"tic-tac-toe-real-event-sound-pilot"
+      ,"versioned-game-entry-sound-consent"
+      ,"equal-width-peer-navigation-with-divider"
+      ,"page-versus-location-current-semantics"
+      ,"direct-parent-navigation-in-page-header"
+      ,"first-view-primary-task-check"
     ],
     "acceptanceRule": "Re-run machine and rendered evaluation, then return to a new human visual gate without promoting Candidate components."
   },
@@ -121,6 +146,12 @@
     ,"duplicateTicTacToeScore": "REMOVED"
     ,"duplicateLobbyNavigation": "REMOVED_LOBBY_NAV_ITEM_BRAND_REMAINS_HOME"
     ,"gameArtDirection": "CONCEPT_GENERATED_HUMAN_SELECTION_PENDING"
+    ,"headerComposition": "HUMAN_APPROVED_THREE_SLOT_COMPOSITION"
+    ,"peerNavigation": "HUMAN_APPROVED_WITH_FULL_WIDTH_EQUAL_SEGMENTS_AND_SUBTLE_DIVIDER_IMPLEMENTED"
+    ,"hierarchyNavigation": "HUMAN_APPROVED_SECTION_CURRENT_PLUS_CONTEXTUAL_PARENT_RETURN_IMPLEMENTED"
+    ,"ticTacToeSound": "EXPLICIT_ENTRY_GATE_AND_EVENT_WIRING_IMPLEMENTED_HUMAN_LISTENING_PENDING"
+    ,"ticTacToeAudioMix": "HUMAN_SOUND_QUALITY_ACCEPTED_DUPLICATE_ROBOT_TRANSITION_CUES_CORRECTED_PENDING_RETEST"
+    ,"primaryTaskVisibility": "HUMAN_APPROVED_TIC_TAC_TOE_SETTINGS_COLLAPSED"
   },
   "learningDestination": "DESIGN_SYSTEM.md-and-executable-component-registry",
   "limitations": [

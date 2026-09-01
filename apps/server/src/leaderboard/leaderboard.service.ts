@@ -1,16 +1,21 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+
+const RANKED_GAMES = new Set(['tic-tac-toe', 'backgammon', 'chess', 'vegas']);
 
 export interface LeaderboardEntry {
   rank: number;
   id: string;
   username: string;
-  rating: number;
   wins: number;
   losses: number;
+  draws: number;
+  gamesPlayed: number;
+  winRate: number;
 }
 
 export interface LeaderboardPage {
+  game: string;
   items: LeaderboardEntry[];
   total: number;
   page: number;
@@ -18,76 +23,100 @@ export interface LeaderboardPage {
   totalPages: number;
 }
 
-/**
- * Global rankings.
- *
- * The ladder is ordered by ELO `rating` (desc), then `wins` (desc), then
- * account age (asc) so ties resolve deterministically. The same ordering is
- * used for `getPlayerRank`, so ranks stay consistent with the list view.
- */
+interface PlayerStats {
+  wins: number;
+  losses: number;
+  draws: number;
+  gamesPlayed: number;
+}
+
+function parsePlayers(raw: string): string[] {
+  try {
+    const value = JSON.parse(raw);
+    return Array.isArray(value) ? [...new Set(value.map(String))] : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Per-game Alpha rankings derived from authoritative completed-match history. */
 @Injectable()
 export class LeaderboardService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Fetch a page of the global leaderboard.
-   *
-   * @param page     1-based page number (clamped to >= 1)
-   * @param pageSize items per page (clamped to 1..100, default 10)
-   */
-  async getTopPlayers(page = 1, pageSize = 10): Promise<LeaderboardPage> {
+  private validateGame(game: string): string {
+    if (!RANKED_GAMES.has(game)) throw new BadRequestException('بازی انتخاب‌شده معتبر نیست');
+    return game;
+  }
+
+  private async rankedEntries(game: string): Promise<LeaderboardEntry[]> {
+    const gameName = this.validateGame(game);
+    const history = await this.prisma.gameHistory.findMany({
+      where: { gameName },
+      select: { winnerId: true, players: true },
+    });
+
+    const stats = new Map<string, PlayerStats>();
+    for (const match of history) {
+      const players = parsePlayers(match.players);
+      for (const playerId of players) {
+        const current = stats.get(playerId) ?? { wins: 0, losses: 0, draws: 0, gamesPlayed: 0 };
+        current.gamesPlayed += 1;
+        if (!match.winnerId) current.draws += 1;
+        else if (match.winnerId === playerId) current.wins += 1;
+        else current.losses += 1;
+        stats.set(playerId, current);
+      }
+    }
+
+    const users = stats.size === 0
+      ? []
+      : await this.prisma.user.findMany({
+          where: { id: { in: [...stats.keys()] }, deactivated: false },
+          select: { id: true, username: true, createdAt: true },
+        });
+
+    const ranked = users.map((user) => {
+      const value = stats.get(user.id)!;
+      return {
+        rank: 0,
+        id: user.id,
+        username: user.username,
+        ...value,
+        winRate: value.gamesPlayed > 0 ? Math.round((value.wins / value.gamesPlayed) * 1000) / 10 : 0,
+        createdAt: user.createdAt,
+      };
+    });
+
+    ranked.sort((a, b) =>
+      b.wins - a.wins ||
+      b.winRate - a.winRate ||
+      b.gamesPlayed - a.gamesPlayed ||
+      a.createdAt.getTime() - b.createdAt.getTime() ||
+      a.username.localeCompare(b.username),
+    );
+
+    return ranked.map(({ createdAt: _createdAt, ...entry }, index) => ({ ...entry, rank: index + 1 }));
+  }
+
+  async getTopPlayers(game = 'tic-tac-toe', page = 1, pageSize = 10): Promise<LeaderboardPage> {
     const safePage = Math.max(1, Math.floor(page) || 1);
     const safeSize = Math.min(100, Math.max(1, Math.floor(pageSize) || 10));
-
-    const [users, total] = await Promise.all([
-      this.prisma.user.findMany({
-        orderBy: [{ rating: 'desc' }, { wins: 'desc' }, { createdAt: 'asc' }],
-        skip: (safePage - 1) * safeSize,
-        take: safeSize,
-        select: {
-          id: true,
-          username: true,
-          rating: true,
-          wins: true,
-          losses: true,
-        },
-      }),
-      this.prisma.user.count(),
-    ]);
-
-    const items: LeaderboardEntry[] = users.map((user, index) => ({
-      rank: (safePage - 1) * safeSize + index + 1,
-      ...user,
-    }));
+    const ranked = await this.rankedEntries(game);
+    const totalPages = Math.max(1, Math.ceil(ranked.length / safeSize));
+    const clampedPage = Math.min(safePage, totalPages);
 
     return {
-      items,
-      total,
-      page: safePage,
+      game,
+      items: ranked.slice((clampedPage - 1) * safeSize, clampedPage * safeSize),
+      total: ranked.length,
+      page: clampedPage,
       pageSize: safeSize,
-      totalPages: Math.max(1, Math.ceil(total / safeSize)),
+      totalPages,
     };
   }
 
-  /**
-   * Rank of a single player using the same ordering as `getTopPlayers`.
-   * Returns null when the user does not exist.
-   */
-  async getPlayerRank(userId: string): Promise<{ userId: string; rank: number; rating: number } | null> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return null;
-
-    // Players "ahead" of this one under (rating desc, wins desc, createdAt asc).
-    const ahead = await this.prisma.user.count({
-      where: {
-        OR: [
-          { rating: { gt: user.rating } },
-          { rating: user.rating, wins: { gt: user.wins } },
-          { rating: user.rating, wins: user.wins, createdAt: { lt: user.createdAt } },
-        ],
-      },
-    });
-
-    return { userId, rank: ahead + 1, rating: user.rating };
+  async getPlayerRank(userId: string, game = 'tic-tac-toe'): Promise<LeaderboardEntry | null> {
+    return (await this.rankedEntries(game)).find((entry) => entry.id === userId) ?? null;
   }
 }

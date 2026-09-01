@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   Alert,
   Box,
@@ -14,11 +14,11 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
-import { Play, Share2, Undo2, Users } from 'lucide-react';
+import { Link2Off, Play, Share2, Undo2, Users } from 'lucide-react';
 
 import { connectSocket, socket, rejoinRoom } from '@/lib/socket';
 import { fetchRoom } from '@/lib/rooms';
-import { localizedGameHubRoute } from '@/i18n/routing';
+import { localizedAppRoute, localizedGameHubRoute } from '@/i18n/routing';
 import { getMessages } from '@/i18n/messages';
 import { getGameShellMessages } from '@/i18n/game-shell';
 import { useAppLocale } from '@/hooks/useAppLocale';
@@ -29,20 +29,33 @@ import {
 } from '@/lib/game-catalog';
 
 import GameShell from '@/components/game/GameShell';
+import ParticipantStrip, { type RoomParticipant } from '@/components/game/ParticipantStrip';
 import TicTacToeBoard from '@/components/game/TicTacToeBoard';
 import BackgammonBoard from '@/components/game/BackgammonBoard';
 import ChessBoard from '@/components/game/ChessBoard';
 import ChessInfo from '@/components/game/ChessInfo';
 import VegasBoard from '@/components/game/VegasBoard';
 import StatusPill from '@/components/shared/StatusPill';
+import Modal from '@/components/shared/Modal';
+import EmptyState from '@/components/shared/EmptyState';
+import { soundService } from '@/lib/sound-service';
 import type { BackgammonMove } from '@bazigb/game-backgammon';
 import type { GameId } from '@bazigb/engine';
 
 type ChatMessage = { type: string; message: string; username?: string; ts: number };
+type SessionNoticeKind =
+  | 'player-reconnecting'
+  | 'player-reconnected'
+  | 'game-ended-by-creator'
+  | 'game-ended-by-player'
+  | 'game-ended-after-disconnect';
+
+type SessionNotice = { kind: SessionNoticeKind; participantId?: string };
 
 /** Room-based multiplayer page using the shared BaziGB realtime protocol. */
 export default function PlayPage() {
   const params = useParams<{ roomId: string }>();
+  const router = useRouter();
   const theme = useTheme();
   const locale = useAppLocale();
   const messages = getMessages(locale);
@@ -54,6 +67,7 @@ export default function PlayPage() {
     players: string[];
     gameType: GameId;
     maxRounds: number;
+    ownerId: string | null;
   } | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [state, setState] = useState<any>(null);
@@ -68,6 +82,10 @@ export default function PlayPage() {
   const [connected, setConnected] = useState(false);
   const [copied, setCopied] = useState(false);
   const [spectating, setSpectating] = useState(false);
+  const [participants, setParticipants] = useState<RoomParticipant[]>([]);
+  const [sessionNotice, setSessionNotice] = useState<SessionNotice | null>(null);
+  const [pendingExitHref, setPendingExitHref] = useState<string | null>(null);
+  const [roomLookupFailed, setRoomLookupFailed] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   const myId = socket.id ?? '';
@@ -87,18 +105,26 @@ export default function PlayPage() {
     const handlers: Record<string, (payload: any) => void> = {
       gameState: (nextState) => setState(nextState),
       roomUpdate: (nextRoom) => {
+        setRoomLookupFailed(false);
         setRoom({
           status: nextRoom.status,
           players: nextRoom.players,
           gameType: normalizeGameId(nextRoom.gameType),
           maxRounds: nextRoom.maxRounds,
+          ownerId: nextRoom.ownerId ?? null,
         });
         if (nextRoom.status === 'playing' && nextRoom.currentState) setState(nextRoom.currentState);
       },
       matchScore: ({ scores: nextScores }) => setScores(nextScores ?? {}),
-      gameOver: ({ winner, scores: nextScores }) => {
+      gameOver: ({ winner, scores: nextScores, reason }) => {
         setScores(nextScores ?? {});
         setState((previous: any) => previous ? { ...previous, phase: 'finished', winner } : previous);
+        if (!winner) soundService.play('draw');
+        else if (winner === socket.id) soundService.play('win');
+        else soundService.play('loss');
+        if (reason === 'creator-ended') setSessionNotice({ kind: 'game-ended-by-creator' });
+        if (reason === 'player-left') setSessionNotice({ kind: 'game-ended-by-player' });
+        if (reason === 'reconnect-timeout') setSessionNotice({ kind: 'game-ended-after-disconnect' });
       },
       systemMessage: (message) =>
         setChatMessages((previous) => [
@@ -114,8 +140,12 @@ export default function PlayPage() {
         setTurnInfo({ player, endsAt });
         setTurnWarned(false);
         setTurnExpired(false);
+        if (player === socket.id) soundService.play('your-turn');
       },
-      turnWarning: () => setTurnWarned(true),
+      turnWarning: ({ player }) => {
+        setTurnWarned(true);
+        if (player === socket.id) soundService.play('turn-warning');
+      },
       turnTimeout: () => {
         setTurnExpired(true);
         setTurnInfo(null);
@@ -128,6 +158,20 @@ export default function PlayPage() {
       },
       error: ({ message }) => setError(message),
       spectate: () => setSpectating(true),
+      presenceUpdate: ({ participants: nextParticipants }) => {
+        setParticipants(Array.isArray(nextParticipants) ? nextParticipants : []);
+      },
+      sessionNotice: (notice) => {
+        if (notice?.kind === 'game-started') soundService.play('game-start');
+        if (notice?.kind === 'player-reconnected') soundService.play('reconnected');
+        if (notice?.kind && notice.kind !== 'game-started') setSessionNotice(notice);
+      },
+      reaction: ({ username, reaction }) => {
+        setChatMessages((previous) => [
+          ...previous.slice(-49),
+          { type: 'reaction', message: reaction, username, ts: Date.now() },
+        ]);
+      },
     };
 
     Object.entries(handlers).forEach(([event, handler]) => socket.on(event, handler as never));
@@ -152,8 +196,9 @@ export default function PlayPage() {
         players: nextRoom.players,
         gameType: normalizeGameId(nextRoom.gameType),
         maxRounds: nextRoom.maxRounds,
+        ownerId: nextRoom.ownerId,
       }))
-      .catch(() => undefined);
+      .catch(() => setRoomLookupFailed(true));
 
     return () => {
       Object.entries(handlers).forEach(([event, handler]) => socket.off(event, handler as never));
@@ -188,11 +233,59 @@ export default function PlayPage() {
 
   const gameId = room?.gameType ?? 'tic-tac-toe';
   const gameCatalog = getGameCatalogEntry(gameId);
-  const isOwner = room?.players[0] === myId;
+  const isOwner = room?.ownerId === myId;
   const isSpectator = spectating || Boolean(room && room.players.length > 0 && myId && !room.players.includes(myId));
   const humanTurn = Boolean(state && state.phase === 'playing' && state.turn === myId && !isSpectator);
   const isFinished = Boolean(state && state.phase === 'finished');
   const isRoundEnd = gameId === 'backgammon' && state?.phase === 'roundEnd';
+  const gameHubHref = localizedGameHubRoute(locale, gameId);
+  const lobbyHref = localizedAppRoute(locale, 'lobby');
+  const activePlayerSession = Boolean(
+    room &&
+    room.status !== 'finished' &&
+    room.players.includes(myId) &&
+    !isSpectator,
+  );
+
+  const requestExit = useCallback((href: string) => {
+    if (!activePlayerSession) {
+      router.push(href);
+      return;
+    }
+    setPendingExitHref(href);
+  }, [activePlayerSession, router]);
+
+  useEffect(() => {
+    const handleHeaderExit = (event: Event) => {
+      const detail = (event as CustomEvent<{ href?: string }>).detail;
+      requestExit(detail?.href ?? lobbyHref);
+    };
+    window.addEventListener('bazigb:request-game-exit', handleHeaderExit);
+    return () => window.removeEventListener('bazigb:request-game-exit', handleHeaderExit);
+  }, [lobbyHref, requestExit]);
+
+  useEffect(() => {
+    if (!activePlayerSession) return;
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, [activePlayerSession]);
+
+  const confirmExit = () => {
+    const href = pendingExitHref;
+    setPendingExitHref(null);
+    socket.emit('leaveRoom', { roomCode });
+    if (href) router.push(href);
+  };
+
+  useEffect(() => {
+    if (sessionNotice?.kind !== 'player-reconnected') return;
+    const timer = window.setTimeout(() => setSessionNotice(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [sessionNotice]);
 
   const turnRemainingSec =
     turnInfo && state?.phase === 'playing' && state.turn === myId
@@ -260,6 +353,8 @@ export default function PlayPage() {
         sub: messages.multiplayer.matchScore(scoreA, scoreB),
         onRematch: () => socket.emit('nextRound', { room: roomCode }),
         actionLabel: shellMessages.nextGame,
+        secondaryHref: lobbyHref,
+        secondaryLabel: messages.multiplayer.backToLobby,
       }
     : isFinished
     ? {
@@ -270,6 +365,9 @@ export default function PlayPage() {
           : messages.gameShell.draw,
         sub: maxRounds > 1 ? messages.multiplayer.matchScore(scoreA, scoreB) : undefined,
         onRematch: () => socket.emit('newGame', { roomCode }),
+        actionLabel: gameId === 'tic-tac-toe' ? messages.multiplayer.playSameGame : undefined,
+        secondaryHref: lobbyHref,
+        secondaryLabel: messages.multiplayer.backToLobby,
       }
     : null;
 
@@ -282,12 +380,28 @@ export default function PlayPage() {
         ? `${turnRemainingSec}s`
         : null;
 
+  const noticeParticipant = sessionNotice?.participantId
+    ? participants.find((participant) => participant.id === sessionNotice.participantId)
+    : null;
+  const noticeText = sessionNotice?.kind === 'player-reconnecting'
+    ? messages.multiplayer.reconnectingPlayer(noticeParticipant?.name ?? messages.multiplayer.player)
+    : sessionNotice?.kind === 'player-reconnected'
+      ? messages.multiplayer.playerReconnected(noticeParticipant?.name ?? messages.multiplayer.player)
+      : sessionNotice?.kind === 'game-ended-by-creator'
+        ? messages.multiplayer.endedByCreator
+        : sessionNotice?.kind === 'game-ended-by-player'
+          ? messages.multiplayer.endedByPlayer
+          : sessionNotice?.kind === 'game-ended-after-disconnect'
+            ? messages.multiplayer.endedAfterDisconnect
+            : null;
+
   return (
     <GameShell
       title={getGameTitle(gameId, locale) || messages.multiplayer.gameFallback}
       surfaceRatio={getGameCatalogEntry(gameId).surfaceRatio}
       backHref={localizedGameHubRoute(locale, gameId)}
       backLabel={messages.common.back}
+      onBack={() => requestExit(gameHubHref)}
       connStatus={connected ? 'connected' : 'reconnecting'}
       roomCode={roomCode}
       onCopyRoom={handleCopy}
@@ -308,6 +422,37 @@ export default function PlayPage() {
       winner={winner}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0 }}>
+        {roomLookupFailed && !room && (
+          <EmptyState
+            icon={<Link2Off size={26} />}
+            title={locale === 'fa' ? 'این اتاق پیدا نشد یا منقضی شده است' : 'This room was not found or has expired'}
+            description={locale === 'fa' ? 'کد دعوت را بررسی کنید یا از صفحهٔ بازی یک اتاق تازه بسازید.' : 'Check the invite code or create a fresh room from the game page.'}
+            actionLabel={locale === 'fa' ? 'بازگشت به صفحهٔ بازی' : 'Back to game page'}
+            onAction={() => router.push(gameHubHref)}
+          />
+        )}
+        {participants.length > 0 && (
+          <ParticipantStrip
+            participants={participants}
+            currentTurnId={state?.turn ?? null}
+            myId={myId}
+            labels={{
+              title: messages.multiplayer.participants,
+              you: messages.multiplayer.you,
+              creator: messages.multiplayer.creator,
+              player: messages.multiplayer.player,
+              spectator: messages.multiplayer.spectator,
+              reconnecting: messages.multiplayer.reconnectingPlayer,
+              reconnectingShort: locale === 'fa' ? 'در حال بازگشت' : 'Reconnecting',
+            }}
+          />
+        )}
+
+        {noticeText && (
+          <Alert severity={sessionNotice?.kind === 'player-reconnected' ? 'success' : sessionNotice?.kind === 'player-reconnecting' ? 'warning' : 'info'} sx={{ width: '100%', maxWidth: 680, mx: 'auto' }}>
+            {noticeText}
+          </Alert>
+        )}
         {!waiting && !isSpectator && state && state.phase === 'playing' && (
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
             <Button
@@ -399,7 +544,7 @@ export default function PlayPage() {
           </Box>
         )}
 
-        <Paper
+        {!roomLookupFailed && <Paper
           elevation={0}
           sx={{
             width: '100%',
@@ -464,7 +609,20 @@ export default function PlayPage() {
               {messages.multiplayer.send}
             </Button>
           </Box>
-        </Paper>
+          <Box role="group" aria-label={messages.multiplayer.reactions} sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, px: 2, pb: 1.5 }}>
+            {(['👏', '🔥', '😂', '❤️'] as const).map((reaction) => (
+              <Button
+                key={reaction}
+                size="small"
+                aria-label={`${messages.multiplayer.reactions}: ${reaction}`}
+                onClick={() => socket.emit('reaction', { room: roomCode, reaction })}
+                sx={{ minWidth: 40, fontSize: '1.1rem' }}
+              >
+                {reaction}
+              </Button>
+            ))}
+          </Box>
+        </Paper>}
       </Box>
 
       <Snackbar open={Boolean(error)} autoHideDuration={4000} onClose={() => setError(null)}>
@@ -472,6 +630,16 @@ export default function PlayPage() {
           {error}
         </Alert>
       </Snackbar>
+      <Modal
+        open={Boolean(pendingExitHref)}
+        title={messages.multiplayer.exitTitle}
+        onClose={() => setPendingExitHref(null)}
+        closeLabel={messages.multiplayer.stayInGame}
+        confirmLabel={messages.multiplayer.confirmExit}
+        onConfirm={confirmExit}
+      >
+        {isOwner ? messages.multiplayer.exitCreatorBody : messages.multiplayer.exitPlayerBody}
+      </Modal>
     </GameShell>
   );
 }

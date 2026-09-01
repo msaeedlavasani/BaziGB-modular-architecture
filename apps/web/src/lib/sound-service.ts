@@ -11,14 +11,25 @@
  * silent because of a broken asset.
  */
 
-export type SoundName = 'move' | 'capture' | 'dice';
+export type SoundName =
+  | 'move'
+  | 'capture'
+  | 'dice'
+  | 'game-start'
+  | 'your-turn'
+  | 'turn-warning'
+  | 'win'
+  | 'loss'
+  | 'draw'
+  | 'reconnected';
 
 export interface SoundSettingsState {
   muted: boolean;
   volume: number;
+  consent: 'unknown' | 'enabled' | 'silent';
 }
 
-const SOUND_SOURCES: Record<SoundName, string> = {
+const SOUND_SOURCES: Partial<Record<SoundName, string>> = {
   move: '/assets/sounds/move.mp3',
   capture: '/assets/sounds/capture.mp3',
   dice: '/assets/sounds/dice.mp3',
@@ -26,6 +37,9 @@ const SOUND_SOURCES: Record<SoundName, string> = {
 
 const STORAGE_MUTED_KEY = 'bazigb:sound:muted';
 const STORAGE_VOLUME_KEY = 'bazigb:sound:volume';
+const STORAGE_CONSENT_KEY = 'bazigb:sound:consent';
+const STORAGE_CONSENT_VERSION_KEY = 'bazigb:sound:consent-version';
+const SOUND_CONSENT_VERSION = 'game-entry-v1';
 
 const DEFAULT_VOLUME = 0.6;
 
@@ -55,11 +69,13 @@ class SoundService {
   private audios = new Map<SoundName, HTMLAudioElement>();
   private failed = new Set<SoundName>();
   private listeners = new Set<Listener>();
-  private state: SoundSettingsState = { muted: false, volume: DEFAULT_VOLUME };
+  private state: SoundSettingsState = { muted: true, volume: DEFAULT_VOLUME, consent: 'unknown' };
   private synthCtx: AudioContext | null = null;
 
   constructor() {
-    this.state.muted = readStorage(STORAGE_MUTED_KEY) === '1';
+    const storedConsent = readStorage(STORAGE_CONSENT_KEY);
+    this.state.consent = storedConsent === 'enabled' || storedConsent === 'silent' ? storedConsent : 'unknown';
+    this.state.muted = this.state.consent !== 'enabled' || readStorage(STORAGE_MUTED_KEY) === '1';
     const storedVolume = Number(readStorage(STORAGE_VOLUME_KEY));
     if (Number.isFinite(storedVolume) && storedVolume > 0) {
       this.state.volume = clamp(storedVolume, 0.05, 1);
@@ -73,12 +89,14 @@ class SoundService {
   /** Lazily create (and remember) the Audio element for a sound. */
   private getAudio(name: SoundName): HTMLAudioElement | null {
     if (typeof window === 'undefined') return null;
+    const source = SOUND_SOURCES[name];
+    if (!source) return null;
     const existing = this.audios.get(name);
     if (existing) return existing;
 
     let audio: HTMLAudioElement;
     try {
-      audio = new Audio(SOUND_SOURCES[name]);
+      audio = new Audio(source);
     } catch {
       this.failed.add(name);
       return null;
@@ -115,7 +133,7 @@ class SoundService {
 
   /** Play an effect. Falls back to the synth when the asset is unusable. */
   play(name: SoundName): void {
-    if (this.state.muted) return;
+    if (this.state.muted || this.state.consent !== 'enabled' || !this.hasSoundChoice()) return;
 
     const audio = this.failed.has(name) ? null : this.getAudio(name);
     if (!audio) {
@@ -143,7 +161,15 @@ class SoundService {
   /* ------------------------------------------------------------------ */
 
   setMuted(muted: boolean): void {
-    this.state.muted = muted;
+    let consent = this.state.consent;
+    if (consent === 'unknown') {
+      consent = muted ? 'silent' : 'enabled';
+      writeStorage(STORAGE_CONSENT_KEY, consent);
+    } else if (!muted && consent === 'silent') {
+      consent = 'enabled';
+      writeStorage(STORAGE_CONSENT_KEY, consent);
+    }
+    this.state = { ...this.state, muted, consent };
     this.audios.forEach((audio) => {
       audio.muted = muted;
     });
@@ -160,8 +186,21 @@ class SoundService {
     return this.state.muted;
   }
 
+  hasSoundChoice(): boolean {
+    return this.state.consent !== 'unknown'
+      && readStorage(STORAGE_CONSENT_VERSION_KEY) === SOUND_CONSENT_VERSION;
+  }
+
+  chooseSound(enabled: boolean): void {
+    const consent = enabled ? 'enabled' : 'silent';
+    this.state = { ...this.state, consent };
+    writeStorage(STORAGE_CONSENT_KEY, consent);
+    writeStorage(STORAGE_CONSENT_VERSION_KEY, SOUND_CONSENT_VERSION);
+    this.setMuted(!enabled);
+  }
+
   setVolume(volume: number): void {
-    this.state.volume = clamp(volume, 0, 1);
+    this.state = { ...this.state, volume: clamp(volume, 0, 1) };
     this.audios.forEach((audio) => {
       audio.volume = this.state.volume;
     });
@@ -228,6 +267,36 @@ class SoundService {
           [0, 0.09, 0.18, 0.27].forEach((delay) => {
             this.noiseBurst(ctx, now + delay, 0.045, level * 0.5);
           });
+          break;
+        case 'game-start':
+          this.tone(ctx, now, 523.25, 0.08, level, 'sine');
+          this.tone(ctx, now + 0.08, 659.25, 0.08, level, 'sine');
+          this.tone(ctx, now + 0.16, 783.99, 0.12, level, 'sine');
+          break;
+        case 'your-turn':
+          this.tone(ctx, now, 659.25, 0.07, level * 0.8, 'sine');
+          this.tone(ctx, now + 0.08, 880, 0.1, level, 'sine');
+          break;
+        case 'turn-warning':
+          this.tone(ctx, now, 440, 0.08, level * 0.8, 'triangle');
+          this.tone(ctx, now + 0.16, 440, 0.08, level * 0.8, 'triangle');
+          break;
+        case 'win':
+          this.tone(ctx, now, 523.25, 0.09, level, 'sine');
+          this.tone(ctx, now + 0.09, 659.25, 0.09, level, 'sine');
+          this.tone(ctx, now + 0.18, 1046.5, 0.18, level, 'sine');
+          break;
+        case 'loss':
+          this.tone(ctx, now, 392, 0.12, level * 0.75, 'triangle');
+          this.tone(ctx, now + 0.12, 293.66, 0.18, level * 0.7, 'triangle');
+          break;
+        case 'draw':
+          this.tone(ctx, now, 440, 0.09, level * 0.7, 'sine');
+          this.tone(ctx, now + 0.1, 440, 0.12, level * 0.55, 'triangle');
+          break;
+        case 'reconnected':
+          this.tone(ctx, now, 587.33, 0.07, level * 0.7, 'sine');
+          this.tone(ctx, now + 0.08, 783.99, 0.1, level * 0.8, 'sine');
           break;
       }
     } catch {

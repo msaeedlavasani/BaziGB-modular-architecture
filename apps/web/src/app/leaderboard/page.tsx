@@ -23,6 +23,7 @@ import EmptyState from '@/components/shared/EmptyState';
 import PageContainer from '@/components/layout/PageContainer';
 import PageHeader from '@/components/layout/PageHeader';
 import PageStack from '@/components/layout/PageStack';
+import { getGameTitle } from '@/lib/game-catalog';
 
 const RANK_META: Record<number, { ring: string; badge: string; color: string }> = {
   1: { ring: '#fbbf2499', badge: '#EAB308', color: '#EAB308' },
@@ -37,6 +38,8 @@ const MEDAL_ICON: Record<number, React.ReactNode> = {
 };
 
 const PAGE_SIZE = 10;
+const GAME_IDS = ['tic-tac-toe', 'backgammon', 'chess', 'vegas'] as const;
+type RankedGame = (typeof GAME_IDS)[number];
 
 function WinRateBar({ value }: { value: number }) {
   return (
@@ -96,6 +99,8 @@ export default function LeaderboardPage() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [demo, setDemo] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<RankedGame>('tic-tac-toe');
+  const selectedGameTitle = getGameTitle(selectedGame, locale);
 
   const rankLabel = (rank: number): string => {
     if (rank === 1) return messages.gold;
@@ -107,7 +112,7 @@ export default function LeaderboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchLeaderboard(requestedPage, PAGE_SIZE);
+      const data = await fetchLeaderboard(selectedGame, requestedPage, PAGE_SIZE);
       setEntries(data.items);
       setPage(data.page);
       setTotal(data.total);
@@ -118,7 +123,7 @@ export default function LeaderboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [messages.loadError]);
+  }, [messages.loadError, selectedGame]);
 
   useEffect(() => {
     void load(1);
@@ -133,9 +138,23 @@ export default function LeaderboardPage() {
         <PageStack>
           <PageHeader
             title={messages.title}
-            description={messages.subtitle}
+            description={messages.subtitle(selectedGameTitle)}
             identity={<Trophy size={32} aria-hidden="true" />}
           />
+          <Box component="nav" aria-label={messages.chooseGame} sx={{ display: 'flex', justifyContent: 'center', gap: 1, flexWrap: 'wrap' }}>
+            {GAME_IDS.map((gameId) => (
+              <Button
+                key={gameId}
+                size="small"
+                variant={selectedGame === gameId ? 'contained' : 'outlined'}
+                aria-current={selectedGame === gameId ? 'page' : undefined}
+                onClick={() => setSelectedGame(gameId)}
+                sx={{ fontWeight: 800 }}
+              >
+                {getGameTitle(gameId, locale)}
+              </Button>
+            ))}
+          </Box>
           <Button
             variant="outlined"
             onClick={() => void load(page)}
@@ -253,7 +272,7 @@ export default function LeaderboardPage() {
                       variant="h5"
                       sx={{ fontWeight: 800, color: '#fcd34d', mt: 1.5, fontSize: isFirst ? '1.5rem' : '1.25rem' }}
                     >
-                      {entry.rating}
+                      {entry.wins}
                     </Typography>
                     <Typography
                       variant="caption"
@@ -265,7 +284,7 @@ export default function LeaderboardPage() {
                         fontSize: '10px',
                       }}
                     >
-                      {messages.rating}
+                      {messages.rankingMetric}
                     </Typography>
                   </Box>
                 </Paper>
@@ -288,7 +307,7 @@ export default function LeaderboardPage() {
           {loading ? (
             <SkeletonRows />
           ) : error && entries.length === 0 ? null : entries.length === 0 ? (
-            <EmptyState icon={<Trophy size={28} />} title={messages.noPlayers} description={messages.emptyDescription} />
+            <EmptyState icon={<Trophy size={28} />} title={messages.noPlayers} description={messages.emptyDescription(selectedGameTitle)} />
           ) : (
             <Stack spacing={1}>
               {entries.map((entry) => {
@@ -389,7 +408,7 @@ export default function LeaderboardPage() {
 
                     <Box sx={{ textAlign: 'end', flexShrink: 0 }}>
                       <Typography variant="h6" sx={{ fontWeight: 800, color: '#F5A306', lineHeight: 1 }}>
-                        {entry.rating}
+                        {entry.winRate}%
                       </Typography>
                       <Typography
                         variant="caption"
@@ -400,7 +419,7 @@ export default function LeaderboardPage() {
                           fontSize: '10px',
                         }}
                       >
-                        {messages.rating}
+                        {messages.winRateLabel}
                       </Typography>
                     </Box>
                   </Paper>

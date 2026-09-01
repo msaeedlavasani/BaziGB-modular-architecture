@@ -20,6 +20,8 @@ import {
   chatSchema,
   gameActionSchema,
   joinRoomSchema,
+  leaveRoomSchema,
+  reactionSchema,
   makeMoveSchema,
   nextRoundSchema,
   undoSchema,
@@ -43,7 +45,18 @@ const MAX_CHAT_LENGTH = 500;
 const TURN_MS = 120_000;
 const TURN_WARN_MS = 10_000;
 const SEAT_CLAIM_TTL = 10 * 60 * 1000;
+const TIC_TAC_TOE_RECONNECT_GRACE_MS = 60_000;
 const UNDO_DEPTH = 20;
+
+type PresenceRole = 'creator' | 'player' | 'spectator';
+type PresenceConnection = 'connected' | 'reconnecting';
+
+interface PresenceParticipant {
+  id: string;
+  name: string;
+  role: PresenceRole;
+  connection: PresenceConnection;
+}
 
 @WebSocketGateway({ cors: { origin: true, credentials: true } })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -61,6 +74,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly undoStacks = new Map<string, { state: GameState; actorId: string }[]>();
   private readonly turnTimers = new Map<string, NodeJS.Timeout>();
   private readonly turnWarnTimers = new Map<string, NodeJS.Timeout>();
+  private readonly socketRooms = new Map<string, Set<string>>();
+  private readonly roomSpectators = new Map<string, Set<string>>();
+  private readonly reconnectTimers = new Map<string, NodeJS.Timeout>();
 
   constructor(
     private readonly roomService: RoomService,
@@ -115,6 +131,94 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       username,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  private rememberRoom(socketId: string, roomCode: string) {
+    const rooms = this.socketRooms.get(socketId) ?? new Set<string>();
+    rooms.add(roomCode);
+    this.socketRooms.set(socketId, rooms);
+  }
+
+  private forgetRoom(socketId: string, roomCode: string) {
+    const rooms = this.socketRooms.get(socketId);
+    rooms?.delete(roomCode);
+    if (rooms?.size === 0) this.socketRooms.delete(socketId);
+    this.roomSpectators.get(roomCode)?.delete(socketId);
+  }
+
+  private participantName(socketId: string, fallback: string): string {
+    return this.socketUsernames.get(socketId) ?? fallback;
+  }
+
+  private async emitPresence(roomCode: string, room?: RoomWithParsedData | null) {
+    const currentRoom = room ?? await this.roomService.getRoom(roomCode);
+    if (!currentRoom) return;
+    const connectedIds = new Set(this.server.sockets.adapter.rooms.get(roomCode) ?? []);
+    const players: PresenceParticipant[] = currentRoom.players.map((id, index) => ({
+      id,
+      name: this.participantName(id, `بازیکن ${index + 1}`),
+      role: currentRoom.ownerId === id ? 'creator' : 'player',
+      connection: connectedIds.has(id) ? 'connected' : 'reconnecting',
+    }));
+    const spectators: PresenceParticipant[] = [...(this.roomSpectators.get(roomCode) ?? [])]
+      .filter((id) => connectedIds.has(id))
+      .map((id, index) => ({
+        id,
+        name: this.participantName(id, `تماشاچی ${index + 1}`),
+        role: 'spectator',
+        connection: 'connected',
+      }));
+    this.server.to(roomCode).emit('presenceUpdate', { room: roomCode, participants: [...players, ...spectators] });
+  }
+
+  private clearReconnectTimer(roomCode: string, socketId: string) {
+    const key = `${roomCode}:${socketId}`;
+    const timer = this.reconnectTimers.get(key);
+    if (timer) clearTimeout(timer);
+    this.reconnectTimers.delete(key);
+  }
+
+  private scheduleTicTacToeDisconnect(room: RoomWithParsedData, socketId: string) {
+    this.clearReconnectTimer(room.code, socketId);
+    const reconnectBy = Date.now() + TIC_TAC_TOE_RECONNECT_GRACE_MS;
+    this.server.to(room.code).emit('sessionNotice', {
+      kind: 'player-reconnecting',
+      participantId: socketId,
+      reconnectBy,
+    });
+    this.reconnectTimers.set(
+      `${room.code}:${socketId}`,
+      setTimeout(() => void this.finishDisconnectedTicTacToe(room.code, socketId), TIC_TAC_TOE_RECONNECT_GRACE_MS),
+    );
+  }
+
+  private async finishDisconnectedTicTacToe(roomCode: string, socketId: string) {
+    this.reconnectTimers.delete(`${roomCode}:${socketId}`);
+    const room = await this.roomService.getRoom(roomCode);
+    if (!room || room.status !== 'playing' || room.gameType !== 'tic-tac-toe' || !room.players.includes(socketId)) return;
+    const winner = room.players.find((id) => id !== socketId) ?? null;
+    const finalState = {
+      ...(room.currentState ?? {}),
+      phase: 'finished',
+      winner,
+    } as GameState;
+    const finished = await this.roomService.finishRoom(roomCode, winner, finalState);
+    this.clearTurnTimers(roomCode);
+    this.server.to(roomCode).emit('gameState', finalState);
+    this.server.to(roomCode).emit('gameOver', {
+      room: roomCode,
+      winner,
+      scores: room.scores,
+      state: finalState,
+      reason: 'reconnect-timeout',
+    });
+    this.server.to(roomCode).emit('roomUpdate', finished);
+    this.server.to(roomCode).emit('sessionNotice', {
+      kind: 'game-ended-after-disconnect',
+      participantId: socketId,
+      winner,
+    });
+    await this.emitPresence(roomCode, finished);
   }
 
   private scheduleTurnTimer(roomCode: string, state: GameState | null) {
@@ -172,23 +276,35 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private async handleDisconnectInternal(client: Socket) {
     const userId = this.socketUsers.get(client.id);
-    // تمام اتاقهایی که این سوکت در آن نشسته بود
-    for (const roomCode of client.rooms) {
+    const rooms = this.socketRooms.get(client.id) ?? client.rooms;
+    // Socket.IO may clear client.rooms before this callback; socketRooms keeps
+    // the session context long enough to inform the other participants.
+    for (const roomCode of rooms) {
       if (roomCode === client.id) continue;
       const room = await this.roomService.getRoom(roomCode);
       if (!room) continue;
       if (room.players.includes(client.id) && room.status !== 'finished') {
-        await this.roomService.removePlayer(roomCode, client.id);
         const seatKey = this.seatKeys.get(`${roomCode}:${client.id}`)?.value;
         const entry = { value: userId ?? null, at: Date.now(), socketId: client.id, seatKey };
         // کلیدهای مختلف برای بازپسگیری: با socket قدیمی، با userId، با seatKey
         this.vacatedUsers.set(`${roomCode}:${client.id}`, entry);
         if (userId) this.vacatedUsers.set(`${roomCode}:user:${userId}`, entry);
         if (seatKey) this.vacatedUsers.set(`${roomCode}:key:${seatKey}`, entry);
-        this.server.to(roomCode).emit('roomUpdate', room);
-        this.emitSystemMessage(roomCode, 'یک بازیکن از اتاق خارج شد', userId, 'info', this.socketUsernames.get(client.id));
+
+        if (room.gameType === 'tic-tac-toe' && room.status === 'playing') {
+          this.scheduleTicTacToeDisconnect(room, client.id);
+          this.emitSystemMessage(roomCode, 'اتصال یکی از بازیکنان قطع شده؛ برای بازگشت او کمی صبر می‌کنیم', userId, 'info', this.socketUsernames.get(client.id));
+        } else {
+          const updated = await this.roomService.removePlayer(roomCode, client.id);
+          this.server.to(roomCode).emit('roomUpdate', updated);
+          this.emitSystemMessage(roomCode, 'یک بازیکن از اتاق خارج شد', userId, 'info', this.socketUsernames.get(client.id));
+        }
+        await this.emitPresence(roomCode);
       }
+      this.roomSpectators.get(roomCode)?.delete(client.id);
+      await this.emitPresence(roomCode);
     }
+    this.socketRooms.delete(client.id);
     this.socketUsers.delete(client.id);
     this.socketUsernames.delete(client.id);
   }
@@ -304,15 +420,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     try {
       let room = await this.roomService.getRoom(roomCode);
-      const connectedIds = new Set(this.server.sockets.adapter.rooms.get(roomCode) ?? []);
 
       // ۱) ساخت اتاق اگر وجود ندارد (اولین عضو مینشیند)
       if (!room) {
         room = await this.roomService.joinRoom(roomCode, client.id, gameType, maxRounds);
         this.issueSeatKey(client, roomCode);
         await client.join(roomCode);
+        this.rememberRoom(client.id, roomCode);
         this.server.to(roomCode).emit('roomUpdate', room);
         this.emitSystemMessage(roomCode, 'اتاق ساخته شد', this.socketUsers.get(client.id), 'info', this.socketUsernames.get(client.id));
+        await this.emitPresence(roomCode, room);
         return;
       }
 
@@ -353,11 +470,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
             this.scheduleTurnTimer(roomCode, swapped);
           }
           this.clearVacatedBySocket(oldSocketId);
+          this.clearReconnectTimer(roomCode, oldSocketId);
           this.issueSeatKey(client, roomCode);
           await client.join(roomCode);
+          this.rememberRoom(client.id, roomCode);
+          this.forgetRoom(oldSocketId, roomCode);
           const freshRoom = await this.roomService.getRoom(roomCode);
           this.server.to(roomCode).emit('roomUpdate', freshRoom);
+          this.server.to(roomCode).emit('sessionNotice', {
+            kind: 'player-reconnected',
+            participantId: client.id,
+          });
           this.emitSystemMessage(roomCode, 'بازیکن دوباره متصل شد', this.socketUsers.get(client.id), 'success', this.socketUsernames.get(client.id));
+          await this.emitPresence(roomCode, freshRoom);
           return;
         }
       }
@@ -368,27 +493,36 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         if (room.players.length >= maxPlayers) {
           // اتاق پر است → تماشاچی: فقط به اتاق میپیوندد، بازی را زنده میبیند
           await client.join(roomCode);
+          this.rememberRoom(client.id, roomCode);
+          const spectators = this.roomSpectators.get(roomCode) ?? new Set<string>();
+          spectators.add(client.id);
+          this.roomSpectators.set(roomCode, spectators);
           if (room.currentState) client.emit('gameState', room.currentState);
           client.emit('roomUpdate', room);
           client.emit('spectate', { room: roomCode });
           this.emitSystemMessage(roomCode, 'یک تماشاچی به بازی پیوست', this.socketUsers.get(client.id), 'info', this.socketUsernames.get(client.id));
+          await this.emitPresence(roomCode, room);
           return;
         }
         room = await this.roomService.joinRoom(roomCode, client.id);
         this.issueSeatKey(client, roomCode);
         await client.join(roomCode);
+        this.rememberRoom(client.id, roomCode);
         this.server.to(roomCode).emit('roomUpdate', room);
         this.emitSystemMessage(roomCode, 'یک بازیکن وارد اتاق شد', this.socketUsers.get(client.id), 'info', this.socketUsernames.get(client.id));
+        await this.emitPresence(roomCode, room);
         return;
       }
 
       // ۴) عضو موجود — فقط به اتاق ملحق شو
       await client.join(roomCode);
+      this.rememberRoom(client.id, roomCode);
       if (room.currentState) {
         client.emit('gameState', room.currentState);
         this.scheduleTurnTimer(roomCode, room.currentState);
       }
       this.server.to(roomCode).emit('roomUpdate', room);
+      await this.emitPresence(roomCode, room);
     } catch (error) {
       client.emit('error', { message: error instanceof Error ? error.message : 'خطا در پیوستن به اتاق' });
     }
@@ -401,14 +535,64 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!room) throw new BadRequestException('اتاق یافت نشد');
       // فقط بازیکنهای نشسته میتوانند بازی را شروع کنند (تماشاچی نه)
       if (!room.players.includes(client.id)) throw new BadRequestException('فقط بازیکنان میتوانند بازی را شروع کنند');
+      if (room.ownerId && room.ownerId !== client.id) throw new BadRequestException('فقط سازنده اتاق میتواند بازی را شروع کند');
+      if (room.players.length < 2) throw new BadRequestException('برای شروع بازی حداقل دو بازیکن لازم است');
       const state = this.initialState(room);
       const updated = await this.roomService.startGame(payload.roomCode, state, { resetScores: true });
       this.server.to(payload.roomCode).emit('gameState', state);
       this.server.to(payload.roomCode).emit('roomUpdate', updated);
+      this.server.to(payload.roomCode).emit('sessionNotice', { kind: 'game-started' });
       this.emitSystemMessage(payload.roomCode, 'بازی شروع شد');
       this.scheduleTurnTimer(payload.roomCode, state);
     } catch (error) {
       client.emit('error', { message: error instanceof Error ? error.message : 'خطا در شروع بازی' });
+    }
+  }
+
+  @SubscribeMessage('leaveRoom')
+  async handleLeaveRoom(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
+    const parsed = leaveRoomSchema.safeParse(payload);
+    if (!parsed.success) return;
+    const roomCode = parsed.data.roomCode;
+    try {
+      const room = await this.roomService.getRoom(roomCode);
+      if (!room) return;
+      const seated = room.players.includes(client.id);
+
+      if (seated && room.gameType === 'tic-tac-toe' && room.status === 'playing') {
+        const winner = room.players.find((id) => id !== client.id) ?? null;
+        const finalState = {
+          ...(room.currentState ?? {}),
+          phase: 'finished',
+          winner,
+        } as GameState;
+        const finished = await this.roomService.finishRoom(roomCode, winner, finalState);
+        this.clearTurnTimers(roomCode);
+        this.clearReconnectTimer(roomCode, client.id);
+        this.server.to(roomCode).emit('gameState', finalState);
+        this.server.to(roomCode).emit('gameOver', {
+          room: roomCode,
+          winner,
+          scores: room.scores,
+          state: finalState,
+          reason: room.ownerId === client.id ? 'creator-ended' : 'player-left',
+        });
+        this.server.to(roomCode).emit('roomUpdate', finished);
+        this.server.to(roomCode).emit('sessionNotice', {
+          kind: room.ownerId === client.id ? 'game-ended-by-creator' : 'game-ended-by-player',
+          participantId: client.id,
+          winner,
+        });
+      } else if (seated && room.status !== 'finished') {
+        const updated = await this.roomService.removePlayer(roomCode, client.id);
+        this.server.to(roomCode).emit('roomUpdate', updated);
+      }
+
+      this.forgetRoom(client.id, roomCode);
+      await client.leave(roomCode);
+      await this.emitPresence(roomCode);
+    } catch (error) {
+      client.emit('error', { message: error instanceof Error ? error.message : 'خروج از اتاق ممکن نشد' });
     }
   }
 
@@ -485,7 +669,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (matchWinner) {
       await this.roomService.finishRoom(room.code, matchWinner, finalState);
       this.undoStacks.delete(room.code);
-      const userIds = room.players.map((p) => this.socketUsers.get(p) ?? p);
       const finalRoom = await this.roomService.getRoom(room.code);
       this.server.to(room.code).emit('gameOver', {
         room: room.code,
@@ -498,14 +681,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.clearTurnTimers(room.code);
 
       // ثبت تاریخچه + آمار (فقط کاربران احراز هویت شده)
-      const authedPlayers = userIds.filter((id) => this.socketUsers.has(room.players[room.players.indexOf(id)]));
+      const authedPlayers = room.players
+        .map((socketId) => this.socketUsers.get(socketId))
+        .filter((userId): userId is string => Boolean(userId));
       const realWinner = this.socketUsers.get(matchWinner) ?? null;
-      if (authedPlayers.length >= 2 || (authedPlayers.length === 1 && realWinner)) {
+      if (authedPlayers.length >= 2) {
         await this.historyService.recordGameResult({
           roomCode: room.code,
           gameName: room.gameType,
           winnerId: realWinner,
-          players: userIds,
+          players: authedPlayers,
           finalState,
         });
       }
@@ -697,6 +882,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       userId: this.socketUsers.get(client.id),
       username: this.socketUsernames.get(client.id) ?? 'مهمان',
       message: trimmed,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  @SubscribeMessage('reaction')
+  handleReaction(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
+    const parsed = reactionSchema.safeParse(payload);
+    if (!parsed.success || !this.socketRooms.get(client.id)?.has(parsed.data.room)) return;
+    this.server.to(parsed.data.room).emit('reaction', {
+      participantId: client.id,
+      username: this.socketUsernames.get(client.id) ?? 'مهمان',
+      reaction: parsed.data.reaction,
       timestamp: new Date().toISOString(),
     });
   }

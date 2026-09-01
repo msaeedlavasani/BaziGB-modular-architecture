@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { Box, Container, Divider, Typography, alpha } from '@mui/material';
 import { honeyBronze } from '@/theme';
 import {
@@ -28,12 +29,15 @@ function localizeManagedHref(locale: Locale, href: string): string {
 
 /** Global BaziGB footer. Managed copy and shell labels are locale-aware. */
 export default function Footer({ locale = 'fa' }: FooterProps) {
+  const pathname = usePathname();
   const [footer, setFooter] = useState<FooterContent>(FOOTER_DEFAULTS_BY_LOCALE[locale]);
   const messages = getMessages(locale);
   const excludedShellHrefs = new Set(['/lobby', ...PRIVATE_ALPHA_HIDDEN_PATHS]);
   const managedLinks = (footer.links ?? []).filter(
     (link) => !excludedShellHrefs.has(stripLocale(link.href).pathname),
   );
+  const routePathname = stripLocale(pathname).pathname;
+  const footerRoutes = new Set(['/', '/lobby', '/rules', '/privacy', '/contact']);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,15 +50,18 @@ export default function Footer({ locale = 'fa' }: FooterProps) {
     };
   }, [locale]);
 
+  if (!footerRoutes.has(routePathname)) return null;
+
   return (
     <Box
       component="footer"
       sx={{
+        display: { xs: 'none', md: 'block' },
         mt: 'auto',
         borderTop: '1px solid',
         borderColor: 'divider',
         bgcolor: alpha(honeyBronze.secondary, 0.95),
-        py: 'clamp(1rem, 3dvb, 2rem)',
+        py: 'clamp(0.75rem, 2dvb, 1.25rem)',
       }}
     >
       <Container maxWidth="lg" sx={{ containerType: 'inline-size' }}>
@@ -64,7 +71,7 @@ export default function Footer({ locale = 'fa' }: FooterProps) {
             gridTemplateColumns: 'minmax(0, 1fr)',
             gridTemplateAreas: '"brand" "legal" "trust"',
             alignItems: 'center',
-            gap: 'clamp(1rem, 4vw, 2.5rem)',
+            gap: 'clamp(0.75rem, 3vw, 1.75rem)',
             direction: locale === 'fa' ? 'rtl' : 'ltr',
             '@container (min-width: 42rem)': {
               gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
@@ -81,13 +88,13 @@ export default function Footer({ locale = 'fa' }: FooterProps) {
               <Typography
                 component={Link}
                 href={localizedAppRoute(locale, 'lobby')}
-                sx={{ fontSize: '1.5rem', fontWeight: 900, color: 'primary.main', textDecoration: 'none' }}
+                sx={{ fontSize: '1.15rem', fontWeight: 900, color: 'primary.main', textDecoration: 'none' }}
               >
                 BaziGB
               </Typography>
-              <Image src="/brand/logo-icon.png" alt="Logo" width={32} height={32} style={{ borderRadius: 8 }} />
+              <Image src="/brand/logo-icon.png" alt="Logo" width={26} height={26} style={{ borderRadius: 7 }} />
             </Box>
-            <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
               {footer.tagline}
             </Typography>
           </Box>
@@ -98,7 +105,7 @@ export default function Footer({ locale = 'fa' }: FooterProps) {
                 key={`${link.label}-${link.href}`}
                 component={Link}
                 href={localizeManagedHref(locale, link.href)}
-                variant="subtitle2"
+                variant="caption"
                 sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}
               >
                 {link.label}
@@ -107,7 +114,7 @@ export default function Footer({ locale = 'fa' }: FooterProps) {
             <Typography
               component={Link}
               href={localizedAppRoute(locale, 'rules')}
-              variant="subtitle2"
+              variant="caption"
               sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}
             >
               {messages.footer.rules}
@@ -115,7 +122,7 @@ export default function Footer({ locale = 'fa' }: FooterProps) {
             <Typography
               component={Link}
               href={localizedAppRoute(locale, 'privacy')}
-              variant="subtitle2"
+              variant="caption"
               sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}
             >
               {messages.footer.privacy}
@@ -123,7 +130,7 @@ export default function Footer({ locale = 'fa' }: FooterProps) {
             <Typography
               component={Link}
               href={localizedAppRoute(locale, 'contact')}
-              variant="subtitle2"
+              variant="caption"
               sx={{ color: 'text.secondary', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}
             >
               {messages.footer.contact}

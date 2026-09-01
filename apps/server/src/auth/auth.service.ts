@@ -209,6 +209,32 @@ export class AuthService {
     return { ...safe, hasPassword: !!user.password };
   }
 
+  /**
+   * Remove direct account identifiers while retaining an anonymous row so
+   * completed match history remains internally consistent.
+   */
+  async deleteMe(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('کاربر یافت نشد');
+
+    await this.prisma.$transaction([
+      this.prisma.notification.deleteMany({ where: { userId } }),
+      ...(user.phone ? [this.prisma.otpCode.deleteMany({ where: { phone: user.phone } })] : []),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          email: null,
+          phone: null,
+          password: null,
+          username: `deleted_${userId}_${Date.now()}`,
+          deactivated: true,
+        },
+      }),
+    ]);
+
+    return { ok: true };
+  }
+
   async validateUser(payload: { sub: string }) {
     return this.prisma.user.findUnique({
       where: { id: payload.sub, deactivated: false },

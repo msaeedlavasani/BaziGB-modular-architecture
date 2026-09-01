@@ -9,7 +9,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Grid,
   IconButton,
   Paper,
   Skeleton,
@@ -29,10 +28,12 @@ import {
   ArrowRight,
   Edit2,
   Gamepad2,
-  Lock,
   LogOut,
+  Phone,
   RefreshCw,
+  ShieldCheck,
   Swords,
+  Trash2,
   TrendingUp,
   Trophy,
 } from 'lucide-react';
@@ -44,6 +45,7 @@ import { getGameTitle, isWebGameId } from '@/lib/game-catalog';
 import { api } from '@/lib/api';
 import { PRIVATE_ALPHA } from '@/lib/private-alpha';
 import EmptyState from '@/components/shared/EmptyState';
+import Modal from '@/components/shared/Modal';
 
 interface HistoryStats {
   gamesPlayed: number;
@@ -84,6 +86,11 @@ function parsePlayers(raw: string): string[] {
   } catch {
     return [];
   }
+}
+
+function maskPhone(phone: string | null | undefined): string {
+  if (!phone) return '—';
+  return `${phone.slice(0, 4)}•••${phone.slice(-4)}`;
 }
 
 function getResult(match: HistoryMatch, currentUserId: string): MatchResult {
@@ -181,12 +188,9 @@ export default function ProfilePage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const [pwCurrent, setPwCurrent] = useState('');
-  const [pwNew, setPwNew] = useState('');
-  const [pwConfirm, setPwConfirm] = useState('');
-  const [savingPw, setSavingPw] = useState(false);
-  const [pwError, setPwError] = useState<string | null>(null);
-  const [pwSuccess, setPwSuccess] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const formatGameName = (name: string): string => {
     if (!name) return messages.unknownGame;
@@ -264,38 +268,16 @@ export default function ProfilePage() {
     }
   };
 
-  const handleChangePassword = async () => {
-    setPwError(null);
-    setPwSuccess(false);
-
-    if (user?.hasPassword && !pwCurrent) {
-      setPwError(messages.currentPasswordRequired);
-      return;
-    }
-    if (pwNew.length < 8) {
-      setPwError(messages.newPasswordMin);
-      return;
-    }
-    if (pwNew !== pwConfirm) {
-      setPwError(messages.passwordMismatch);
-      return;
-    }
-
-    setSavingPw(true);
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    setDeleteError(null);
     try {
-      await api.patch('/auth/change-password', {
-        currentPassword: pwCurrent || undefined,
-        newPassword: pwNew,
-      });
-      setPwSuccess(true);
-      setPwCurrent('');
-      setPwNew('');
-      setPwConfirm('');
-      setTimeout(() => setPwSuccess(false), 3000);
+      await api.delete('/auth/me');
+      logout();
+      router.replace(localizedAppRoute(locale, 'lobby'));
     } catch (err: any) {
-      setPwError(err?.message || messages.passwordChangeError);
-    } finally {
-      setSavingPw(false);
+      setDeleteError(err?.message || messages.deleteAccountError);
+      setDeleting(false);
     }
   };
 
@@ -401,9 +383,11 @@ export default function ProfilePage() {
                     </IconButton>
                     {saveSuccess && <Chip size="small" label={messages.changed} color="success" />}
                   </Box>
-                  <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1, overflowWrap: 'anywhere' }}>
-                    {user.email || messages.noEmail}
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 1, color: 'text.secondary' }}>
+                    <Phone size={15} />
+                    <Typography variant="body2" dir="ltr">{maskPhone(user.phone)}</Typography>
+                    <Typography variant="caption">· {messages.otpOnly}</Typography>
+                  </Box>
                 </Box>
               )}
             </Box>
@@ -417,47 +401,39 @@ export default function ProfilePage() {
           <StatCard label={messages.winRate} value={winRate} icon={<TrendingUp size={22} />} color={theme.palette.warning.main} />
         </Box>
 
-        <Grid container spacing={{ xs: 4, md: 6 }}>
-          <Grid item xs={12} md={5}>
-            <Paper elevation={0} sx={{ p: { xs: 4, sm: 5 }, borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.45) }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-                <Lock size={20} color={theme.palette.primary.main} />
-                <Typography variant="h6" sx={{ fontWeight: 900 }}>{messages.changePassword}</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {user.hasPassword && (
-                  <TextField type="password" label={messages.currentPassword} value={pwCurrent} onChange={(event) => setPwCurrent(event.target.value)} />
-                )}
-                <TextField type="password" label={messages.newPassword} value={pwNew} onChange={(event) => setPwNew(event.target.value)} />
-                <TextField type="password" label={messages.confirmPassword} value={pwConfirm} onChange={(event) => setPwConfirm(event.target.value)} />
-                <Button variant="contained" onClick={() => void handleChangePassword()} disabled={savingPw} fullWidth>
-                  {savingPw ? <CircularProgress size={18} color="inherit" /> : messages.changePassword}
-                </Button>
-                {pwSuccess && <Alert severity="success">{messages.passwordChanged}</Alert>}
-                {pwError && <Alert severity="error">{pwError}</Alert>}
-              </Box>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12} md={7}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 900 }}>{messages.history}</Typography>
-              <IconButton onClick={() => void loadHistory()} disabled={loadingHistory} size="small" aria-label={messages.history}>
-                {loadingHistory ? <CircularProgress size={17} /> : <RefreshCw size={17} />}
-              </IconButton>
+        <Paper elevation={0} sx={{ mb: { xs: 5, sm: 7 }, p: { xs: 2.5, sm: 3 }, borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.38), display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+            <ShieldCheck size={20} color={theme.palette.primary.main} />
+            <Box>
+              <Typography sx={{ fontWeight: 800 }}>{messages.accountAccess}</Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>{messages.accountAccessDescription}</Typography>
             </Box>
+          </Box>
+          <Button color="error" variant="text" startIcon={<Trash2 size={17} />} onClick={() => setDeleteOpen(true)} sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }}>
+            {messages.deleteAccount}
+          </Button>
+        </Paper>
 
-            {error && (
-              <Alert severity="error" variant="outlined" sx={{ mb: 3 }} action={<Button color="inherit" size="small" onClick={() => void loadHistory()}>{messages.loading}</Button>}>
-                {error}
-              </Alert>
-            )}
+        <Box component="section">
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 900 }}>{messages.history}</Typography>
+            <IconButton onClick={() => void loadHistory()} disabled={loadingHistory} size="small" aria-label={messages.history}>
+              {loadingHistory ? <CircularProgress size={17} /> : <RefreshCw size={17} />}
+            </IconButton>
+          </Box>
 
-            {!loadingHistory && matches.length === 0 && !error ? (
-              <EmptyState compact icon={<Gamepad2 size={24} />} title={messages.noGames} />
-            ) : (
-              <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.25), overflowX: 'auto' }}>
-                <Table sx={{ minWidth: 620 }}>
+          {error && (
+            <Alert severity="error" variant="outlined" sx={{ mb: 3 }} action={<Button color="inherit" size="small" onClick={() => void loadHistory()}>{messages.loading}</Button>}>
+              {error}
+            </Alert>
+          )}
+
+          {!loadingHistory && matches.length === 0 && !error ? (
+            <EmptyState compact icon={<Gamepad2 size={24} />} title={messages.noGames} />
+          ) : (
+            <>
+              <TableContainer component={Paper} elevation={0} sx={{ display: { xs: 'none', sm: 'block' }, borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.25), overflowX: 'auto' }}>
+                <Table>
                   <TableHead>
                     <TableRow>
                       <TableCell>{messages.gameType}</TableCell>
@@ -491,9 +467,42 @@ export default function ProfilePage() {
                   </TableBody>
                 </Table>
               </TableContainer>
-            )}
-          </Grid>
-        </Grid>
+              <Box sx={{ display: { xs: 'flex', sm: 'none' }, flexDirection: 'column', gap: 1.5 }}>
+                {loadingHistory
+                  ? Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} variant="rounded" height={112} />)
+                  : matches.map((match) => {
+                      const result = getResult(match, user.id);
+                      const badge = resultBadge(result);
+                      const players = parsePlayers(match.players);
+                      const opponent = players.find((player) => player !== user.id) || messages.unknownOpponent;
+                      return (
+                        <Paper key={match.id} elevation={0} sx={{ p: 2, borderRadius: 3, bgcolor: alpha(theme.palette.background.paper, 0.35), border: '1px solid', borderColor: 'divider' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
+                            <Typography sx={{ fontWeight: 800 }}>{formatGameName(match.gameName)}</Typography>
+                            <Chip label={badge.label} color={badge.color} size="small" />
+                          </Box>
+                          <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>{messages.opponent}: {truncateId(opponent)}</Typography>
+                          <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.disabled' }}>{formatDate(match.createdAt)}</Typography>
+                        </Paper>
+                      );
+                    })}
+              </Box>
+            </>
+          )}
+        </Box>
+
+        <Modal
+          open={deleteOpen}
+          title={messages.deleteAccountTitle}
+          onClose={() => { setDeleteOpen(false); setDeleteError(null); }}
+          closeLabel={messages.cancel}
+          confirmLabel={messages.confirmDeleteAccount}
+          onConfirm={() => void handleDeleteAccount()}
+          confirmDisabled={deleting}
+        >
+          <Typography variant="body2">{messages.deleteAccountDescription}</Typography>
+          {deleteError && <Alert severity="error" sx={{ mt: 2 }}>{deleteError}</Alert>}
+        </Modal>
       </Box>
     </Box>
   );

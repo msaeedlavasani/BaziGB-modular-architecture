@@ -2,7 +2,8 @@ import type { Locale } from './config';
 
 export interface LeaderboardMessages {
   title: string;
-  subtitle: string;
+  subtitle: (game: string) => string;
+  chooseGame: string;
   refresh: string;
   searchPlaceholder: string;
   loadError: string;
@@ -10,11 +11,12 @@ export interface LeaderboardMessages {
   gold: string;
   silver: string;
   bronze: string;
-  rating: string;
+  rankingMetric: string;
+  winRateLabel: string;
   fullRankings: string;
   playerCount: (count: number) => string;
   noPlayers: string;
-  emptyDescription: string;
+  emptyDescription: (game: string) => string;
   previousPage: string;
   nextPage: string;
   page: (current: number, total: number) => string;
@@ -28,7 +30,8 @@ export interface LeaderboardMessages {
 const LEADERBOARD_MESSAGES: Record<Locale, LeaderboardMessages> = {
   fa: {
     title: 'رتبه‌بندی',
-    subtitle: 'رتبه‌بندی بازیکنان بر اساس امتیاز رقابتی.',
+    subtitle: (game) => `رتبه‌بندی بازیکنان ${game} بر اساس برد و نرخ موفقیت.`,
+    chooseGame: 'انتخاب بازی',
     refresh: 'به‌روزرسانی',
     searchPlaceholder: 'جستجوی بازیکن با نام کاربری…',
     loadError: 'دریافت رتبه‌بندی ممکن نشد.',
@@ -36,11 +39,12 @@ const LEADERBOARD_MESSAGES: Record<Locale, LeaderboardMessages> = {
     gold: 'طلا',
     silver: 'نقره',
     bronze: 'برنز',
-    rating: 'امتیاز',
+    rankingMetric: 'برد',
+    winRateLabel: 'نرخ برد',
     fullRankings: 'رتبه‌بندی کامل',
     playerCount: (count) => `${count} بازیکن`,
     noPlayers: 'هنوز بازیکنی در رتبه‌بندی نیست',
-    emptyDescription: 'با ثبت اولین بازی‌های آنلاین، رتبه‌بندی اینجا شکل می‌گیرد.',
+    emptyDescription: (game) => `با ثبت اولین بازی‌های آنلاین ${game}، رتبه‌بندی اینجا شکل می‌گیرد.`,
     previousPage: 'قبلی',
     nextPage: 'بعدی',
     page: (current, total) => `صفحهٔ ${current} از ${total}`,
@@ -52,7 +56,8 @@ const LEADERBOARD_MESSAGES: Record<Locale, LeaderboardMessages> = {
   },
   en: {
     title: 'Leaderboard',
-    subtitle: 'Players ranked by competitive rating.',
+    subtitle: (game) => `${game} players ranked by wins and success rate.`,
+    chooseGame: 'Choose game',
     refresh: 'Refresh',
     searchPlaceholder: 'Search players by username…',
     loadError: 'Could not load the leaderboard.',
@@ -60,11 +65,12 @@ const LEADERBOARD_MESSAGES: Record<Locale, LeaderboardMessages> = {
     gold: 'Gold',
     silver: 'Silver',
     bronze: 'Bronze',
-    rating: 'rating',
+    rankingMetric: 'wins',
+    winRateLabel: 'win rate',
     fullRankings: 'Full rankings',
     playerCount: (count) => `${count} ${count === 1 ? 'player' : 'players'}`,
     noPlayers: 'No players are ranked yet',
-    emptyDescription: 'The leaderboard will appear here once the first online games are recorded.',
+    emptyDescription: (game) => `The ${game} leaderboard will appear after the first online matches are recorded.`,
     previousPage: 'Previous',
     nextPage: 'Next',
     page: (current, total) => `Page ${current} of ${total}`,

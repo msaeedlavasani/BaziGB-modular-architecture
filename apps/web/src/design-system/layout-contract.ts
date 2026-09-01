@@ -21,6 +21,10 @@ export const layoutContract = {
   card: {
     padding: 'clamp(1rem, 4cqi, 1.5rem)',
   },
+  header: {
+    threeSlotTrack: 'minmax(0, 1fr) auto minmax(0, 1fr)',
+    publicNavigationTrack: 'repeat(2, minmax(0, 1fr))',
+  },
   game: {
     shellInlineGutter: 'clamp(1rem, 4vw, 2rem)',
     shellBlockPadding: 'clamp(0.75rem, 3dvb, 1.5rem)',

@@ -18,6 +18,32 @@ export interface RecordGameResultInput {
   finalState: unknown;
 }
 
+export interface StoredGameDataV1 {
+  schemaVersion: 1;
+  summary: {
+    gameName: string;
+    winnerId: string | null;
+    players: string[];
+    metrics: Record<string, never>;
+  };
+  finalState: unknown;
+}
+
+export function buildStoredGameData(data: RecordGameResultInput): StoredGameDataV1 {
+  return {
+    schemaVersion: 1,
+    summary: {
+      gameName: data.gameName,
+      winnerId: data.winnerId,
+      players: data.players,
+      // Game adapters can later add a reviewed, authoritative summary here;
+      // raw clicks, chat and presence are deliberately not retained.
+      metrics: {},
+    },
+    finalState: data.finalState ?? {},
+  };
+}
+
 /**
  * Persists finished matches into the GameHistory table and updates the
  * win/loss counters of the participating users.
@@ -85,7 +111,7 @@ export class HistoryService {
         winnerId: data.winnerId,
         gameName: data.gameName,
         players: JSON.stringify(data.players),
-        data: JSON.stringify(data.finalState ?? {}),
+        data: JSON.stringify(buildStoredGameData(data)),
       },
     });
 

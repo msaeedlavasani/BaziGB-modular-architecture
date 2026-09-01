@@ -33,6 +33,11 @@ describe('GameGateway Unit Tests', () => {
       },
     };
     server = {
+      sockets: {
+        adapter: {
+          rooms: new Map(),
+        },
+      },
       to: vi.fn().mockReturnValue({
         emit: vi.fn(),
       }),
@@ -237,6 +242,79 @@ describe('GameGateway Unit Tests', () => {
     expect(server.to().emit).toHaveBeenCalledWith('roundOver', expect.objectContaining({
       winner: 'p1',
       points: 2,
+    }));
+  });
+
+  it('9. keeps an active Tic-tac-toe seat during a temporary disconnect and announces reconnecting presence', async () => {
+    vi.useFakeTimers();
+    const room: any = {
+      code: 'TTT01',
+      gameType: 'tic-tac-toe',
+      status: 'playing',
+      players: ['p1', 'p2'],
+      ownerId: 'p1',
+      currentState: { phase: 'playing', turn: 'p1' },
+      scores: {},
+    };
+    roomService.getRoom.mockResolvedValue(room);
+    (gateway as any).socketRooms.set('p1', new Set([room.code]));
+    const client: any = { id: 'p1', rooms: new Set([room.code]) };
+
+    await (gateway as any).handleDisconnectInternal(client);
+
+    expect(roomService.removePlayer).not.toHaveBeenCalled();
+    expect(server.to().emit).toHaveBeenCalledWith('sessionNotice', expect.objectContaining({
+      kind: 'player-reconnecting',
+      participantId: 'p1',
+    }));
+    expect(server.to().emit).toHaveBeenCalledWith('presenceUpdate', expect.objectContaining({
+      participants: expect.arrayContaining([
+        expect.objectContaining({ id: 'p1', connection: 'reconnecting' }),
+      ]),
+    }));
+    (gateway as any).clearReconnectTimer(room.code, 'p1');
+    vi.useRealTimers();
+  });
+
+  it('10. explicit Tic-tac-toe leave ends the game and tells the remaining room', async () => {
+    const room: any = {
+      code: 'TTT02',
+      gameType: 'tic-tac-toe',
+      status: 'playing',
+      players: ['p1', 'p2'],
+      ownerId: 'p1',
+      currentState: { phase: 'playing', turn: 'p1' },
+      scores: {},
+    };
+    roomService.getRoom.mockResolvedValue(room);
+    roomService.finishRoom.mockResolvedValue({ ...room, status: 'finished' });
+    const client: any = { id: 'p1', emit: vi.fn(), leave: vi.fn() };
+
+    await gateway.handleLeaveRoom(client, { roomCode: room.code });
+
+    expect(roomService.finishRoom).toHaveBeenCalledWith(
+      room.code,
+      'p2',
+      expect.objectContaining({ phase: 'finished', winner: 'p2' }),
+    );
+    expect(server.to().emit).toHaveBeenCalledWith('sessionNotice', expect.objectContaining({
+      kind: 'game-ended-by-creator',
+    }));
+    expect(client.leave).toHaveBeenCalledWith(room.code);
+  });
+
+  it('11. attributes a quick reaction to a participant in the room', () => {
+    (gateway as any).socketRooms.set('p1', new Set(['ROOM1']));
+    (gateway as any).socketUsernames.set('p1', 'Alice');
+    const client: any = { id: 'p1' };
+
+    gateway.handleReaction(client, { room: 'ROOM1', reaction: '👏' });
+
+    expect(server.to).toHaveBeenCalledWith('ROOM1');
+    expect(server.to().emit).toHaveBeenCalledWith('reaction', expect.objectContaining({
+      participantId: 'p1',
+      username: 'Alice',
+      reaction: '👏',
     }));
   });
 });

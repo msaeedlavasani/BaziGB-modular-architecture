@@ -13,18 +13,20 @@ export class LeaderboardController {
 
   @Get()
   getTopPlayers(
+    @Query('game') game?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
     return this.leaderboardService.getTopPlayers(
+      game ?? 'tic-tac-toe',
       page ? parseInt(page, 10) : 1,
       pageSize ? parseInt(pageSize, 10) : 10,
     );
   }
 
   @Get(':userId')
-  async getPlayerRank(@Param('userId') userId: string) {
-    const rank = await this.leaderboardService.getPlayerRank(userId);
+  async getPlayerRank(@Param('userId') userId: string, @Query('game') game?: string) {
+    const rank = await this.leaderboardService.getPlayerRank(userId, game ?? 'tic-tac-toe');
     if (!rank) {
       throw new NotFoundException(`User "${userId}" not found`);
     }

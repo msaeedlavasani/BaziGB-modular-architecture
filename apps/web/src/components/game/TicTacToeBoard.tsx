@@ -1,9 +1,11 @@
 'use client';
+import { useEffect, useRef } from 'react';
 import Box from '@mui/material/Box';
 import { alpha, useTheme } from '@mui/material/styles';
 import type { TTTMove, TTTState } from '@bazigb/game-tic-tac-toe';
 import { useAppLocale } from '@/hooks/useAppLocale';
 import { getMessages } from '@/i18n/messages';
+import { soundService } from '@/lib/sound-service';
 
 interface Props {
   state: TTTState;
@@ -16,6 +18,15 @@ export default function TicTacToeBoard({ state, onMove, disabled }: Props) {
   const theme = useTheme();
   const locale = useAppLocale();
   const messages = getMessages(locale);
+  const markCount = state.board.filter(Boolean).length;
+  const previousMarkCountRef = useRef(markCount);
+
+  useEffect(() => {
+    const previous = previousMarkCountRef.current;
+    if (markCount > previous && state.phase !== 'finished') soundService.play('move');
+    previousMarkCountRef.current = markCount;
+  }, [markCount, state.phase]);
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, width: '100%', minWidth: 0 }}>
       <Box

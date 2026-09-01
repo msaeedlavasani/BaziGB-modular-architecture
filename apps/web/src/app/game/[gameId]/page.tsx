@@ -31,6 +31,7 @@ import { Vegas, getBestMove as vegasAI } from '@bazigb/game-vegas';
 
 import GameShell from '@/components/game/GameShell';
 import GameSettingsToolbar from '@/components/game/GameSettingsToolbar';
+import Modal from '@/components/shared/Modal';
 import TicTacToeBoard from '@/components/game/TicTacToeBoard';
 import BackgammonBoard from '@/components/game/BackgammonBoard';
 import ChessBoard from '@/components/game/ChessBoard';
@@ -51,9 +52,10 @@ import {
   type LocalBackgammonTurn,
 } from '@/lib/local-backgammon-turn';
 import { getGameShellMessages } from '@/i18n/game-shell';
-import { localizedAppRoute } from '@/i18n/routing';
+import { localizedGameHubRoute } from '@/i18n/routing';
 import { api } from '@/lib/api';
 import { getGameCatalogEntry, getGameTitle, isWebGameId } from '@/lib/game-catalog';
+import { soundService } from '@/lib/sound-service';
 
 const ADAPTERS: Record<GameId, GameAdapter> = {
   'tic-tac-toe': TicTacToe,
@@ -86,6 +88,7 @@ function GameInner() {
   const adapter = ADAPTERS[gameId];
 
   const [difficulty, setDifficulty] = useState<AIDifficulty>('medium');
+  const [draftDifficulty, setDraftDifficulty] = useState<AIDifficulty>('medium');
   const [match, setMatch] = useState(() => {
     if (gameId === 'tic-tac-toe') return { matchPoint: true, winByTwo: true, targetScore: 5 };
     return { matchPoint: false, winByTwo: false, targetScore: 5 };
@@ -93,10 +96,11 @@ function GameInner() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [state, setState] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [soundPromptOpen, setSoundPromptOpen] = useState(false);
   const [undoStack, setUndoStack] = useState<any[]>([]);
   const [backgammonTurn, setBackgammonTurn] = useState<LocalBackgammonTurn | null>(null);
   const hydratedGameRef = useRef<string | null>(null);
-  const configurationRef = useRef<string | null>(null);
+  const previousTicTacToeStateRef = useRef<{ turn: string; phase: string; markCount: number } | null>(null);
 
   const stateRef = useRef(state);
   const backgammonTurnRef = useRef(backgammonTurn);
@@ -108,6 +112,16 @@ function GameInner() {
     backgammonTurnRef.current = backgammonTurn;
   }, [backgammonTurn]);
 
+  useEffect(() => {
+    if (!soundService.hasSoundChoice()) setSoundPromptOpen(true);
+  }, []);
+
+  const completeSoundChoice = (enabled: boolean) => {
+    soundService.chooseSound(enabled);
+    setSoundPromptOpen(false);
+    if (enabled) soundService.play('game-start');
+  };
+
   const players = useMemo<Player[]>(
     () => [
       { id: 'p1', name: messages.gameShell.you, color: COLORS[gameId][0] },
@@ -118,16 +132,16 @@ function GameInner() {
 
   const newGame = useCallback(() => {
     const config = supportsMatchPoint(gameId) ? match : DEFAULT_MATCH;
+    setDifficulty(draftDifficulty);
     setUndoStack([]);
     setBackgammonTurn(null);
     setState(adapter.createState(players, config));
-  }, [adapter, gameId, match, players]);
+    soundService.play('game-start');
+  }, [adapter, draftDifficulty, gameId, match, players]);
 
   useEffect(() => {
-    const configuration = `${match.matchPoint}:${match.winByTwo}:${match.targetScore}`;
     if (hydratedGameRef.current !== gameId) {
       hydratedGameRef.current = gameId;
-      configurationRef.current = configuration;
       try {
         const stored = window.sessionStorage.getItem(`bazigb_local_game_${gameId}`);
         if (stored) {
@@ -149,13 +163,36 @@ function GameInner() {
         window.sessionStorage.removeItem(`bazigb_local_game_${gameId}`);
       }
       newGame();
+    }
+  }, [gameId, newGame]);
+
+  useEffect(() => {
+    if (gameId !== 'tic-tac-toe' || !state) {
+      previousTicTacToeStateRef.current = null;
       return;
     }
-    if (configurationRef.current !== configuration) {
-      configurationRef.current = configuration;
-      newGame();
+
+    const markCount = state.board.filter(Boolean).length;
+    const previous = previousTicTacToeStateRef.current;
+    previousTicTacToeStateRef.current = { turn: state.turn, phase: state.phase, markCount };
+    if (!previous) return;
+
+    if (previous.phase !== 'finished' && state.phase === 'finished') {
+      const cue = state.winner === myId ? 'win' : state.winner ? 'loss' : 'draw';
+      const timer = window.setTimeout(() => soundService.play(cue), 120);
+      return () => window.clearTimeout(timer);
     }
-  }, [gameId, match.matchPoint, match.targetScore, match.winByTwo, newGame]);
+
+    if (
+      previous.turn !== state.turn
+      && state.turn === myId
+      && state.phase === 'playing'
+      && markCount === previous.markCount
+    ) {
+      const timer = window.setTimeout(() => soundService.play('your-turn'), 120);
+      return () => window.clearTimeout(timer);
+    }
+  }, [gameId, state]);
 
   useEffect(() => {
     if (!state || hydratedGameRef.current !== gameId) return;
@@ -451,9 +488,9 @@ function GameInner() {
       <FormControl size="small">
         <InputLabel>{messages.gameShell.difficulty}</InputLabel>
         <Select
-          value={difficulty}
+          value={draftDifficulty}
           label={messages.gameShell.difficulty}
-          onChange={(e) => setDifficulty(e.target.value as AIDifficulty)}
+          onChange={(e) => setDraftDifficulty(e.target.value as AIDifficulty)}
           sx={{ borderRadius: 2, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' } }}
         >
           <MenuItem value="easy">{messages.gameShell.easy}</MenuItem>
@@ -512,7 +549,9 @@ function GameInner() {
         {messages.gameShell.undo}
       </Button>
       <Button size="small" variant="outlined" color="primary" onClick={newGame}>
-        {messages.common.newGame}
+        {state && (draftDifficulty !== difficulty || state.match.matchPoint !== match.matchPoint || state.match.targetScore !== match.targetScore)
+          ? messages.common.startWithSettings
+          : messages.common.newGame}
       </Button>
       </>}
     />
@@ -522,12 +561,14 @@ function GameInner() {
     <GameShell
       title={getGameTitle(gameId, locale)}
       surfaceRatio={getGameCatalogEntry(gameId).surfaceRatio}
-      backHref={localizedAppRoute(locale, 'lobby')}
+      backHref={localizedGameHubRoute(locale, gameId)}
+      backLabel={locale === 'fa' ? `بازگشت به صفحهٔ ${getGameTitle(gameId, locale)}` : `Back to ${getGameTitle(gameId, locale)}`}
       turnText={state && state.phase === 'playing' ? (humanTurn ? messages.gameShell.yourTurn : messages.gameShell.botTurn) : null}
       scores={scores}
-      maxRounds={match.matchPoint ? match.targetScore : 1}
-      scoreTitle={gameId === 'backgammon' && match.matchPoint ? `${match.targetScore} ${messages.gameShell.points}` : undefined}
+      maxRounds={state?.match?.matchPoint ? state.match.targetScore : 1}
+      scoreTitle={gameId === 'backgammon' && state?.match?.matchPoint ? `${state.match.targetScore} ${messages.gameShell.points}` : undefined}
       settings={settings}
+      settingsPresentation={gameId === 'tic-tac-toe' ? 'collapsed' : 'responsive'}
       winner={winner}
     >
       {!state ? (
@@ -546,6 +587,16 @@ function GameInner() {
           {error}
         </Alert>
       </Snackbar>
+      <Modal
+        open={soundPromptOpen}
+        title={messages.sound.consentTitle}
+        onClose={() => completeSoundChoice(false)}
+        closeLabel={messages.sound.continueSilent}
+        confirmLabel={messages.sound.playWithSound}
+        onConfirm={() => completeSoundChoice(true)}
+      >
+        {messages.sound.consentBody}
+      </Modal>
     </GameShell>
   );
 }

@@ -36,6 +36,14 @@ export interface ProfileMessages {
   win: string;
   loss: string;
   draw: string;
+  otpOnly: string;
+  accountAccess: string;
+  accountAccessDescription: string;
+  deleteAccount: string;
+  deleteAccountTitle: string;
+  deleteAccountDescription: string;
+  confirmDeleteAccount: string;
+  deleteAccountError: string;
 }
 
 const PROFILE_MESSAGES: Record<Locale, ProfileMessages> = {
@@ -75,6 +83,14 @@ const PROFILE_MESSAGES: Record<Locale, ProfileMessages> = {
     win: 'برد',
     loss: 'باخت',
     draw: 'تساوی',
+    otpOnly: 'ورود امن با کد یک‌بارمصرف',
+    accountAccess: 'ورود و امنیت حساب',
+    accountAccessDescription: 'ورود فقط با کد یک‌بارمصرف پیامکی انجام می‌شود و نیازی به رمز عبور ندارید.',
+    deleteAccount: 'حذف حساب',
+    deleteAccountTitle: 'حساب شما حذف شود؟',
+    deleteAccountDescription: 'شماره موبایل و اطلاعات مستقیم حساب حذف می‌شود و از حساب خارج می‌شوید. نتیجهٔ بازی‌های قبلی فقط به‌صورت ناشناس برای صحت تاریخچه باقی می‌ماند.',
+    confirmDeleteAccount: 'حذف حساب من',
+    deleteAccountError: 'حذف حساب ممکن نشد. دوباره تلاش کنید.',
   },
   en: {
     loading: 'Loading…',
@@ -112,6 +128,14 @@ const PROFILE_MESSAGES: Record<Locale, ProfileMessages> = {
     win: 'Win',
     loss: 'Loss',
     draw: 'Draw',
+    otpOnly: 'Secure one-time-code sign-in',
+    accountAccess: 'Account access and security',
+    accountAccessDescription: 'You sign in only with a one-time SMS code, so there is no password to manage.',
+    deleteAccount: 'Delete account',
+    deleteAccountTitle: 'Delete your account?',
+    deleteAccountDescription: 'Your phone number and direct account details will be removed and you will be signed out. Past game results remain only in anonymized form to preserve match history.',
+    confirmDeleteAccount: 'Delete my account',
+    deleteAccountError: 'Could not delete the account. Please try again.',
   },
 };
 

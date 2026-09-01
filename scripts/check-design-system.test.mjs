@@ -14,7 +14,7 @@ const write = (relativePath, content) => {
   fs.writeFileSync(target, content);
 };
 
-const componentNames = ['PageContainer', 'PageStack', 'ResponsiveGrid', 'ActionCard', 'ActionDeck', 'PageHeader', 'NavigationItem', 'TrustSeal', 'StatusCluster', 'StatusPill', 'GameCard', 'GameIdentityMark', 'GameSettingsToolbar', 'GameShell'];
+const componentNames = ['PageContainer', 'PageStack', 'ResponsiveGrid', 'ActionCard', 'ActionDeck', 'PageHeader', 'Header', 'NavigationItem', 'TrustSeal', 'StatusCluster', 'StatusPill', 'GameCard', 'GameIdentityMark', 'GameSettingsToolbar', 'GameShell'];
 const componentPaths = {
   PageContainer: 'apps/web/src/components/layout/PageContainer.tsx',
   PageStack: 'apps/web/src/components/layout/PageStack.tsx',
@@ -22,6 +22,7 @@ const componentPaths = {
   ActionCard: 'apps/web/src/components/shared/ActionCard.tsx',
   ActionDeck: 'apps/web/src/components/layout/ActionDeck.tsx',
   PageHeader: 'apps/web/src/components/layout/PageHeader.tsx',
+  Header: 'apps/web/src/components/layout/Header.tsx',
   NavigationItem: 'apps/web/src/components/layout/NavigationItem.tsx',
   TrustSeal: 'apps/web/src/components/layout/TrustSeal.tsx',
   StatusCluster: 'apps/web/src/components/shared/StatusCluster.tsx',
@@ -57,22 +58,24 @@ write('ai/pilots/design-system-v1.json', JSON.stringify({
   renderedMatrix: [{ horizontalOverflow: false }],
   learningDestination: 'DESIGN_SYSTEM.md-and-executable-component-registry',
 }));
-write('apps/web/src/design-system/layout-contract.ts', 'inlineGutter blockPadding section compact standard action gameSurfaceTrack');
+write('apps/web/src/design-system/layout-contract.ts', 'inlineGutter blockPadding section compact standard action threeSlotTrack publicNavigationTrack gameSurfaceTrack');
 for (const name of componentNames) {
   let source = `export const ${name} = '${name}';`;
   if (name === 'ResponsiveGrid') source += ' itemSize';
   if (name === 'GameCard') source += " overflow: 'hidden' maxInlineSize";
   if (name === 'GameShell') source += ' gameSurfaceTrack StatusCluster StatusPill';
+  if (name === 'PageHeader') source += ' parentNavigation parentNavigation.href';
+  if (name === 'Header') source += " NavigationItem gridTemplateColumns: layoutContract.header.threeSlotTrack gridTemplateColumns: layoutContract.header.publicNavigationTrack borderInlineEnd: '1px solid' data-header-slot=\"language\" data-header-slot=\"brand\" data-header-slot=\"primary-utility\" messages.navigation.games messages.navigation.leaderboard 'location' as const";
   write(componentPaths[name], source);
   write(consumers[name], `import '${name}';`);
 }
-write('apps/web/src/components/layout/Header.tsx', 'NavigationItem');
 write('apps/web/src/components/layout/Footer.tsx', 'TrustSeal');
-write('apps/web/src/app/games/[gameId]/page.tsx', 'PageContainer PageStack ActionCard ActionDeck PageHeader GameIdentityMark');
-write('apps/web/src/app/game/[gameId]/page.tsx', 'GameShell GameSettingsToolbar');
+write('apps/web/src/app/games/[gameId]/page.tsx', 'PageContainer PageStack ActionCard ActionDeck PageHeader GameIdentityMark parentNavigation={{ messages.gameHub.backToGames');
+write('apps/web/src/app/game/[gameId]/page.tsx', "GameShell GameSettingsToolbar localizedGameHubRoute settingsPresentation={gameId === 'tic-tac-toe' ? 'collapsed' soundService.hasSoundChoice() messages.sound.consentTitle markCount === previous.markCount");
+write('apps/web/src/lib/sound-service.ts', "STORAGE_CONSENT_VERSION_KEY SOUND_CONSENT_VERSION this.state.consent !== 'enabled' || !this.hasSoundChoice()");
 write('apps/web/src/lib/game-catalog.ts', 'catalog without presentation symbols');
 write('apps/web/src/components/game/BackgammonBoard.tsx', 'fluid checker containment');
-write('apps/web/src/components/game/TicTacToeBoard.tsx', 'board without duplicate result');
+write('apps/web/src/components/game/TicTacToeBoard.tsx', "board without duplicate result soundService.play('move') state.phase !== 'finished'");
 
 const run = () => spawnSync(process.execPath, [checker], {
   env: { ...process.env, BAZIGB_DESIGN_ROOT: fixtureRoot },

@@ -1,17 +1,17 @@
 {
   "version": "1.0.0",
-  "updated": "2026-08-31",
+  "updated": "2026-09-01",
   "repository": "BaziGB-modular-architecture",
   "branch": "main",
   "baseRevision": "8bb0a72434d1a91e18983139fb76a1967861df8c",
-  "workingTree": "checkpointed-governance-closure-on-main",
+  "workingTree": "local-product-experience-pilot-approved-with-uncommitted-checkpoint",
   "activeMilestone": "private-alpha-readiness",
   "currentGate": {
-    "taskId": "PX-HEADER-001",
+    "taskId": "PX-SOUND-001",
     "owner": "Human Direction",
-    "gate": "approve-bundled-navigation-implementation-checkpoint-and-push"
+    "gate": "human-retest-de-duplicated-tic-tac-toe-robot-and-terminal-cues"
   },
-  "nextProposedTask": "PX-HEADER-001",
+  "nextProposedTask": "PX-SESSION-001",
   "branchControl": {
     "canonicalDeploySource": "main",
     "head": "8bb0a72434d1a91e18983139fb76a1967861df8c",
@@ -43,11 +43,12 @@
   },
   "blockers": [
     "Local human-test links require the temporary persistent development terminal; DO-ENV-001 is prioritized for a durable solution"
+    ,"The local development database currently lacks the Room table; diagnose the intended disposable local database setup before the online Tic-tac-toe pilot and do not infer production migration authority"
     ,"Canonical deployment, observability, restore proof and legal routes are not release-ready"
     ,"Production SSH host identity is independently verified, but the server authorizes neither local SSH key; approved key provisioning is required before access"
   ],
   "lastValidation": {
-    "date": "2026-08-31",
+    "date": "2026-09-01",
     "passed": [
       "backgammon-tests-29-of-29",
       "game-gateway-tests-8-of-8",
@@ -99,6 +100,12 @@
       ,"branch-health-main-only-remote-pass"
       ,"governance-check-with-branch-lifecycle-pilot"
       ,"governance-fail-closed-tests-with-branch-lifecycle-wiring"
+      ,"product-experience-pilot-web-typecheck"
+      ,"product-experience-pilot-optimized-web-build-before-final-audio-deduplication"
+      ,"design-system-check-with-header-parent-navigation-and-audio-collision-controls"
+      ,"design-system-checker-tests-with-fail-closed-fixtures"
+      ,"governance-check-after-human-pilot-approval"
+      ,"tic-tac-toe-audio-collision-web-typecheck-and-diff-check"
     ],
     "notPassing": []
   },

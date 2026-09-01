@@ -34,6 +34,15 @@ export const chatSchema = z.object({
   message: z.string().max(500),
 });
 
+export const leaveRoomSchema = z.object({
+  roomCode: z.string().min(1).max(16),
+});
+
+export const reactionSchema = z.object({
+  room: z.string().min(1).max(16),
+  reaction: z.enum(['👏', '🔥', '😂', '❤️']),
+});
+
 export const undoSchema = z.object({
   room: z.string(),
 });

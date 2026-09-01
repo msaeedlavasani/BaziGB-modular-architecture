@@ -11,7 +11,8 @@ import { api, getStoredToken, storeToken } from '../lib/api';
 
 export interface AuthUser {
   id: string;
-  email: string;
+  email: string | null;
+  phone: string | null;
   username: string;
   wins: number;
   losses: number;

@@ -232,7 +232,10 @@ export class RoomService {
 
     const updated = await this.prisma.room.update({
       where: { id: existing.id },
-      data: { players: JSON.stringify(players) },
+      data: {
+        players: JSON.stringify(players),
+        ...(existing.ownerId === playerId ? { ownerId: players[0] ?? null } : {}),
+      },
     });
     return this.toParsed(updated);
   }

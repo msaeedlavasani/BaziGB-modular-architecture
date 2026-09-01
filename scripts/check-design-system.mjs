@@ -19,7 +19,7 @@ const read = (relativePath) => {
 const registryText = read('apps/web/src/design-system/registry.json');
 const pilotText = read('ai/pilots/design-system-v1.json');
 const contract = read('apps/web/src/design-system/layout-contract.ts');
-const requiredComponents = ['PageContainer', 'PageStack', 'ResponsiveGrid', 'ActionCard', 'ActionDeck', 'PageHeader', 'NavigationItem', 'TrustSeal', 'StatusCluster', 'StatusPill', 'GameCard', 'GameIdentityMark', 'GameSettingsToolbar', 'GameShell'];
+const requiredComponents = ['PageContainer', 'PageStack', 'ResponsiveGrid', 'ActionCard', 'ActionDeck', 'PageHeader', 'Header', 'NavigationItem', 'TrustSeal', 'StatusCluster', 'StatusPill', 'GameCard', 'GameIdentityMark', 'GameSettingsToolbar', 'GameShell'];
 const maturityStates = new Set(['Experimental', 'Candidate', 'Stable', 'Deprecated']);
 
 try {
@@ -62,7 +62,7 @@ try {
   if (pilot.decisionClass !== 'Material') failures.push('Design System Pilot must classify shared controls as Material');
   if (pilot.resourceClass !== 'Standard') failures.push('Design System Pilot must begin with Standard resources');
   if (pilot.rootLayer !== 'design-system-contract-and-conformance-control') failures.push('Design System Pilot must target the root system control');
-  if (!['PENDING', 'REJECTED'].includes(pilot.evaluation?.humanVisualGate)) failures.push('Candidate Design System Pilot must preserve an unresolved human visual gate');
+  if (!['PENDING', 'REJECTED', 'APPROVED_WITH_REFINEMENTS'].includes(pilot.evaluation?.humanVisualGate)) failures.push('Design System Pilot has an invalid human visual gate state');
   if (pilot.evaluation?.humanVisualGate === 'REJECTED' && !pilot.correctionLoop?.acceptanceRule) failures.push('Rejected Design System Pilot must define a correction loop');
   for (const control of ['semantic-layout-contract', 'action-card', 'status-cluster', 'component-maturity-registry', 'fail-closed-design-system-check']) {
     if (!pilot.sharedControls?.includes(control)) failures.push(`Design System Pilot is missing shared control: ${control}`);
@@ -76,7 +76,7 @@ try {
   failures.push(`Design System Pilot is invalid JSON: ${error.message}`);
 }
 
-for (const marker of ['inlineGutter', 'blockPadding', 'section', 'compact', 'standard', 'action', 'gameSurfaceTrack']) {
+for (const marker of ['inlineGutter', 'blockPadding', 'section', 'compact', 'standard', 'action', 'threeSlotTrack', 'publicNavigationTrack', 'gameSurfaceTrack']) {
   if (!contract.includes(marker)) failures.push(`Layout contract is missing semantic control: ${marker}`);
 }
 
@@ -101,13 +101,34 @@ if (ticTacToeBoard.includes('state.scores')) failures.push('A game board must no
 
 const header = read('apps/web/src/components/layout/Header.tsx');
 if (!header.includes('NavigationItem')) failures.push('Header must use the shared navigation composition');
+if (!header.includes('gridTemplateColumns: layoutContract.header.threeSlotTrack')) failures.push('Header must use the exact three-slot layout contract');
+if (!header.includes('gridTemplateColumns: layoutContract.header.publicNavigationTrack')) failures.push('Public Header navigation must use two equal full-row segments');
+if (!header.includes("borderInlineEnd: '1px solid'")) failures.push('Public Header peer navigation must preserve the subtle center divider');
+for (const slot of ['language', 'brand', 'primary-utility']) {
+  if (!header.includes(`data-header-slot="${slot}"`)) failures.push(`Header is missing independent slot: ${slot}`);
+}
+if (!header.includes("messages.navigation.games") || !header.includes("messages.navigation.leaderboard")) failures.push('Public Header peer navigation must expose Games and Leaderboard');
+if (!header.includes("'location' as const")) failures.push('A parent global destination must expose location-current semantics on descendant pages');
+if (header.includes('role="group"')) failures.push('Header must not place unrelated utility controls in one visual group');
+const pageHeader = read('apps/web/src/components/layout/PageHeader.tsx');
+if (!pageHeader.includes('parentNavigation') || !pageHeader.includes('parentNavigation.href')) failures.push('PageHeader must own the reusable direct-parent navigation contract');
 const footer = read('apps/web/src/components/layout/Footer.tsx');
 if (!footer.includes('TrustSeal')) failures.push('Footer must use the resilient trust-seal composition');
 const gameHub = read('apps/web/src/app/games/[gameId]/page.tsx');
 if (!gameHub.includes('ActionDeck')) failures.push('Game Hub must use the hierarchical action composition');
 if (!gameHub.includes('PageHeader')) failures.push('Game Hub must use the shared page-title hierarchy');
+if (!gameHub.includes('parentNavigation={{') || !gameHub.includes('messages.gameHub.backToGames')) failures.push('Game Hub must expose a contextual return to all games while Games remains the active section');
 const localGame = read('apps/web/src/app/game/[gameId]/page.tsx');
 if (!localGame.includes('GameSettingsToolbar')) failures.push('Local Game must use the shared settings anatomy');
+if (!localGame.includes("settingsPresentation={gameId === 'tic-tac-toe' ? 'collapsed'")) failures.push('Tic-tac-toe pilot must keep settings secondary to the board');
+if (!localGame.includes('localizedGameHubRoute')) failures.push('Local Game Back must return to the game hub, not skip to Lobby');
+if (!localGame.includes('soundService.hasSoundChoice()') || !localGame.includes('messages.sound.consentTitle')) failures.push('Direct local game entry must preserve the explicit sound-choice gate');
+if (!ticTacToeBoard.includes("soundService.play('move')")) failures.push('Tic-tac-toe pilot must wire real move feedback to the sound service');
+if (!ticTacToeBoard.includes("state.phase !== 'finished'")) failures.push('A terminal Tic-tac-toe transition must prefer the result cue over a stacked move cue');
+if (!localGame.includes('markCount === previous.markCount')) failures.push('A robot move must not stack move and your-turn cues in one Tic-tac-toe transition');
+const soundService = read('apps/web/src/lib/sound-service.ts');
+if (!soundService.includes('STORAGE_CONSENT_VERSION_KEY') || !soundService.includes('SOUND_CONSENT_VERSION')) failures.push('Sound consent must distinguish an explicit game-entry choice from legacy mute state');
+if (!soundService.includes("this.state.consent !== 'enabled' || !this.hasSoundChoice()")) failures.push('Sound playback must remain blocked until explicit versioned entry consent');
 const catalog = read('apps/web/src/lib/game-catalog.ts');
 if (catalog.includes('chipSymbol')) failures.push('Game catalog must not define random presentation emoji');
 

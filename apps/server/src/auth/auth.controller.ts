@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Patch,
   Post,
@@ -52,5 +53,11 @@ export class AuthController {
   @Patch('me/password')
   changePassword(@Req() req: any, @Body() dto: ChangePasswordDto) {
     return this.auth.changePassword(req.user.sub, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('me')
+  deleteMe(@Req() req: any) {
+    return this.auth.deleteMe(req.user.sub);
   }
 }
