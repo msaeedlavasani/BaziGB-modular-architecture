@@ -71,6 +71,9 @@ jobs:
       - name: Generate Prisma client
         run: npm run prisma:generate -w @bazigb/server
 
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=moderate
+
       - name: Build shared game packages
         run: npm run build:packages
 

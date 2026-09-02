@@ -4,12 +4,12 @@
   "repository": "BaziGB-modular-architecture",
   "branch": "main",
   "baseRevision": "43cde234f58ee363632733e2f5d718b6258b0d2a",
-  "workingTree": "main-remotely-protected-CI-green-deploy-blocked",
+  "workingTree": "production-dependency-remediation-machine-validated-checkpoint-pending",
   "activeMilestone": "release-readiness",
   "currentGate": {
     "taskId": "DO-RELEASE-001",
     "owner": "Human Direction",
-    "gate": "approve-bounded-production-dependency-remediation-and-release-preflight-before-deploy"
+    "gate": "checkpoint-approved-dependency-remediation-then-complete-release-preflight-and-rollback-proof-before-deploy"
   },
   "nextProposedTask": "DO-RELEASE-001",
   "branchControl": {
@@ -23,11 +23,11 @@
     "catanHistory": "deleted-failed-automation-prototype-no-code-transfer-required"
   },
   "dependencySecurityGate": {
-    "status": "deploy-blocked-production-audit-review-required",
+    "status": "passed-locally-with-enforced-CI-audit-gate",
     "runtime": "node >=20.19.0",
     "web": "next 16.3.3 with react 18 retained",
     "server": "nestjs 12.0.1 with config 12.0.0",
-    "productionAudit": { "total": 3, "high": 0, "moderate": 3, "critical": 0 }
+    "productionAudit": { "total": 0, "high": 0, "moderate": 0, "critical": 0 }
   },
   "qaServerGate": {
     "status": "passed-locally",
@@ -43,7 +43,6 @@
     "report": "docs/reports/aipde/2026-08-29-local-release-candidate-preflight.md"
   },
   "blockers": [
-    "Production dependency audit reports three moderate Express/body-parser/qs findings; remediation and clean CI are required before deploy",
     "DO-ENV-001 persistent local runtime is machine-validated; human session-duration confirmation remains pending"
     ,"Canonical deployment, observability, restore proof and legal routes are not release-ready"
     ,"Production SSH host identity is independently verified, but the server authorizes neither local SSH key; approved key provisioning is required before access"
@@ -127,6 +126,9 @@
       ,"integrated-full-workspace-build"
       ,"vegas-repeatability-four-runs-10-of-10"
       ,"GitHub-Actions-run-48-full-CI-passed-at-43cde234f58ee363632733e2f5d718b6258b0d2a"
+      ,"production-dependency-audit-0-after-Express4-removal-and-qs-6.16.0"
+      ,"clean-install-full-workspace-tests-110-of-110-and-build"
+      ,"independent-security-patch-review-no-findings"
     ],
     "notPassing": []
   },
