@@ -27,3 +27,6 @@ coverage/
 
 # build artifacts
 **/tsconfig.tsbuildinfo
+
+# Local AI exchange runtime (protocol and templates remain tracked)
+ai/exchange/runtime/

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bazigb.local/schemas/delivery-receipt-v1.json",
+  "title": "BaziGB External Delivery Receipt",
+  "type": "object",
+  "required": ["schemaVersion", "taskId", "status", "revision", "executor", "repository", "git", "changedFiles", "validation", "touches", "rollback", "artifacts", "blockingQuestions"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "taskId": { "type": "string" },
+    "status": { "enum": ["IN_PROGRESS", "INTERIM_BLOCKED", "FINAL"] },
+    "revision": { "type": "integer", "minimum": 1 },
+    "executor": { "type": "object", "required": ["provider"], "properties": { "provider": { "type": "string" }, "model": { "type": ["string", "null"] } } },
+    "repository": { "type": "object", "required": ["path", "branch", "baseRevision", "finalRevision", "gitStatusBefore", "gitStatusAfter"], "properties": { "path": { "type": "string" }, "branch": { "type": "string" }, "baseRevision": { "type": "string" }, "finalRevision": { "type": ["string", "null"] }, "gitStatusBefore": { "type": "string" }, "gitStatusAfter": { "type": "string" } } },
+    "git": { "type": "object", "required": ["committed", "pushed", "merged", "deployed"], "properties": { "committed": { "type": "boolean" }, "pushed": { "type": "boolean" }, "merged": { "type": "boolean" }, "deployed": { "type": "boolean" } } },
+    "changedFiles": { "type": "array", "items": { "type": "string" } },
+    "validation": { "type": "array", "items": { "type": "object", "required": ["command", "result"], "properties": { "command": { "type": "string" }, "result": { "enum": ["PASS", "FAIL", "NOT_RUN"] } } } },
+    "touches": { "type": "object", "required": ["database", "schema", "environment", "dependencies", "secrets", "server", "github", "production"], "properties": { "database": { "type": "boolean" }, "schema": { "type": "boolean" }, "environment": { "type": "boolean" }, "dependencies": { "type": "boolean" }, "secrets": { "type": "boolean" }, "server": { "type": "boolean" }, "github": { "type": "boolean" }, "production": { "type": "boolean" } } },
+    "rollback": { "type": "string" },
+    "artifacts": { "type": "array", "items": { "type": "string" } },
+    "blockingQuestions": { "type": "array", "items": { "type": "object", "required": ["question", "answer"], "properties": { "question": { "type": "string" }, "answer": { "type": ["string", "null"] } } } },
+    "usage": { "type": "object", "properties": { "time": { "type": ["string", "null"] }, "tokens": { "type": ["number", "null"] }, "source": { "enum": ["measured", "user-reported", "unavailable"] } } }
+  },
+  "additionalProperties": true
+}

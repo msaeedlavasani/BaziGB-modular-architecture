@@ -83,10 +83,10 @@ write('AGENTS.md', 'AI_CONTEXT_MAP.md docs/aipde/system-governance.md npm run ch
 write('AGENTS.md', 'AI_CONTEXT_MAP.md docs/aipde/system-governance.md npm run check:governance ai/current-state.json ai/work-registry-v1.json ai/retrieval-manifest-v1.json');
 write('AI_CONTEXT_MAP.md', 'ai/CONTROL_PLANE.md ai/SYSTEM_INTEGRATION.md ai/VALIDATION_GATE.md ai/current-state.json ai/work-registry-v1.json ai/retrieval-manifest-v1.json');
 write('ai/CONTROL_PLANE.md', 'Resource Approval Request Pilot protocol ai/SYSTEM_INTEGRATION.md ai/WORK_MANAGEMENT.md');
-write('ai/COLLABORATION_CONTRACT.md', 'Bundled Approval fetch without prune do not fragment that authority into repetitive micro-approvals');
+write('ai/COLLABORATION_CONTRACT.md', 'Bundled Approval fetch without prune do not fragment that authority into repetitive micro-approvals Control Tower OWN_CURRENT Permission Envelope');
 write('ai/SYSTEM_INTEGRATION.md', 'accepted handoff cross-cutting controls');
 write('ai/VALIDATION_GATE.md', 'PASS FAIL NOT RUN BLOCKED');
-write('ai/WORK_MANAGEMENT.md', 'Historical reports are excluded by default. Medium and high work require approval. Bundled Approval');
+write('ai/WORK_MANAGEMENT.md', 'Historical reports are excluded by default. Medium and high work require approval. Bundled Approval PASSPORT_INCOMPLETE default WIP limit is one');
 write('ai/pilots/control-plane-v1.json', JSON.stringify(pilot));
 write('ai/pilots/branch-lifecycle-v1.json', JSON.stringify({
   rootLayer: 'branch-lifecycle-and-release-authority-control',
@@ -100,6 +100,16 @@ write('ai/pilots/branch-lifecycle-v1.json', JSON.stringify({
 write('ai/system-integration-v1.json', JSON.stringify(integration));
 write('scripts/check-branch-health.mjs', 'branch health fixture');
 write('scripts/check-branch-health.test.mjs', 'branch health test fixture');
+write('ai/exchange/README.md', 'exchange fixture');
+write('ai/exchange/schemas/task-passport.schema.json', '{}');
+write('ai/exchange/schemas/delivery-receipt.schema.json', '{}');
+write('ai/exchange/templates/execution-prompt.md', 'prompt fixture');
+write('ai/exchange/templates/final-report.md', 'report fixture');
+write('scripts/check-task-package.mjs', 'task checker fixture');
+write('scripts/check-task-package.test.mjs', 'task test fixture');
+write('scripts/generate-task-passport.mjs', 'generator fixture');
+write('scripts/check-sensitive-diff.mjs', 'sensitive diff fixture');
+write('scripts/check-sensitive-diff.test.mjs', 'sensitive diff test fixture');
 write('docs/aipde/system-governance.md', 'Working layer History layer Off-device layer Elevated Intensive ai/work-registry-v1.json');
 const categories = ['Product Integrity', 'Security and Trust', 'Product Experience', 'Design System and Brand', 'Platform Architecture', 'Evaluation and Quality', 'Delivery and Operations', 'Governance and Knowledge', 'Evolution'];
 const states = ['observed', 'triaged', 'approved', 'in-progress', 'implemented', 'machine-validated', 'human-validation-pending', 'accepted', 'operationally-verified', 'learning-captured', 'blocked', 'deferred', 'rejected', 'superseded', 'reopened'];
@@ -127,7 +137,7 @@ if (invalidBundledApproval.status === 0 || !invalidBundledApproval.stderr.includ
   console.error(invalidBundledApproval.stdout, invalidBundledApproval.stderr);
   throw new Error('Expected missing Bundled Approval control to fail closed');
 }
-write('ai/COLLABORATION_CONTRACT.md', 'Bundled Approval fetch without prune do not fragment that authority into repetitive micro-approvals');
+write('ai/COLLABORATION_CONTRACT.md', 'Bundled Approval fetch without prune do not fragment that authority into repetitive micro-approvals Control Tower OWN_CURRENT Permission Envelope');
 
 fs.rmSync(path.join(fixtureRoot, 'ai/VALIDATION_GATE.md'));
 const invalid = run();

@@ -1,17 +1,17 @@
 {
   "version": "1.0.0",
-  "updated": "2026-08-31",
+  "updated": "2026-09-02",
   "repository": "BaziGB-modular-architecture",
-  "branch": "main",
-  "baseRevision": "8bb0a72434d1a91e18983139fb76a1967861df8c",
-  "workingTree": "checkpointed-governance-closure-on-main",
+  "branch": "codex/GV-ORCHESTRATION-CI-001",
+  "baseRevision": "15f14aa94ff0569e9a13160719a23b059fe253f6",
+  "workingTree": "governance-orchestration-and-ci-local-implementation",
   "activeMilestone": "private-alpha-readiness",
   "currentGate": {
-    "taskId": "PX-HEADER-001",
+    "taskId": "GV-ORCHESTRATION-CI-001",
     "owner": "Human Direction",
-    "gate": "approve-bundled-navigation-implementation-checkpoint-and-push"
+    "gate": "validate-local-pilot-then-request-checkpoint-authority"
   },
-  "nextProposedTask": "PX-HEADER-001",
+  "nextProposedTask": "GV-ORCHESTRATION-CI-001",
   "branchControl": {
     "canonicalDeploySource": "main",
     "head": "8bb0a72434d1a91e18983139fb76a1967861df8c",
@@ -42,6 +42,8 @@
     "report": "docs/reports/aipde/2026-08-29-local-release-candidate-preflight.md"
   },
   "blockers": [
+    "CI product validation correctly blocks on PI-VEGAS-CI-001: the existing Vegas terminal-winner test passes 9 of 10 and requires a separate rules-first fix"
+    ,
     "Local human-test links require the temporary persistent development terminal; DO-ENV-001 is prioritized for a durable solution"
     ,"Canonical deployment, observability, restore proof and legal routes are not release-ready"
     ,"Production SSH host identity is independently verified, but the server authorizes neither local SSH key; approved key provisioning is required before access"
@@ -119,5 +121,6 @@
     "systemIntegration": "ai/SYSTEM_INTEGRATION.md",
     "governance": "docs/aipde/system-governance.md",
     "collaborationContract": "ai/COLLABORATION_CONTRACT.md"
+    ,"externalExchange": "ai/exchange/README.md"
   }
 }
