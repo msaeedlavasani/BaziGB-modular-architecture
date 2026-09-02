@@ -1,21 +1,21 @@
 {
   "version": "1.0.0",
-  "updated": "2026-09-02",
+  "updated": "2026-09-03",
   "repository": "BaziGB-modular-architecture",
   "branch": "main",
-  "baseRevision": "43cde234f58ee363632733e2f5d718b6258b0d2a",
-  "workingTree": "production-dependency-remediation-machine-validated-checkpoint-pending",
+  "baseRevision": "82bd9eccd9ad22494fd5ecfd0ff315c46910c3ce",
+  "workingTree": "local-release-checkpoints-committed-push-pending",
   "activeMilestone": "release-readiness",
   "currentGate": {
     "taskId": "DO-RELEASE-001",
     "owner": "Human Direction",
-    "gate": "checkpoint-approved-dependency-remediation-then-complete-release-preflight-and-rollback-proof-before-deploy"
+    "gate": "checkpoint-approved-local-rollback-proof-then-stage-exact-candidate-only-after-separate-authority"
   },
   "nextProposedTask": "DO-RELEASE-001",
   "branchControl": {
     "canonicalDeploySource": "main",
-    "head": "43cde234f58ee363632733e2f5d718b6258b0d2a",
-    "remoteMain": "43cde234f58ee363632733e2f5d718b6258b0d2a",
+    "head": "82bd9eccd9ad22494fd5ecfd0ff315c46910c3ce",
+    "remoteMain": "fe51c1d",
     "remoteBranchCount": 1,
     "recoveryTag": "archive/ai-governance-pre-main-2026-08-31",
     "recoveryTarget": "c361b5e2dd41f963f98b4b34e9d851c04b16760f",
@@ -43,6 +43,8 @@
     "report": "docs/reports/aipde/2026-08-29-local-release-candidate-preflight.md"
   },
   "blockers": [
+    "Local dependency-security checkpoint 91c616a is not yet remotely protected",
+    "Release rollback is proven only in an isolated local rehearsal; staging and production proof remain pending",
     "DO-ENV-001 persistent local runtime is machine-validated; human session-duration confirmation remains pending"
     ,"Canonical deployment, observability, restore proof and legal routes are not release-ready"
     ,"Production SSH host identity is independently verified, but the server authorizes neither local SSH key; approved key provisioning is required before access"
@@ -129,6 +131,7 @@
       ,"production-dependency-audit-0-after-Express4-removal-and-qs-6.16.0"
       ,"clean-install-full-workspace-tests-110-of-110-and-build"
       ,"independent-security-patch-review-no-findings"
+      ,"local-release-safety-tests-9-of-9-with-failed-activation-rollback-proof"
     ],
     "notPassing": []
   },
