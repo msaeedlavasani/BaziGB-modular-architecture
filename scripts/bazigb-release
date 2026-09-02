@@ -10,7 +10,7 @@ PREVIOUS="${ROOT}/previous"
 DEPLOY_USER="bazigb-deploy"
 RUNTIME_USER="bazigb-runtime"
 APP_GROUP="bazigb-app"
-SQLITE_BACKUP="/usr/local/sbin/bazigb-sqlite-backup"
+SQLITE_BACKUP="${BAZIGB_SQLITE_BACKUP:-/usr/local/sbin/bazigb-sqlite-backup}"
 
 die() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -58,8 +58,8 @@ database_checkpoint() {
 }
 
 health_check() {
-  curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3001/api/rooms >/dev/null
-  curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/fa/lobby >/dev/null
+  curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3001/api/rooms >/dev/null &&
+    curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/fa/lobby >/dev/null
 }
 
 activate() {
