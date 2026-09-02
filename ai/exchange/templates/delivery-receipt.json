@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0.0",
+  "taskId": "TASK-ID",
+  "status": "FINAL",
+  "revision": 1,
+  "executor": { "provider": "external-ai", "model": null },
+  "repository": { "path": "", "branch": "", "baseRevision": "", "finalRevision": null, "gitStatusBefore": "", "gitStatusAfter": "" },
+  "git": { "committed": false, "pushed": false, "merged": false, "deployed": false },
+  "changedFiles": [],
+  "validation": [],
+  "touches": { "database": false, "schema": false, "environment": false, "dependencies": false, "secrets": false, "server": false, "github": false, "production": false },
+  "rollback": "",
+  "artifacts": [],
+  "blockingQuestions": [],
+  "usage": { "time": null, "tokens": null, "source": "unavailable" }
+}

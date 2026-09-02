@@ -1,22 +1,28 @@
-name: Foundation Web Check
+name: BaziGB CI
 
 on:
   push:
     branches:
-      - refactor/platform-foundation-i18n-v3
+      - main
+      - codex/**
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 concurrency:
-  group: foundation-web-${{ github.ref }}
+  group: bazigb-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  web:
+  governance-and-contracts:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -30,8 +36,37 @@ jobs:
       - name: Check AIPDE governance wiring
         run: npm run check:governance && npm run test:governance
 
+      - name: Check task orchestration contracts
+        run: npm run test:task-package
+
+      - name: Guard schema, migration and generated changes
+        run: npm run test:sensitive-diff && npm run check:sensitive-diff
+        env:
+          BAZIGB_DIFF_BASE: ${{ github.event_name == 'push' && github.event.before || 'origin/main' }}
+
+      - name: Check branch lifecycle fixtures
+        run: npm run test:branch-health
+
       - name: Check Design System contracts
         run: npm run check:design-system && npm run test:design-system
+
+  product-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build shared game packages
         run: npm run build:packages
@@ -39,8 +74,17 @@ jobs:
       - name: Check package boundaries
         run: npm run check:boundaries
 
-      - name: Typecheck web
-        run: npm run typecheck -w @bazigb/web
+      - name: Typecheck workspaces
+        run: npm run typecheck
+
+      - name: Test game rules
+        run: npm run test:games
+
+      - name: Test server
+        run: npm run test -w @bazigb/server
 
       - name: Build web
         run: npm run build:web
+
+      - name: Build server
+        run: npm run build:server

@@ -25,6 +25,16 @@ const requiredFiles = [
   'ai/system-integration-v1.json',
   'scripts/check-branch-health.mjs',
   'scripts/check-branch-health.test.mjs',
+  'ai/exchange/README.md',
+  'ai/exchange/schemas/task-passport.schema.json',
+  'ai/exchange/schemas/delivery-receipt.schema.json',
+  'ai/exchange/templates/execution-prompt.md',
+  'ai/exchange/templates/final-report.md',
+  'scripts/check-task-package.mjs',
+  'scripts/check-task-package.test.mjs',
+  'scripts/generate-task-passport.mjs',
+  'scripts/check-sensitive-diff.mjs',
+  'scripts/check-sensitive-diff.test.mjs',
 ];
 
 const read = (relativePath) => {
@@ -83,6 +93,11 @@ const requiredWiring = [
   [workManagement, 'Bundled Approval', 'Work Management must define Bundled Approval'],
   [collaboration, 'fetch without prune', 'Collaboration Contract must allow bounded fetch without prune'],
   [collaboration, 'do not fragment that authority into repetitive micro-approvals', 'Collaboration Contract must prohibit micro-approval fragmentation'],
+  [collaboration, 'Control Tower', 'Collaboration Contract must define Control Tower ownership'],
+  [collaboration, 'OWN_CURRENT', 'Collaboration Contract must classify raw findings before execution'],
+  [collaboration, 'Permission Envelope', 'Collaboration Contract must define external permission boundaries'],
+  [workManagement, 'PASSPORT_INCOMPLETE', 'Work Management must fail closed for incomplete legacy Passports'],
+  [workManagement, 'default WIP limit is one', 'Work Management must define the default WIP limit'],
 ];
 
 for (const [content, marker, message] of requiredWiring) {

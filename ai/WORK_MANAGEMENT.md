@@ -1,6 +1,6 @@
 # AIPDE Work Management Contract
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Role:** Canonical policy for portfolio grouping, task state, reporting, retrieval, supersession, and resource gates.
 
 The machine-readable companions are `ai/work-registry-v1.json`, `ai/current-state.json`, and `ai/retrieval-manifest-v1.json`. Active work state lives in the Work Registry, never in historical reports.
@@ -81,6 +81,32 @@ Additional non-linear states are `blocked`, `deferred`, `rejected`, `superseded`
 Implemented is not validated. Machine-validated is not human-accepted. Accepted is not deployed or operationally verified. A task is never deleted to make the backlog appear smaller.
 
 Every task records: stable id, category, domain, workstream, milestone, outcome, accountable capability, contributors, source, state, priority, risk, dependencies, scope, exclusions, acceptance, machine evidence, human evidence, resource estimate, approval gate, artifact, receiver, learning destination, and related or superseding tasks.
+
+## Task Passport and execution readiness
+
+The Work Registry is the portfolio source; a Task Passport is the bounded
+execution contract for one package. Before assignment, the Control Tower
+derives a Passport containing: objective, lifecycle stage, dependency gate,
+scope lock, exclusions, risk and reversibility, resource band and stopping
+threshold, executor route, branch/base/worktree, permission envelope,
+acceptance, exact validation, evidence inputs, expected outputs, human gate,
+stop conditions, and closure receiver.
+
+A task without enough data is `PASSPORT_INCOMPLETE`, not executable. Legacy
+tasks gain Passports lazily: P0/P1 first, then their dependency ancestors, then
+the selected executable task. Do not spend resources converting the entire
+backlog in advance.
+
+Dependencies are fail-closed. A package may start only when each required task
+or evidence dependency has the required accepted status. Evidence dependencies
+record task id, artifact, canonical or local path, checksum, and required
+status. Local reports are usable only after Control Tower acceptance.
+
+The default WIP limit is one implementation package. A second package requires
+documented independence, separate worktrees, integration order, and resource
+capacity. Every branch closes through validation, integration review, human
+gate when applicable, merge authority, post-merge validation, and an explicit
+retain/archive/delete decision.
 
 ## Work reporting policy
 

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bazigb.local/schemas/task-passport-v1.json",
+  "title": "BaziGB Task Passport",
+  "type": "object",
+  "required": ["schemaVersion", "taskId", "objective", "route", "dependencyGate", "scopeLock", "resource", "git", "permissionEnvelope", "acceptance", "validation", "stopConditions", "closure"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "taskId": { "type": "string", "minLength": 3 },
+    "objective": { "type": "string", "minLength": 3 },
+    "route": { "enum": ["internal-specialist", "external-ai"] },
+    "dependencyGate": {
+      "type": "object",
+      "required": ["status", "taskDependencies", "evidenceDependencies"],
+      "properties": {
+        "status": { "enum": ["READY", "BLOCKED"] },
+        "taskDependencies": { "type": "array", "items": { "type": "object", "required": ["taskId", "requiredStatus"], "properties": { "taskId": { "type": "string" }, "requiredStatus": { "type": "string" } } } },
+        "evidenceDependencies": { "type": "array", "items": { "type": "object", "required": ["taskId", "artifact", "path", "checksum", "requiredStatus"], "properties": { "taskId": { "type": "string" }, "artifact": { "type": "string" }, "path": { "type": "string" }, "checksum": { "type": "string" }, "requiredStatus": { "const": "ACCEPTED" } } } }
+      }
+    },
+    "scopeLock": { "type": "object", "required": ["allowedPaths", "forbiddenPaths", "excludedWork"], "properties": { "allowedPaths": { "type": "array", "minItems": 1, "items": { "type": "string" } }, "forbiddenPaths": { "type": "array", "items": { "type": "string" } }, "excludedWork": { "type": "array", "items": { "type": "string" } } } },
+    "resource": { "type": "object", "required": ["band", "approved", "stopWhen"], "properties": { "band": { "enum": ["low", "medium", "high"] }, "approved": { "type": "boolean" }, "stopWhen": { "type": "string" } } },
+    "git": { "type": "object", "required": ["repository", "branch", "baseRevision", "worktree", "allowCommit", "allowPush", "allowMerge"], "properties": { "repository": { "type": "string" }, "branch": { "type": "string" }, "baseRevision": { "type": "string" }, "worktree": { "type": "string" }, "allowCommit": { "type": "boolean" }, "allowPush": { "type": "boolean" }, "allowMerge": { "type": "boolean" } } },
+    "permissionEnvelope": { "type": "object", "required": ["allowedActions", "network", "github", "server", "database", "migration", "dependencies", "secrets", "production", "deploy"], "properties": { "allowedActions": { "type": "array", "items": { "type": "string" } }, "network": { "type": "boolean" }, "github": { "type": "boolean" }, "server": { "type": "boolean" }, "database": { "type": "boolean" }, "migration": { "type": "boolean" }, "dependencies": { "type": "boolean" }, "secrets": { "type": "boolean" }, "production": { "type": "boolean" }, "deploy": { "type": "boolean" } } },
+    "acceptance": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "validation": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "stopConditions": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "closure": { "type": "object", "required": ["receiver", "requiredDelivery", "branchDecision"], "properties": { "receiver": { "type": "string" }, "requiredDelivery": { "type": "array", "minItems": 1, "items": { "type": "string" } }, "branchDecision": { "enum": ["pending-control-tower", "retain", "archive", "delete-after-proof"] } } }
+  },
+  "additionalProperties": true
+}

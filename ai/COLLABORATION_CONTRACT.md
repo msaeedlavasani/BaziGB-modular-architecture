@@ -1,6 +1,6 @@
 # BaziGB — Collaboration Contract
 
-**Version:** 1.3.0
+**Version:** 1.4.0
 
 This is the canonical operating contract for an AI task. It complements
 `AGENTS.md`; current explicit human direction remains the highest authority.
@@ -94,3 +94,60 @@ not valid without cause analysis, alternatives tried, and a safe checkpoint.
 
 Read this file during task entry and link durable changes here or to the
 appropriate canonical contract. Do not copy conversation history into it.
+
+## 10. Control Tower and specialist routing
+
+The coordinating task is the **Control Tower**. It owns intake, dependency-aware
+priority, Task Passport issuance, executor selection, Work Registry and Current
+State updates, integration review, and branch closure. A specialist owns only
+the approved package it receives. It may implement and validate that package,
+but must not merge to `main`, deploy, change production, broaden scope, or absorb
+unrelated findings unless the Passport explicitly grants that authority.
+
+Raw human feedback is valid intake in every task. Before acting, classify each
+item as `OWN_CURRENT`, `OWN_FUTURE`, `BLOCKER`, `FOREIGN`, or `AMBIGUOUS`.
+Execute only `OWN_CURRENT`. Record `OWN_FUTURE`; return `FOREIGN` and
+`AMBIGUOUS` to the Control Tower; escalate `BLOCKER` with the smallest decision
+needed. A specialist must not silently turn an inbox item into branch, merge,
+database, production, or architecture authority.
+
+One implementation package is active by default. Parallel work requires proven
+independence, separate worktrees, explicit integration order, and sufficient
+resource budget. Dependency ancestors and release blockers outrank cosmetic
+recency. The Control Tower presents one decision-ready bundle to the human and
+does not make the human coordinate technical substeps.
+
+## 11. Internal and external executors
+
+Every executable package has one Task Passport conforming to
+`ai/exchange/schemas/task-passport.schema.json`. The Control Tower chooses one
+route:
+
+- `internal-specialist`: a Codex task receives the Passport and reports against
+  its acceptance and permission envelope;
+- `external-ai`: another AI receives the generated short prompt, Passport, and
+  only the referenced canonical sources.
+
+External execution is default-deny. The Permission Envelope explicitly lists
+repository, worktree, branch, paths, actions, network, GitHub, server, database,
+migration, dependency, secret, push, merge, deployment, and production access.
+Anything not granted is forbidden. When required authority is absent, stop at a
+recoverable checkpoint and emit an `INTERIM_BLOCKED` report; do not improvise.
+
+## 12. Exchange and report lifecycle
+
+`ai/exchange/` contains the tracked protocol, schemas, and templates. Runtime
+reports live under the gitignored `ai/exchange/runtime/` tree:
+
+`active → awaiting-decision → active → delivered → retired`
+
+Invalid or untrusted deliveries go to `quarantine`. An external executor may
+maintain one revisioned intermediate report. Its final delivery contains
+`final-report.md` plus `delivery-receipt.json`; exact required evidence is
+defined by the tracked templates and schema. Human-relayed questions and
+answers must be preserved in the final report.
+
+A downstream task may depend only on an `ACCEPTED` delivery whose identity,
+path, and checksum are recorded. Durable decisions or reusable evidence are
+promoted into canonical version-controlled documentation; raw runtime exchange
+files remain local and are not project memory.

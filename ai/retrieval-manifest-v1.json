@@ -55,9 +55,9 @@
     },
     {
       "id": "governance-evolution",
-      "triggers": ["policy", "control-plane", "work-registry", "retrieval", "supersession"],
-      "initialSources": ["ai/WORK_MANAGEMENT.md", "ai/CONTROL_PLANE.md", "docs/aipde/system-governance.md"],
-      "expandTo": ["ai/SYSTEM_INTEGRATION.md", "scripts/check-governance.mjs", "scripts/check-governance.test.mjs"],
+      "triggers": ["policy", "control-plane", "work-registry", "retrieval", "supersession", "delegation", "external-ai", "task-passport"],
+      "initialSources": ["ai/WORK_MANAGEMENT.md", "ai/COLLABORATION_CONTRACT.md", "ai/CONTROL_PLANE.md", "docs/aipde/system-governance.md"],
+      "expandTo": ["ai/SYSTEM_INTEGRATION.md", "ai/exchange/README.md", "scripts/check-governance.mjs", "scripts/check-governance.test.mjs", "scripts/check-task-package.mjs"],
       "forbiddenDefault": ["product-code", "all-historical-reports"]
     },
     {

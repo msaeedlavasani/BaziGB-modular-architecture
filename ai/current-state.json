@@ -3,18 +3,18 @@
   "updated": "2026-09-02",
   "repository": "BaziGB-modular-architecture",
   "branch": "codex/bazigb-integrated-recovery",
-  "baseRevision": "c04d37c87debd2c68406b22dbabf8437bc9bcf4e",
-  "workingTree": "local-session-presence-pilot-implemented-human-validation-pending",
-  "activeMilestone": "private-alpha-readiness",
+  "baseRevision": "328fb3856c7dfbd27c26c7f8901a3c7300a11c69",
+  "workingTree": "governance-product-integration-machine-validated-local-checkpoint-pending",
+  "activeMilestone": "control-plane-efficient-work",
   "currentGate": {
-    "taskId": "PX-SESSION-001",
+    "taskId": "GV-INTEGRATE-001",
     "owner": "Human Direction",
-    "gate": "human-retest-corrected-sound-layout-mobile-footer-room-discovery-and-start-flow"
+    "gate": "create-approved-local-checkpoint-then-request-main-push-and-deploy-authority-separately"
   },
-  "nextProposedTask": "PX-SESSION-001",
+  "nextProposedTask": "GV-INTEGRATE-001",
   "branchControl": {
     "canonicalDeploySource": "main",
-    "head": "c04d37c87debd2c68406b22dbabf8437bc9bcf4e",
+    "head": "328fb3856c7dfbd27c26c7f8901a3c7300a11c69",
     "remoteMain": "15f14aa94ff0569e9a13160719a23b059fe253f6",
     "remoteBranchCount": 1,
     "recoveryTag": "archive/ai-governance-pre-main-2026-08-31",
@@ -119,6 +119,12 @@
       ,"persistent-local-runtime-detached-start-and-health"
       ,"persistent-local-runtime-full-restart"
       ,"persistent-local-runtime-post-command-browser-reload"
+      ,"integrated-governance-task-package-and-branch-health-fixtures"
+      ,"integrated-sensitive-diff-and-design-system-gates"
+      ,"integrated-full-typecheck-and-package-boundaries"
+      ,"integrated-full-workspace-tests-110-of-110"
+      ,"integrated-full-workspace-build"
+      ,"vegas-repeatability-four-runs-10-of-10"
     ],
     "notPassing": []
   },
@@ -139,5 +145,6 @@
     "systemIntegration": "ai/SYSTEM_INTEGRATION.md",
     "governance": "docs/aipde/system-governance.md",
     "collaborationContract": "ai/COLLABORATION_CONTRACT.md"
+    ,"externalExchange": "ai/exchange/README.md"
   }
 }
