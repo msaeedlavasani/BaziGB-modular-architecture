@@ -2,19 +2,19 @@
   "version": "1.0.0",
   "updated": "2026-09-02",
   "repository": "BaziGB-modular-architecture",
-  "branch": "codex/bazigb-integrated-recovery",
-  "baseRevision": "328fb3856c7dfbd27c26c7f8901a3c7300a11c69",
-  "workingTree": "governance-product-integration-machine-validated-local-checkpoint-pending",
+  "branch": "main",
+  "baseRevision": "bf5e7e7700749810825677e280f522c1c91305bb",
+  "workingTree": "main-fast-forward-machine-validated-remote-push-pending",
   "activeMilestone": "control-plane-efficient-work",
   "currentGate": {
     "taskId": "GV-INTEGRATE-001",
     "owner": "Human Direction",
-    "gate": "create-approved-local-checkpoint-then-request-main-push-and-deploy-authority-separately"
+    "gate": "push-to-origin-main-approved-verify-remote-and-CI-before-any-deploy"
   },
   "nextProposedTask": "GV-INTEGRATE-001",
   "branchControl": {
     "canonicalDeploySource": "main",
-    "head": "328fb3856c7dfbd27c26c7f8901a3c7300a11c69",
+    "head": "bf5e7e7700749810825677e280f522c1c91305bb",
     "remoteMain": "15f14aa94ff0569e9a13160719a23b059fe253f6",
     "remoteBranchCount": 1,
     "recoveryTag": "archive/ai-governance-pre-main-2026-08-31",
