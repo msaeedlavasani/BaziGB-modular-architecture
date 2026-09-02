@@ -3,19 +3,19 @@
   "updated": "2026-09-02",
   "repository": "BaziGB-modular-architecture",
   "branch": "main",
-  "baseRevision": "bf5e7e7700749810825677e280f522c1c91305bb",
-  "workingTree": "main-fast-forward-machine-validated-remote-push-pending",
-  "activeMilestone": "control-plane-efficient-work",
+  "baseRevision": "43cde234f58ee363632733e2f5d718b6258b0d2a",
+  "workingTree": "main-remotely-protected-CI-green-deploy-blocked",
+  "activeMilestone": "release-readiness",
   "currentGate": {
-    "taskId": "GV-INTEGRATE-001",
+    "taskId": "DO-RELEASE-001",
     "owner": "Human Direction",
-    "gate": "push-to-origin-main-approved-verify-remote-and-CI-before-any-deploy"
+    "gate": "approve-bounded-production-dependency-remediation-and-release-preflight-before-deploy"
   },
-  "nextProposedTask": "GV-INTEGRATE-001",
+  "nextProposedTask": "DO-RELEASE-001",
   "branchControl": {
     "canonicalDeploySource": "main",
-    "head": "bf5e7e7700749810825677e280f522c1c91305bb",
-    "remoteMain": "15f14aa94ff0569e9a13160719a23b059fe253f6",
+    "head": "43cde234f58ee363632733e2f5d718b6258b0d2a",
+    "remoteMain": "43cde234f58ee363632733e2f5d718b6258b0d2a",
     "remoteBranchCount": 1,
     "recoveryTag": "archive/ai-governance-pre-main-2026-08-31",
     "recoveryTarget": "c361b5e2dd41f963f98b4b34e9d851c04b16760f",
@@ -23,11 +23,11 @@
     "catanHistory": "deleted-failed-automation-prototype-no-code-transfer-required"
   },
   "dependencySecurityGate": {
-    "status": "passed-locally",
+    "status": "deploy-blocked-production-audit-review-required",
     "runtime": "node >=20.19.0",
     "web": "next 16.3.3 with react 18 retained",
     "server": "nestjs 12.0.1 with config 12.0.0",
-    "productionAudit": { "total": 0, "high": 0, "moderate": 0, "critical": 0 }
+    "productionAudit": { "total": 3, "high": 0, "moderate": 3, "critical": 0 }
   },
   "qaServerGate": {
     "status": "passed-locally",
@@ -43,6 +43,7 @@
     "report": "docs/reports/aipde/2026-08-29-local-release-candidate-preflight.md"
   },
   "blockers": [
+    "Production dependency audit reports three moderate Express/body-parser/qs findings; remediation and clean CI are required before deploy",
     "DO-ENV-001 persistent local runtime is machine-validated; human session-duration confirmation remains pending"
     ,"Canonical deployment, observability, restore proof and legal routes are not release-ready"
     ,"Production SSH host identity is independently verified, but the server authorizes neither local SSH key; approved key provisioning is required before access"
@@ -125,6 +126,7 @@
       ,"integrated-full-workspace-tests-110-of-110"
       ,"integrated-full-workspace-build"
       ,"vegas-repeatability-four-runs-10-of-10"
+      ,"GitHub-Actions-run-48-full-CI-passed-at-43cde234f58ee363632733e2f5d718b6258b0d2a"
     ],
     "notPassing": []
   },
