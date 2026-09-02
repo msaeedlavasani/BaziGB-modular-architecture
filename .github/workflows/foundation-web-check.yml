@@ -68,6 +68,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate Prisma client
+        run: npm run prisma:generate -w @bazigb/server
+
       - name: Build shared game packages
         run: npm run build:packages
 
