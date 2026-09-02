@@ -1,6 +1,6 @@
 # BaziGB — Design System & UI Architecture
 
-**Version:** 2.4.0
+**Version:** 2.4.1
 
 This document defines the visual and interaction language of BaziGB. It does not define backend architecture, game rules, deployment, database strategy, or business strategy.
 
@@ -227,6 +227,12 @@ measurement such as `328px` may be evidence for one `360px` viewport, but the
 contract is consumption of available container space within fluid minimum and
 comfort boundaries. Evaluation must cover composition, hierarchy, reachability,
 content density and task usability in addition to overflow and geometry.
+
+The server render and the first client render must also be deterministic at
+every viewport. Do not derive initial UI from wall-clock time, mutable socket
+singletons, browser storage or device-only APIs. Activate those values after
+mount/connection and prevent mobile browser auto-formatting from rewriting the
+server HTML before hydration.
 
 Equal-width or equal-height cards are correct only for equal-priority objects.
 Product actions use `ActionDeck`: the primary outcome remains visually dominant,

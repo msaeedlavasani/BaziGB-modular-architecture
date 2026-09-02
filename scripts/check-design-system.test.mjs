@@ -73,7 +73,8 @@ write('apps/web/src/components/layout/Footer.tsx', "TrustSeal display: 'block'")
 write('apps/web/src/components/game/ParticipantStrip.tsx', 'ParticipantStrip layoutContract.game.supportInlineSize');
 write('apps/web/src/app/games/[gameId]/page.tsx', 'PageContainer PageStack ActionCard ActionDeck PageHeader GameIdentityMark parentNavigation={{ messages.gameHub.backToGames');
 write('apps/web/src/app/game/[gameId]/page.tsx', "GameShell GameSettingsToolbar localizedGameHubRoute settingsPresentation={gameId === 'tic-tac-toe' ? 'collapsed' soundService.hasSoundChoice() messages.sound.consentTitle markCount === previous.markCount");
-write('apps/web/src/app/play/[roomId]/page.tsx', 'soundService.hasSoundChoice() messages.sound.consentTitle layoutContract.game.supportInlineSize');
+write('apps/web/src/app/play/[roomId]/page.tsx', 'soundService.hasSoundChoice() messages.sound.consentTitle layoutContract.game.supportInlineSize useState(0) const [myId, setMyId]');
+write('apps/web/src/app/layout.tsx', 'formatDetection telephone: false email: false address: false');
 write('apps/web/src/lib/sound-service.ts', "STORAGE_CONSENT_VERSION_KEY SOUND_CONSENT_VERSION this.state.consent !== 'enabled' || !this.hasSoundChoice()");
 write('apps/web/src/lib/game-catalog.ts', 'catalog without presentation symbols');
 write('apps/web/src/components/game/BackgammonBoard.tsx', 'fluid checker containment');

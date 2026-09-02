@@ -41,12 +41,16 @@ npm run build
 # تستهای واحد بازیها
 npm test
 
-# اجرای توسعه (سرور :3001 + وب :3000)
+# اجرای پایدار توسعه (سرور :3001 + وب :3000)
 npm run dev
 ```
 
 - وب: http://localhost:3000
 - سرور: http://localhost:3001/api
+- وضعیت: `npm run dev:status`
+- راه‌اندازی مجدد: `npm run dev:restart`
+- توقف: `npm run dev:stop`
+- اجرای توسعه پس از آماده‌سازی پکیج‌های مشترک و Prisma، مستقل از عمر ترمینال ادامه پیدا می‌کند. لاگ‌ها و وضعیت محلی در `.local-runtime/` نگهداری می‌شوند و وارد Git نمی‌شوند.
 - محیط: از `.env.example` کپی کنید → `.env`
 
 ## دیپلوی (Zero Build)

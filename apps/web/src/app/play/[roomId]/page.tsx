@@ -78,7 +78,9 @@ export default function PlayPage() {
   const [turnInfo, setTurnInfo] = useState<{ player: string; endsAt: number } | null>(null);
   const [turnWarned, setTurnWarned] = useState(false);
   const [turnExpired, setTurnExpired] = useState(false);
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  // Keep the server render and the first client render identical. The clock is
+  // activated only after a realtime deadline exists.
+  const [nowMs, setNowMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -89,15 +91,17 @@ export default function PlayPage() {
   const [soundPromptOpen, setSoundPromptOpen] = useState(false);
   const [pendingExitHref, setPendingExitHref] = useState<string | null>(null);
   const [roomLookupFailed, setRoomLookupFailed] = useState(false);
+  // Socket.IO's singleton can already be connected during a client-side
+  // navigation. Reading socket.id during render would then disagree with SSR.
+  const [myId, setMyId] = useState('');
   const chatEndRef = useRef<HTMLDivElement | null>(null);
-
-  const myId = socket.id ?? '';
 
   const normalizeGameId = (value: unknown): GameId =>
     typeof value === 'string' && isWebGameId(value) ? value : 'tic-tac-toe';
 
   useEffect(() => {
     if (!turnInfo && sessionNotice?.kind !== 'player-reconnecting') return;
+    setNowMs(Date.now());
     const interval = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(interval);
   }, [sessionNotice?.kind, turnInfo]);
@@ -152,6 +156,7 @@ export default function PlayPage() {
           },
         ]),
       turnStarted: ({ player, endsAt }) => {
+        setNowMs(Date.now());
         setTurnInfo({ player, endsAt });
         setTurnWarned(false);
         setTurnExpired(false);
@@ -179,6 +184,7 @@ export default function PlayPage() {
       sessionNotice: (notice) => {
         if (notice?.kind === 'game-started') soundService.play('game-start');
         if (notice?.kind === 'player-reconnected') soundService.play('reconnected');
+        if (notice?.kind === 'player-reconnecting') setNowMs(Date.now());
         if (notice?.kind && notice.kind !== 'game-started') setSessionNotice(notice);
       },
       rematchUpdate: ({ voterIds }) => {
@@ -195,6 +201,7 @@ export default function PlayPage() {
     Object.entries(handlers).forEach(([event, handler]) => socket.on(event, handler as never));
 
     const onConnect = () => {
+      setMyId(socket.id ?? '');
       setConnected(true);
       rejoinRoom(roomCode);
     };
@@ -204,6 +211,7 @@ export default function PlayPage() {
     socket.on('disconnect', onDisconnect);
 
     if (socket.connected) {
+      setMyId(socket.id ?? '');
       setConnected(true);
       rejoinRoom(roomCode);
     }

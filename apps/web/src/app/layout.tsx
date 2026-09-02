@@ -14,6 +14,13 @@ export async function generateMetadata(): Promise<Metadata> {
     title: locale.metadata.title,
     description: locale.metadata.description,
     applicationName: 'BaziGB',
+    // iOS may otherwise mutate detected numbers/addresses before React
+    // hydrates, which makes the browser DOM differ from the server HTML.
+    formatDetection: {
+      telephone: false,
+      email: false,
+      address: false,
+    },
     openGraph: {
       type: 'website',
       siteName: 'BaziGB',

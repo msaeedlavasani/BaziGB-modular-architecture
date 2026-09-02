@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
-import { soundService } from '../lib/sound-service';
+import { soundService, type SoundSettingsState } from '../lib/sound-service';
 
 export interface SoundSettings {
   /** Whether sound is currently muted. */
@@ -22,8 +22,10 @@ const subscribe = (callback: () => void) => soundService.subscribe(callback);
 const getSnapshot = () => soundService.getState();
 
 // Used during SSR / first render to avoid hydration mismatches with
-// localStorage-backed state.
-const getServerSnapshot = () => ({ muted: false, volume: 0.6 });
+// localStorage-backed state. useSyncExternalStore requires this snapshot to be
+// referentially stable across reads.
+const SERVER_SNAPSHOT: SoundSettingsState = { muted: true, volume: 0.6, consent: 'unknown' };
+const getServerSnapshot = () => SERVER_SNAPSHOT;
 
 /**
  * React binding for the central Sound Service. Re-renders whenever the mute /

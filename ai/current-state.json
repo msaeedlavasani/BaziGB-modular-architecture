@@ -43,7 +43,7 @@
     "report": "docs/reports/aipde/2026-08-29-local-release-candidate-preflight.md"
   },
   "blockers": [
-    "Local human-test links require temporary persistent terminals; the Nest 12 ESM package currently needs Node's require-module compatibility flag because the server still emits CommonJS. DO-ENV-001 owns the durable runtime fix"
+    "DO-ENV-001 persistent local runtime is machine-validated; human session-duration confirmation remains pending"
     ,"Canonical deployment, observability, restore proof and legal routes are not release-ready"
     ,"Production SSH host identity is independently verified, but the server authorizes neither local SSH key; approved key provisioning is required before access"
   ],
@@ -116,6 +116,9 @@
       ,"shared-support-track-design-system-check-and-checker-tests"
       ,"mobile-LAN-page-and-room-API-200"
       ,"corrected-session-server-and-isolated-web-build"
+      ,"persistent-local-runtime-detached-start-and-health"
+      ,"persistent-local-runtime-full-restart"
+      ,"persistent-local-runtime-post-command-browser-reload"
     ],
     "notPassing": []
   },
