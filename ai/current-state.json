@@ -4,7 +4,7 @@
   "repository": "BaziGB-modular-architecture",
   "branch": "main",
   "baseRevision": "82bd9eccd9ad22494fd5ecfd0ff315c46910c3ce",
-  "workingTree": "local-release-checkpoints-committed-push-pending",
+  "workingTree": "main-remotely-protected-CI-green-production-staging-pending",
   "activeMilestone": "release-readiness",
   "currentGate": {
     "taskId": "DO-RELEASE-001",
@@ -15,7 +15,7 @@
   "branchControl": {
     "canonicalDeploySource": "main",
     "head": "82bd9eccd9ad22494fd5ecfd0ff315c46910c3ce",
-    "remoteMain": "fe51c1d",
+    "remoteMain": "f6a9b440089949e8ea8e12fb004785d430c74622",
     "remoteBranchCount": 1,
     "recoveryTag": "archive/ai-governance-pre-main-2026-08-31",
     "recoveryTarget": "c361b5e2dd41f963f98b4b34e9d851c04b16760f",
@@ -43,7 +43,6 @@
     "report": "docs/reports/aipde/2026-08-29-local-release-candidate-preflight.md"
   },
   "blockers": [
-    "Local dependency-security checkpoint 91c616a is not yet remotely protected",
     "Release rollback is proven only in an isolated local rehearsal; staging and production proof remain pending",
     "DO-ENV-001 persistent local runtime is machine-validated; human session-duration confirmation remains pending"
     ,"Canonical deployment, observability, restore proof and legal routes are not release-ready"
@@ -132,6 +131,7 @@
       ,"clean-install-full-workspace-tests-110-of-110-and-build"
       ,"independent-security-patch-review-no-findings"
       ,"local-release-safety-tests-9-of-9-with-failed-activation-rollback-proof"
+      ,"GitHub-Actions-run-50-full-CI-passed-at-f6a9b440089949e8ea8e12fb004785d430c74622"
     ],
     "notPassing": []
   },
