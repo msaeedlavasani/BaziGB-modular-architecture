@@ -188,5 +188,11 @@ test('host preparation stages units instead of activating them', () => {
   assert.match(source, /bazigb-web\.service\.next/);
   assert.doesNotMatch(source, /systemctl\s+(enable|restart|start)/);
   assert.match(source, /User=bazigb-runtime/);
+  assert.match(source, /NODE_VERSION="24\.20\.0"/);
+  assert.match(source, /NODE_ARCHIVE="node-v\$\{NODE_VERSION\}-linux-x64\.tar\.xz"/);
+  assert.match(source, /Node\.js archive checksum mismatch/);
+  assert.match(source, /pre-cutover-/);
+  assert.match(source, /bazigb-sqlite-backup.*checkpoint.*dev\.db/);
+  assert.match(source, /\/opt\/bazigb-runtime\/current\/bin\/node/);
   assert.match(source, /NoNewPrivileges=true/);
 });

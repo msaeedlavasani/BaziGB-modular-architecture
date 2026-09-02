@@ -5,6 +5,7 @@ set -euo pipefail
 
 PROD_HOST="${PROD_HOST:-bazigb-deploy@193.151.153.204}"
 RELEASE_ROOT="${BAZIGB_RELEASE_ROOT:-/srv/bazigb}"
+REMOTE_NODE_ROOT="${BAZIGB_REMOTE_NODE_ROOT:-/opt/bazigb-runtime/current}"
 SSH_KEY="${BAZIGB_SSH_KEY:-${HOME}/.ssh/bazigb_production_ed25519}"
 NPM_REGISTRY="${BAZIGB_NPM_REGISTRY:-https://package-mirror.liara.ir/repository/npm/}"
 RELEASE_ID="${RELEASE_ID:-}"
@@ -54,7 +55,7 @@ rsync -az --delete --timeout=600 \
 rsync -az -e "${RSYNC_SSH}" "${MANIFEST}" "${PROD_HOST}:${CANDIDATE_PATH}/release.manifest"
 
 printf 'Installing locked production dependencies inside the candidate...\n'
-"${SSH[@]}" "${PROD_HOST}" npm ci \
+"${SSH[@]}" "${PROD_HOST}" "${REMOTE_NODE_ROOT}/bin/npm" ci \
   --prefix "${CANDIDATE_PATH}" \
   --registry "${NPM_REGISTRY}" \
   --fetch-retries 2 --fetch-timeout 120000 \
