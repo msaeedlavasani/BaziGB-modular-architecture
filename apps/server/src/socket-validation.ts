@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
 export const joinRoomSchema = z.union([
-  z.string(),
+  z.string().min(1).max(16),
   z.object({
-    roomCode: z.string(),
-    gameType: z.string().optional(),
+    roomCode: z.string().min(1).max(16),
+    gameType: z.string().min(1).max(32).optional(),
     maxRounds: z.number().optional(),
     token: z.string().optional(),
     seatKey: z.string().optional(),
@@ -12,13 +12,13 @@ export const joinRoomSchema = z.union([
 ]);
 
 export const makeMoveSchema = z.object({
-  room: z.string(),
+  room: z.string().min(1).max(16),
   moveName: z.string(),
   args: z.array(z.unknown()),
 });
 
 export const gameActionSchema = z.object({
-  room: z.string(),
+  room: z.string().min(1).max(16),
   moveName: z.string(),
   args: z.array(z.unknown()),
   endTurn: z.boolean().optional(),
@@ -30,7 +30,7 @@ export const rollDiceSchema = z.object({
 });
 
 export const chatSchema = z.object({
-  room: z.string(),
+  room: z.string().min(1).max(16),
   message: z.string().max(500),
 });
 
@@ -44,11 +44,11 @@ export const reactionSchema = z.object({
 });
 
 export const undoSchema = z.object({
-  room: z.string(),
+  room: z.string().min(1).max(16),
 });
 
 export const nextRoundSchema = z.object({
-  room: z.string(),
+  room: z.string().min(1).max(16),
 });
 
 export const newGameSchema = z.object({
@@ -56,10 +56,10 @@ export const newGameSchema = z.object({
 });
 
 export const doubleSchema = z.object({
-  room: z.string(),
+  room: z.string().min(1).max(16),
 });
 
 export const doubleResponseSchema = z.object({
-  room: z.string(),
+  room: z.string().min(1).max(16),
   accept: z.boolean(),
 });

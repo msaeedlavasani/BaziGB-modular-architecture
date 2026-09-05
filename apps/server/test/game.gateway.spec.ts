@@ -123,6 +123,8 @@ describe('GameGateway Unit Tests', () => {
   it('4. undo (handleUndo): should handle various scenarios correctly', async () => {
     const client: any = { id: 'c1', emit: vi.fn() };
     const roomCode = 'ROOM1';
+    roomService.getRoom.mockResolvedValue({ code: roomCode, players: ['c1', 'c2'] });
+    (gateway as any).socketRooms.set('c1', new Set([roomCode]));
 
     // (الف) وقتی پشته خالی است -> error
     await gateway.handleUndo(client, { room: roomCode });
@@ -400,6 +402,7 @@ describe('GameGateway Unit Tests', () => {
     };
     roomService.getRoom.mockResolvedValue(room);
     roomService.startGame.mockResolvedValue({ ...room, status: 'playing' });
+    (gateway as any).socketRooms.set('p1', new Set([room.code]));
     const client: any = { id: 'p1', emit: vi.fn() };
 
     await gateway.handleStartGame(client, { roomCode: room.code });
@@ -411,5 +414,139 @@ describe('GameGateway Unit Tests', () => {
     );
     expect(server.to().emit).toHaveBeenCalledWith('sessionNotice', { kind: 'game-started' });
     expect(client.emit).not.toHaveBeenCalledWith('error', expect.anything());
+  });
+
+  it('16. overwrites a forged move actor with the authoritative socket seat', async () => {
+    const room: any = {
+      code: 'SEC01',
+      gameType: 'backgammon',
+      status: 'playing',
+      players: ['p1', 'p2'],
+      currentState: { phase: 'playing', turn: 'p1' },
+    };
+    roomService.getRoom.mockResolvedValue(room);
+    (gateway as any).socketRooms.set('p1', new Set([room.code]));
+    const apply = vi.spyOn(gateway as any, 'applyValidatedMove').mockResolvedValue(undefined);
+
+    await gateway.handleMakeMove(
+      { id: 'p1', emit: vi.fn() } as any,
+      { roomCode: room.code, move: { kind: 'move', player: 'p2', from: 1, to: 2 } },
+    );
+
+    expect(apply).toHaveBeenCalledWith(
+      room,
+      expect.objectContaining({ kind: 'move', player: 'p1' }),
+    );
+  });
+
+  it('16b. rejects nested and oversized move chains before adapter processing', async () => {
+    const room: any = {
+      code: 'SEC01', gameType: 'backgammon', status: 'playing',
+      players: ['p1', 'p2'], currentState: { phase: 'playing', turn: 'p1' },
+    };
+    roomService.getRoom.mockResolvedValue(room);
+    (gateway as any).socketRooms.set('p1', new Set([room.code]));
+    const apply = vi.spyOn(gateway as any, 'applyValidatedMove').mockResolvedValue(undefined);
+    const client: any = { id: 'p1', emit: vi.fn() };
+
+    await gateway.handleMakeMove(client, { roomCode: room.code, move: [[{ kind: 'move' }]] });
+    await gateway.handleMakeMove(client, {
+      roomCode: room.code,
+      move: Array.from({ length: 33 }, () => ({ kind: 'move' })),
+    });
+
+    expect(apply).not.toHaveBeenCalled();
+    expect(client.emit).toHaveBeenCalledTimes(2);
+    expect(client.emit).toHaveBeenCalledWith('error', expect.objectContaining({
+      message: expect.stringContaining('نامعتبر'),
+    }));
+  });
+
+  it('16c. strips deeply nested unknown move data before persistence', async () => {
+    const room: any = {
+      code: 'SEC01', gameType: 'chess', status: 'playing',
+      players: ['p1', 'p2'], currentState: { phase: 'playing', turn: 'p1' },
+    };
+    roomService.getRoom.mockResolvedValue(room);
+    (gateway as any).socketRooms.set('p1', new Set([room.code]));
+    const apply = vi.spyOn(gateway as any, 'applyValidatedMove').mockResolvedValue(undefined);
+    const nested = { value: null as unknown };
+    let cursor = nested;
+    for (let i = 0; i < 2_000; i++) {
+      const next = { value: null as unknown };
+      cursor.value = next;
+      cursor = next;
+    }
+
+    await gateway.handleMakeMove(
+      { id: 'p1', emit: vi.fn() } as any,
+      { roomCode: room.code, move: { kind: 'move', from: 1, to: 2, junk: nested } },
+    );
+
+    expect(apply).toHaveBeenCalledWith(room, {
+      player: 'p1', kind: 'move', from: 1, to: 2,
+    });
+
+    apply.mockClear();
+    const client: any = { id: 'p1', emit: vi.fn() };
+    await gateway.handleMakeMove(client, {
+      roomCode: room.code,
+      move: { kind: 'move', from: nested, to: 2 },
+    });
+    expect(apply).not.toHaveBeenCalled();
+    expect(client.emit).toHaveBeenCalledWith('error', expect.objectContaining({
+      message: expect.stringContaining('شطرنج'),
+    }));
+  });
+
+  it('17. rejects a doubling response from a non-seated socket', async () => {
+    const room: any = {
+      code: 'SEC02',
+      gameType: 'backgammon',
+      status: 'playing',
+      players: ['p1', 'p2'],
+      currentState: { phase: 'playing', doubling: { offeredBy: 'p1' } },
+    };
+    roomService.getRoom.mockResolvedValue(room);
+    (gateway as any).socketRooms.set('outsider', new Set([room.code]));
+    const client: any = { id: 'outsider', emit: vi.fn() };
+
+    await gateway.handleDoubleResponse(client, { room: room.code, accept: true });
+
+    expect(roomService.saveState).not.toHaveBeenCalled();
+    expect(client.emit).toHaveBeenCalledWith('error', expect.objectContaining({
+      message: expect.stringContaining('فقط بازیکنان'),
+    }));
+  });
+
+  it('18. refuses implicit persistent-room creation from a socket join', async () => {
+    roomService.getRoom.mockResolvedValue(null);
+    const client: any = { id: 'p1', emit: vi.fn(), join: vi.fn() };
+
+    await gateway.handleJoinRoom(client, { roomCode: 'NEW01', gameType: 'chess' });
+
+    expect(roomService.joinRoom).not.toHaveBeenCalled();
+    expect(client.emit).toHaveBeenCalledWith('error', { message: 'اتاق یافت نشد' });
+  });
+
+  it('19. rejects attempts to reset an active game through newGame or nextRound', async () => {
+    const room: any = {
+      code: 'SEC03',
+      gameType: 'chess',
+      status: 'playing',
+      players: ['p1', 'p2'],
+      currentState: { phase: 'playing', turn: 'p1' },
+    };
+    roomService.getRoom.mockResolvedValue(room);
+    (gateway as any).socketRooms.set('p1', new Set([room.code]));
+    const client: any = { id: 'p1', emit: vi.fn() };
+
+    await gateway.handleNewGame(client, { roomCode: room.code });
+    await gateway.handleNextRound(client, { room: room.code });
+
+    expect(roomService.startGame).not.toHaveBeenCalled();
+    expect(client.emit).toHaveBeenCalledWith('error', expect.objectContaining({
+      message: expect.stringMatching(/هنوز تمام نشده|پشتیبانی نمی‌کند/),
+    }));
   });
 });

@@ -1,5 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { RateLimiterService } from './rate-limiter.service';
+import { trustedClientAddress } from './client-identity';
 
 @Injectable()
 export class WsRateLimitGuard implements CanActivate {
@@ -7,13 +8,17 @@ export class WsRateLimitGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const client = context.switchToWs().getClient();
-    const id = client.id;
+    const address = trustedClientAddress(
+      client.handshake?.address,
+      client.handshake?.headers?.['x-forwarded-for'],
+    );
 
-    // Socket Limit: 60 actions per 60 seconds
-    const limit = 60;
-    const ttl = 60;
-
-    const isLimited = this.rateLimiter.isRateLimited(`ws:action:${id}`, limit, ttl);
+    // The stable network budget survives reconnects. The per-socket burst
+    // budget limits one connection without making unrelated clients share the
+    // same primary allowance.
+    const isLimited =
+      this.rateLimiter.isRateLimited(`ws:action:address:${address}`, 60, 60) ||
+      this.rateLimiter.isRateLimited(`ws:action:socket:${client.id}`, 20, 10);
 
     if (isLimited) {
       // Per requirements: event error for socket

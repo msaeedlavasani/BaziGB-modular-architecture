@@ -1,21 +1,22 @@
 {
   "version": "1.0.0",
-  "updated": "2026-09-03",
+  "updated": "2026-09-05",
   "repository": "BaziGB-modular-architecture",
   "branch": "main",
-  "baseRevision": "82bd9eccd9ad22494fd5ecfd0ff315c46910c3ce",
-  "workingTree": "main-remotely-protected-CI-green-production-staging-pending",
+  "baseRevision": "c30ddce480497aacdfbd2a543f022d9e61330959",
+  "workingTree": "local-uncommitted-alpha-security-and-recovery-checkpoint-on-c30ddce",
   "activeMilestone": "release-readiness",
   "currentGate": {
     "taskId": "DO-RELEASE-001",
     "owner": "Human Direction",
-    "gate": "checkpoint-approved-local-rollback-proof-then-stage-exact-candidate-only-after-separate-authority"
+    "gate": "security-dependencies-accepted-with-independent-follow-up-hardening; canonical-release-requires-TRUST_PROXY_HOPS-1; recovery-mechanism-machine-validated; real-backup-restore-and-release-rehearsal-require-next-bundled-authority"
   },
   "nextProposedTask": "DO-RELEASE-001",
   "branchControl": {
     "canonicalDeploySource": "main",
-    "head": "82bd9eccd9ad22494fd5ecfd0ff315c46910c3ce",
-    "remoteMain": "f6a9b440089949e8ea8e12fb004785d430c74622",
+    "head": "c30ddce480497aacdfbd2a543f022d9e61330959",
+    "remoteMain": "c30ddce480497aacdfbd2a543f022d9e61330959",
+    "remoteEvidence": "local-origin-tracking-and-parent-transferred-GitHub-evidence; live-network-recheck-unavailable-in-current-task",
     "remoteBranchCount": 1,
     "recoveryTag": "archive/ai-governance-pre-main-2026-08-31",
     "recoveryTarget": "c361b5e2dd41f963f98b4b34e9d851c04b16760f",
@@ -36,20 +37,28 @@
     "fullWorkspaceTests": "passed"
   },
   "releaseCandidatePreflight": {
-    "status": "local-machine-validation-passed-committed-and-remotely-protected",
-    "head": "a577fe0",
-    "workingTree": "private-alpha-checkpoint-follows-base-candidate",
-    "releaseSafety": "8-of-8-passed",
+    "status": "candidate-committed-CI-success-and-bootstrap-artifacts-transferred-by-parent-evidence-execution-not-started",
+    "head": "c30ddce480497aacdfbd2a543f022d9e61330959",
+    "workingTree": "clean-main",
+    "releaseSafety": "9-of-9-passed-at-c30ddce-on-2026-09-05",
+    "ci": "GitHub-Actions-run-33687088681-success-at-c30ddce-parent-evidence-current-task-live-recheck-unavailable",
+    "nodeRuntime": {
+      "archive": "node-v24.20.0-linux-x64.tar.xz",
+      "sha256": "2f2c0da162318f0de47665410c7c8c2ed3d36c8f3105de4bbc61176c70a7cbf2",
+      "evidence": "checksum-pinned-in-repository-and-parent-transfer-evidence"
+    },
+    "serverBootstrap": "four-checksummed-artifacts-reported-at-/tmp/bazigb-bootstrap-c30ddce-under-bazigb-deploy; current-task-SSH-reauthentication-required-before-use; no-root-run-no-activation-no-restart-no-deploy",
     "report": "docs/reports/aipde/2026-08-29-local-release-candidate-preflight.md"
   },
   "blockers": [
     "Release rollback is proven only in an isolated local rehearsal; staging and production proof remain pending",
     "DO-ENV-001 persistent local runtime is machine-validated; human session-duration confirmation remains pending"
     ,"Canonical deployment, observability, restore proof and legal routes are not release-ready"
-    ,"Production SSH host identity is independently verified, but the server authorizes neither local SSH key; approved key provisioning is required before access"
+    ,"DO-RELEASE-001 remains blocked until DO-RECOVERY-001 proves a real approved checkpoint and isolated restore during the release rehearsal"
+    ,"Current task could not authenticate as bazigb-deploy for a fresh read-only server check; this does not invalidate the parent evidence that a prior authorized session transferred four artifacts"
   ],
   "lastValidation": {
-    "date": "2026-09-02",
+    "date": "2026-09-05",
     "passed": [
       "backgammon-tests-29-of-29",
       "game-gateway-tests-8-of-8",
@@ -132,6 +141,22 @@
       ,"independent-security-patch-review-no-findings"
       ,"local-release-safety-tests-9-of-9-with-failed-activation-rollback-proof"
       ,"GitHub-Actions-run-50-full-CI-passed-at-f6a9b440089949e8ea8e12fb004785d430c74622"
+      ,"local-main-clean-at-c30ddce-and-origin-tracking-aligned"
+      ,"GitHub-Actions-run-33687088681-success-at-c30ddce-parent-transferred-evidence"
+      ,"node-v24.20.0-linux-x64-checksum-pinned-at-2f2c0da162318f0de47665410c7c8c2ed3d36c8f3105de4bbc61176c70a7cbf2"
+      ,"release-safety-tests-9-of-9-at-c30ddce-2026-09-05"
+      ,"task-package-tests-pass-2026-09-05"
+      ,"governance-checker-tests-pass-2026-09-05"
+      ,"governance-check-pass-2026-09-05"
+      ,"canonical-json-and-diff-check-pass-2026-09-05"
+      ,"alpha-security-targeted-tests-23-of-23-2026-09-05"
+      ,"server-typecheck-after-alpha-security-controls-2026-09-05"
+      ,"local-SQLite-backup-integrity-and-isolated-restore-critical-read-pass-2026-09-05"
+      ,"security-follow-up-targeted-tests-30-of-30-2026-09-05"
+      ,"security-follow-up-server-suite-44-of-44-2026-09-05"
+      ,"security-follow-up-full-workspace-tests-126-of-126-and-build-2026-09-05"
+      ,"security-follow-up-server-typecheck-2026-09-05"
+      ,"release-safety-tests-9-of-9-with-required-single-proxy-contract-2026-09-05"
     ],
     "notPassing": []
   },

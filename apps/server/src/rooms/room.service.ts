@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { GameState } from '@bazigb/engine';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
@@ -23,6 +23,12 @@ export type RoomStatus = 'waiting' | 'playing' | 'finished';
 // Ambiguous characters (0, O, 1, I) are excluded so codes are easy to share by voice.
 const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const ROOM_CODE_LENGTH = 5;
+const MAX_ACTIVE_ALPHA_ROOMS = 200;
+// An HTTP-created room has no player until its creator's socket joins. If that
+// never happens, release the capacity promptly; joined private rooms follow
+// their separate lifecycle and are not affected by this cleanup.
+const EMPTY_WAITING_ROOM_TTL_MS = 15 * 60 * 1000;
+const PUBLIC_ROOM_LIST_LIMIT = 100;
 
 export interface RoomWithParsedData {
   id: string;
@@ -167,7 +173,26 @@ export class RoomService {
    * `joinRoom` event (GameGateway) which seats them by socket id.
    */
   async createRoom(gameType = 'tic-tac-toe', maxRounds: unknown = 1): Promise<RoomWithParsedData> {
+    return this.withRoomLock('__alpha-room-creation__', () =>
+      this.createRoomUnlocked(gameType, maxRounds),
+    );
+  }
+
+  private async createRoomUnlocked(gameType: string, maxRounds: unknown): Promise<RoomWithParsedData> {
     const normalizedRounds = normalizeMaxRounds(maxRounds);
+    await this.prisma.room.deleteMany({
+      where: {
+        status: 'waiting',
+        players: '[]',
+        createdAt: { lt: new Date(Date.now() - EMPTY_WAITING_ROOM_TTL_MS) },
+      },
+    });
+    const activeRooms = await this.prisma.room.count({
+      where: { status: { in: ['waiting', 'playing'] } },
+    });
+    if (activeRooms >= MAX_ACTIVE_ALPHA_ROOMS) {
+      throw new ServiceUnavailableException('ظرفیت اتاق‌های فعال موقتاً تکمیل است');
+    }
     for (let attempt = 0; attempt < 10; attempt++) {
       const code = this.generateCode();
       try {
@@ -350,9 +375,11 @@ export class RoomService {
 
   /** List rooms, optionally filtered by status. */
   async listRooms(status?: RoomStatus): Promise<RoomWithParsedData[]> {
-    const rooms = status
-      ? await this.prisma.room.findMany({ where: { status } })
-      : await this.prisma.room.findMany();
+    const rooms = await this.prisma.room.findMany({
+      ...(status ? { where: { status } } : {}),
+      orderBy: { createdAt: 'desc' },
+      take: PUBLIC_ROOM_LIST_LIMIT,
+    });
     return rooms.map((room) => this.toParsed(room));
   }
 

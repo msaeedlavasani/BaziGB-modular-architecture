@@ -48,6 +48,7 @@ const TURN_WARN_MS = 10_000;
 const SEAT_CLAIM_TTL = 10 * 60 * 1000;
 const TIC_TAC_TOE_RECONNECT_GRACE_MS = 60_000;
 const UNDO_DEPTH = 20;
+const MAX_MOVE_CHAIN_ACTIONS = 32;
 
 type PresenceRole = 'creator' | 'player' | 'spectator';
 type PresenceConnection = 'connected' | 'reconnecting';
@@ -151,6 +152,91 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private isRoomMember(socketId: string, roomCode: string): boolean {
     return this.socketRooms.get(socketId)?.has(roomCode) ?? false;
+  }
+
+  private assertSeatedMember(client: Socket, room: RoomWithParsedData) {
+    if (!this.isRoomMember(client.id, room.code) || !room.players.includes(client.id)) {
+      throw new BadRequestException('فقط بازیکنان این اتاق مجاز به انجام این اقدام هستند');
+    }
+  }
+
+  /** Replace client-supplied actors without traversing arbitrary nested input. */
+  private bindMoveActor(move: unknown, actorId: string, gameType: string): unknown {
+    const bindAction = (action: unknown): Record<string, unknown> => {
+      if (!action || typeof action !== 'object' || Array.isArray(action)) {
+        throw new BadRequestException('ساختار حرکت نامعتبر است');
+      }
+      const source = action as Record<string, unknown>;
+      const kind = source.kind;
+      if (typeof kind !== 'string' || kind.length > 16) {
+        throw new BadRequestException('نوع حرکت نامعتبر است');
+      }
+
+      // Keep only the primitive fields defined by each public game contract.
+      // Unknown/nested client data must never enter authoritative state/history.
+      if (gameType === 'tic-tac-toe') {
+        if (kind !== 'place' || typeof source.to !== 'number') {
+          throw new BadRequestException('ساختار حرکت دوز نامعتبر است');
+        }
+        return { player: actorId, kind, to: source.to };
+      }
+      if (gameType === 'chess') {
+        if (
+          kind !== 'move' ||
+          typeof source.from !== 'number' ||
+          typeof source.to !== 'number' ||
+          (source.promotion !== undefined && !['q', 'r', 'b', 'n'].includes(String(source.promotion)))
+        ) {
+          throw new BadRequestException('ساختار حرکت شطرنج نامعتبر است');
+        }
+        return {
+          player: actorId,
+          kind,
+          from: source.from,
+          to: source.to,
+          ...(source.promotion === undefined ? {} : { promotion: source.promotion }),
+        };
+      }
+      if (gameType === 'vegas') {
+        if (
+          !['roll', 'place', 'nextRound'].includes(kind) ||
+          (source.value !== undefined && typeof source.value !== 'number')
+        ) {
+          throw new BadRequestException('ساختار حرکت وگاس نامعتبر است');
+        }
+        return {
+          player: actorId,
+          kind,
+          ...(source.value === undefined ? {} : { value: source.value }),
+        };
+      }
+      if (gameType === 'backgammon') {
+        const validFrom = source.from === undefined || source.from === 'bar' || typeof source.from === 'number';
+        const validTo = source.to === undefined || source.to === 'off' || typeof source.to === 'number';
+        if (
+          !['roll', 'move'].includes(kind) ||
+          !validFrom ||
+          !validTo ||
+          (source.amount !== undefined && typeof source.amount !== 'number')
+        ) {
+          throw new BadRequestException('ساختار حرکت تخته نامعتبر است');
+        }
+        return {
+          player: actorId,
+          kind,
+          ...(source.from === undefined ? {} : { from: source.from }),
+          ...(source.to === undefined ? {} : { to: source.to }),
+          ...(source.amount === undefined ? {} : { amount: source.amount }),
+        };
+      }
+      throw new BadRequestException('بازی ناشناخته است');
+    };
+
+    if (!Array.isArray(move)) return bindAction(move);
+    if (move.length === 0 || move.length > MAX_MOVE_CHAIN_ACTIONS) {
+      throw new BadRequestException('زنجیرهٔ حرکت نامعتبر است');
+    }
+    return move.map(bindAction);
   }
 
   private participantName(socketId: string, fallback: string): string {
@@ -428,15 +514,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       let room = await this.roomService.getRoom(roomCode);
 
-      // ۱) ساخت اتاق اگر وجود ندارد (اولین عضو مینشیند)
+      // Room creation is intentionally bounded by the HTTP endpoint. Socket
+      // joins may claim a seat only in an already-created room.
       if (!room) {
-        room = await this.roomService.joinRoom(roomCode, client.id, gameType, maxRounds);
-        this.issueSeatKey(client, roomCode);
-        await client.join(roomCode);
-        this.rememberRoom(client.id, roomCode);
-        this.server.to(roomCode).emit('roomUpdate', room);
-        this.emitSystemMessage(roomCode, 'اتاق ساخته شد', this.socketUsers.get(client.id), 'info', this.socketUsernames.get(client.id));
-        await this.emitPresence(roomCode, room);
+        client.emit('error', { message: 'اتاق یافت نشد' });
         return;
       }
 
@@ -535,13 +616,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @UseGuards(WsRateLimitGuard)
   @SubscribeMessage('startGame')
   async handleStartGame(@ConnectedSocket() client: Socket, @MessageBody() payload: { roomCode: string }) {
     try {
       const room = await this.roomService.getRoom(payload.roomCode);
       if (!room) throw new BadRequestException('اتاق یافت نشد');
-      // فقط بازیکنهای نشسته میتوانند بازی را شروع کنند (تماشاچی نه)
-      if (!room.players.includes(client.id)) throw new BadRequestException('فقط بازیکنان میتوانند بازی را شروع کنند');
+      this.assertSeatedMember(client, room);
       if (room.ownerId && room.ownerId !== client.id) throw new BadRequestException('فقط سازنده اتاق میتواند بازی را شروع کند');
       if (room.players.length < 2) throw new BadRequestException('برای شروع بازی حداقل دو بازیکن لازم است');
       const state = this.initialState(room);
@@ -755,13 +836,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @UseGuards(WsRateLimitGuard)
   @SubscribeMessage('makeMove')
-  async handleMakeMove(@ConnectedSocket() client: Socket, @MessageBody() body: { roomCode: string; move: unknown }) {
+  async handleMakeMove(@ConnectedSocket() client: Socket, @MessageBody() body: unknown) {
     try {
-      const room = await this.roomService.getRoom(body.roomCode);
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        throw new BadRequestException('درخواست حرکت نامعتبر است');
+      }
+      const { roomCode, move } = body as { roomCode?: unknown; move?: unknown };
+      if (typeof roomCode !== 'string' || roomCode.length < 1 || roomCode.length > 16) {
+        throw new BadRequestException('کد اتاق نامعتبر است');
+      }
+      const room = await this.roomService.getRoom(roomCode);
       if (!room) throw new BadRequestException('اتاق یافت نشد');
+      this.assertSeatedMember(client, room);
       const state = room.currentState as GameState;
       if (!state || state.turn !== client.id) throw new BadRequestException('نوبت شما نیست');
-      await this.applyValidatedMove(room, body.move);
+      await this.applyValidatedMove(room, this.bindMoveActor(move, client.id, room.gameType));
     } catch (error) {
       client.emit('error', { message: error instanceof Error ? error.message : 'حرکت نامعتبر' });
     }
@@ -773,6 +862,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const room = await this.roomService.getRoom(body.roomCode);
       if (!room) throw new BadRequestException('اتاق یافت نشد');
+      this.assertSeatedMember(client, room);
       const state = room.currentState as GameState;
       if (!state || state.turn !== client.id) throw new BadRequestException('نوبت شما نیست');
       await this.applyValidatedMove(room, { player: client.id, kind: 'roll' });
@@ -793,6 +883,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const room = await this.roomService.getRoom(roomCode);
       if (!room) throw new BadRequestException('اتاق یافت نشد');
+      this.assertSeatedMember(client, room);
       const state = room.currentState as GameState;
       if (!state || state.turn !== client.id) throw new BadRequestException('نوبت شما نیست');
 
@@ -812,6 +903,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('nextRound')
+  @UseGuards(WsRateLimitGuard)
   async handleNextRound(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
     const parsed = nextRoundSchema.safeParse(payload);
     if (!parsed.success) return;
@@ -821,17 +913,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!this.isRoomMember(client.id, room.code) || !room.players.includes(client.id)) {
         throw new BadRequestException('فقط بازیکنان این اتاق می‌توانند بازی را ادامه دهند');
       }
-      if (room.gameType === 'backgammon') {
-        const current = room.currentState as GameState | null;
-        if (!current || current.phase !== 'roundEnd') {
-          throw new BadRequestException('دست بعدی هنوز آماده شروع نیست');
-        }
-        const adapter = this.resolveGame(room.gameType);
-        if (!adapter.startNextGame) throw new BadRequestException('این بازی ادامه مسابقه را پشتیبانی نمی‌کند');
-        await this.roomService.startGame(room.code, adapter.startNextGame(current as never) as GameState);
-      } else {
-        await this.roomService.startGame(room.code, this.initialState(room));
+      if (room.gameType !== 'backgammon') {
+        throw new BadRequestException('این بازی ادامهٔ دستی راند را پشتیبانی نمی‌کند');
       }
+      const current = room.currentState as GameState | null;
+      if (!current || current.phase !== 'roundEnd') {
+        throw new BadRequestException('دست بعدی هنوز آماده شروع نیست');
+      }
+      const adapter = this.resolveGame(room.gameType);
+      if (!adapter.startNextGame) throw new BadRequestException('این بازی ادامه مسابقه را پشتیبانی نمی‌کند');
+      await this.roomService.startGame(room.code, adapter.startNextGame(current as never) as GameState);
       this.undoStacks.delete(room.code);
       const updated = await this.roomService.getRoom(room.code);
       this.server.to(room.code).emit('gameState', updated?.currentState);
@@ -843,6 +934,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('newGame')
+  @UseGuards(WsRateLimitGuard)
   async handleNewGame(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
     const parsed = newGameSchema.safeParse(payload);
     if (!parsed.success) return;
@@ -852,11 +944,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!this.isRoomMember(client.id, room.code) || !room.players.includes(client.id)) {
         throw new BadRequestException('فقط بازیکنان این اتاق می‌توانند درخواست بازی دوباره بدهند');
       }
+      if (room.status !== 'finished' && room.currentState?.phase !== 'finished') {
+        throw new BadRequestException('بازی فعلی هنوز تمام نشده است');
+      }
 
       if (room.gameType === 'tic-tac-toe') {
-        if (room.status !== 'finished' && room.currentState?.phase !== 'finished') {
-          throw new BadRequestException('بازی فعلی هنوز تمام نشده است');
-        }
         const votes = this.rematchVotes.get(room.code) ?? new Set<string>();
         votes.add(client.id);
         this.rematchVotes.set(room.code, votes);
@@ -885,10 +977,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('undo')
+  @UseGuards(WsRateLimitGuard)
   async handleUndo(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
     const parsed = undoSchema.safeParse(payload);
     if (!parsed.success) return;
     const { room: roomCode } = parsed.data;
+    const room = await this.roomService.getRoom(roomCode);
+    if (!room) return;
+    try {
+      this.assertSeatedMember(client, room);
+    } catch (error) {
+      client.emit('error', { message: error instanceof Error ? error.message : 'اقدام غیرمجاز' });
+      return;
+    }
     const stack = this.undoStacks.get(roomCode) ?? [];
     if (stack.length === 0) {
       client.emit('error', { message: 'حرکتی برای بازگرداندن نیست' });
@@ -907,11 +1008,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('chatMessage')
+  @UseGuards(WsRateLimitGuard)
   async handleChatMessage(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
     const parsed = chatSchema.safeParse(payload);
     if (!parsed.success) return;
     const { room: roomCode, message } = parsed.data;
     if (!this.isRoomMember(client.id, roomCode)) return;
+    if (!await this.roomService.getRoom(roomCode)) return;
     if (!message || message.trim().length === 0) return;
     const trimmed = message.trim().slice(0, MAX_CHAT_LENGTH);
     this.server.to(roomCode).emit('systemMessage', {
@@ -924,6 +1027,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('reaction')
+  @UseGuards(WsRateLimitGuard)
   handleReaction(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
     const parsed = reactionSchema.safeParse(payload);
     if (!parsed.success || !this.socketRooms.get(client.id)?.has(parsed.data.room)) return;
@@ -936,12 +1040,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('double')
+  @UseGuards(WsRateLimitGuard)
   async handleDouble(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
     const parsed = doubleSchema.safeParse(payload);
     if (!parsed.success) return;
     try {
       const room = await this.roomService.getRoom(parsed.data.room);
       if (!room || room.status !== 'playing' || room.gameType !== 'backgammon') return;
+      this.assertSeatedMember(client, room);
       const state = room.currentState as any;
       if (state.turn !== client.id) throw new BadRequestException('نوبت شما نیست');
 
@@ -958,14 +1064,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('doubleResponse')
+  @UseGuards(WsRateLimitGuard)
   async handleDoubleResponse(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
     const parsed = doubleResponseSchema.safeParse(payload);
     if (!parsed.success) return;
     try {
       const room = await this.roomService.getRoom(parsed.data.room);
       if (!room || room.status !== 'playing' || room.gameType !== 'backgammon') return;
+      this.assertSeatedMember(client, room);
       const state = room.currentState as any;
-      if (!state.doubling || state.doubling.offeredBy === client.id) throw new BadRequestException('پاسخ غیرمجاز');
+      const expectedResponder = room.players.find((playerId) => playerId !== state.doubling?.offeredBy);
+      if (!state.doubling || expectedResponder !== client.id) throw new BadRequestException('پاسخ غیرمجاز');
 
       const { respondDouble } = await import('@bazigb/game-backgammon');
       const next = respondDouble(state, client.id, parsed.data.accept);

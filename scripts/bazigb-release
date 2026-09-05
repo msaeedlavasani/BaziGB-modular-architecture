@@ -57,6 +57,11 @@ database_checkpoint() {
   chmod 0600 "${destination}"
 }
 
+verify_runtime_environment() {
+  grep -Eq '^TRUST_PROXY_HOPS=1$' "${SHARED}/.env" ||
+    die 'Shared environment must declare TRUST_PROXY_HOPS=1 for the canonical single-proxy topology.'
+}
+
 health_check() {
   curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3001/api/rooms >/dev/null &&
     curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/fa/lobby >/dev/null
@@ -66,6 +71,7 @@ activate() {
   verify
   [[ -f "${SHARED}/.env" ]] || die 'Shared environment file is missing.'
   [[ -f "${SHARED}/data/dev.db" ]] || die 'Shared SQLite database is missing.'
+  verify_runtime_environment
   link_persistent_data
   database_checkpoint
 

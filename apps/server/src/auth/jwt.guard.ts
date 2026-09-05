@@ -13,7 +13,10 @@ export class JwtAuthGuard implements CanActivate {
       const payload = this.auth.verify(header.slice(7));
       const user = await this.auth.validateUser(payload);
       if (!user) throw new UnauthorizedException('کاربر یافت نشد یا غیرفعال است');
-      req.user = payload;
+      // Authorization must use the current database role. A role embedded in
+      // an older JWT is authentication history, not current authority.
+      const { password: _password, ...currentUser } = user;
+      req.user = { ...payload, ...currentUser, role: currentUser.role };
       return true;
     } catch {
       throw new UnauthorizedException('توکن نامعتبر است');

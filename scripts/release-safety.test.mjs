@@ -82,6 +82,7 @@ test('release controller uses isolated releases and mandatory health checks', ()
   assert.match(readFileSync(backupPath, 'utf8'), /PRAGMA integrity_check/);
   assert.match(source, /curl --fail/);
   assert.match(source, /api\/rooms[^\n]+&&/);
+  assert.match(source, /TRUST_PROXY_HOPS=1/);
   assert.doesNotMatch(source, /\|\|\s*true/);
 });
 
@@ -108,7 +109,7 @@ test('failed activation atomically restores the previous release', () => {
   writeFileSync(join(candidate, 'release.manifest'), `release_id=${releaseId}\ngit_revision=${releaseId}\n`);
   writeFileSync(join(candidate, 'apps/server/dist/main.js'), '');
   writeFileSync(join(candidate, 'apps/web/.next/standalone/apps/web/server.js'), '');
-  writeFileSync(join(root, 'shared/.env'), 'NODE_ENV=production\n');
+  writeFileSync(join(root, 'shared/.env'), 'NODE_ENV=production\nTRUST_PROXY_HOPS=1\n');
   writeFileSync(join(root, 'shared/data/dev.db'), 'sqlite fixture');
   symlinkSync(previous, join(root, 'current'));
 
