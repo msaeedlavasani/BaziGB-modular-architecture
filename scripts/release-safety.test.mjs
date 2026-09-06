@@ -100,6 +100,30 @@ test('release controller uses isolated releases and mandatory health checks', ()
   assert.doesNotMatch(source, /\|\|\s*true/);
 });
 
+test('canary is bounded, isolated, redacted, and cannot widen deploy-user access', () => {
+  const controller = readFileSync(controllerPath, 'utf8');
+  const prepare = readFileSync(preparePath, 'utf8');
+
+  assert.match(controller, /canary\|preflight\) canary/);
+  assert.match(controller, /Canary must run through the approved root controller/);
+  assert.match(controller, /Canary requires exactly RELEASE_ID and LOCK_SHA256/);
+  assert.match(controller, /DATABASE_URL=file:\$\{snapshot\}/);
+  assert.match(controller, /RuntimeMaxSec=\$\{CANARY_RUNTIME_SECONDS\}/);
+  assert.match(controller, /CPUQuota=100%/);
+  assert.match(controller, /MemoryMax=512M/);
+  assert.match(controller, /TasksMax=128/);
+  assert.match(controller, /StandardOutput=null/);
+  assert.match(controller, /StandardError=null/);
+  assert.match(controller, /9>>"\$\{EVIDENCE_FILE\}"/);
+  assert.doesNotMatch(controller, /rm[^\n]*EVIDENCE/);
+  assert.doesNotMatch(controller, /cat[^\n]*SHARED[^\n]*\.env/);
+
+  const sudoers = prepare.match(/cat >\/etc\/sudoers\.d\/bazigb-release[\s\S]*?^SUDOERS$/m)?.[0] ?? '';
+  assert.match(sudoers, /bazigb-release canary \*/);
+  assert.match(sudoers, /bazigb-release preflight \*/);
+  assert.doesNotMatch(sudoers, /systemctl|systemd-run|journalctl|\/bin\/cat|\.env|dev\.db/);
+});
+
 test('failed activation atomically restores the previous release', () => {
   const root = mkdtempSync(join(tmpdir(), 'bazigb-rollback-test-'));
   const bin = join(root, 'bin');

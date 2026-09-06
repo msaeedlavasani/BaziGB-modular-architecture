@@ -75,7 +75,7 @@ chmod 0600 "${LEGACY_ROOT}/.env" "${LEGACY_ROOT}/apps/server/prisma/dev.db"
 
 install -m 0755 -o root -g root "${CONTROLLER_SOURCE}" /usr/local/sbin/bazigb-release
 cat >/etc/sudoers.d/bazigb-release <<'SUDOERS'
-Cmnd_Alias BAZIGB_RELEASE = /usr/local/sbin/bazigb-release prepare *, /usr/local/sbin/bazigb-release verify *, /usr/local/sbin/bazigb-release activate *
+Cmnd_Alias BAZIGB_RELEASE = /usr/local/sbin/bazigb-release prepare *, /usr/local/sbin/bazigb-release verify *, /usr/local/sbin/bazigb-release canary *, /usr/local/sbin/bazigb-release preflight *, /usr/local/sbin/bazigb-release activate *
 bazigb-deploy ALL=(root) NOPASSWD: BAZIGB_RELEASE
 SUDOERS
 chmod 0440 /etc/sudoers.d/bazigb-release

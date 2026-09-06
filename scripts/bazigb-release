@@ -23,6 +23,12 @@ LEGACY_WEB_HEALTH_URL="${BAZIGB_LEGACY_WEB_HEALTH_URL:-http://127.0.0.1:3000/lob
 HEALTH_DEADLINE_SECONDS="${BAZIGB_HEALTH_DEADLINE_SECONDS:-30}"
 HEALTH_RETRY_SECONDS="${BAZIGB_HEALTH_RETRY_SECONDS:-2}"
 HEALTH_MAX_ATTEMPTS="${BAZIGB_HEALTH_MAX_ATTEMPTS:-0}"
+CANARY_API_PORT=3101
+CANARY_WEB_PORT=3100
+CANARY_RUNTIME_SECONDS=90
+CANARY_ROOT="${BAZIGB_CANARY_ROOT:-/run/bazigb-canary}"
+EVIDENCE_DIR="${BAZIGB_EVIDENCE_DIR:-/var/log/bazigb-release}"
+EVIDENCE_FILE="${EVIDENCE_DIR}/canary-evidence.jsonl"
 
 die() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -49,6 +55,125 @@ verify() {
   [[ -f "${candidate}/node_modules/.prisma/client/default.js" ]] || die 'Generated Prisma client is missing.'
   ! grep -Fq '@prisma/client did not initialize yet' \
     "${candidate}/node_modules/.prisma/client/default.js" || die 'Generated Prisma client is missing.'
+}
+
+append_canary_evidence() {
+  result="$1"
+  api_status="$2"
+  web_status="$3"
+  db_checksum="$4"
+  started_at="$5"
+  finished_at="$6"
+  install -d -m 0750 -o root -g "${APP_GROUP}" "${EVIDENCE_DIR}"
+  touch "${EVIDENCE_FILE}"
+  chown root:"${APP_GROUP}" "${EVIDENCE_FILE}"
+  chmod 0640 "${EVIDENCE_FILE}"
+  (
+    flock -x 9
+    printf '{"schemaVersion":"1.0.0","event":"release_canary","releaseId":"%s","result":"%s","apiHttp":"%s","webHttp":"%s","snapshotSha256":"%s","startedAt":"%s","finishedAt":"%s"}\n' \
+      "${release_id}" "${result}" "${api_status}" "${web_status}" \
+      "${db_checksum}" "${started_at}" "${finished_at}" >&9
+  ) 9>>"${EVIDENCE_FILE}"
+}
+
+canary() {
+  [[ "$#" -eq 3 ]] || die 'Canary requires exactly RELEASE_ID and LOCK_SHA256.'
+  [[ "$(id -u)" -eq 0 ]] || die 'Canary must run through the approved root controller.'
+  verify
+  command -v systemd-run >/dev/null 2>&1 || die 'systemd-run is required.'
+  command -v flock >/dev/null 2>&1 || die 'flock is required.'
+  [[ -f "${SHARED}/.env" ]] || die 'Shared environment file is missing.'
+  [[ -f "${SHARED}/data/dev.db" ]] || die 'Shared SQLite database is missing.'
+
+  api_unit="bazigb-api-canary-${release_id}"
+  web_unit="bazigb-web-canary-${release_id}"
+  run_dir="${CANARY_ROOT}/${release_id}-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  snapshot="${run_dir}/canary.db"
+  started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  api_status='not_run'
+  web_status='not_run'
+  db_checksum='not_created'
+  result='FAIL'
+  evidence_written=0
+
+  cleanup_canary() {
+    systemctl stop "${api_unit}.service" "${web_unit}.service" >/dev/null 2>&1 || :
+    systemctl reset-failed "${api_unit}.service" "${web_unit}.service" >/dev/null 2>&1 || :
+    if [[ "${run_dir}" == "${CANARY_ROOT}/"* && -d "${run_dir}" ]]; then
+      rm -rf -- "${run_dir}"
+    fi
+    if [[ "${evidence_written}" -eq 0 ]]; then
+      finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      append_canary_evidence "${result}" "${api_status}" "${web_status}" \
+        "${db_checksum}" "${started_at}" "${finished_at}"
+      evidence_written=1
+    fi
+  }
+  trap cleanup_canary EXIT INT TERM
+
+  install -d -m 0700 -o "${RUNTIME_USER}" -g "${RUNTIME_USER}" "${run_dir}"
+  "${SQLITE_BACKUP}" "${SHARED}/data/dev.db" "${snapshot}"
+  chown "${RUNTIME_USER}:${RUNTIME_USER}" "${snapshot}"
+  chmod 0600 "${snapshot}"
+  db_checksum="$(sha256sum "${snapshot}" | awk '{print $1}')"
+
+  for port in "${CANARY_API_PORT}" "${CANARY_WEB_PORT}"; do
+    if ss -H -ltn "sport = :${port}" | grep -q .; then
+      die "Canary port ${port} is already in use."
+    fi
+  done
+
+  systemd-run --quiet --collect --unit="${api_unit}" \
+    --uid="${RUNTIME_USER}" --gid="${APP_GROUP}" \
+    --property="SupplementaryGroups=${RUNTIME_USER}" \
+    --property="WorkingDirectory=${candidate}/apps/server" \
+    --property="EnvironmentFile=${SHARED}/.env" \
+    --property="RuntimeMaxSec=${CANARY_RUNTIME_SECONDS}" \
+    --property=CPUQuota=100% --property=MemoryMax=512M --property=TasksMax=128 \
+    --property=NoNewPrivileges=yes --property=PrivateTmp=yes \
+    --property=ProtectSystem=strict --property="ReadWritePaths=${run_dir}" \
+    --property=StandardOutput=null --property=StandardError=null \
+    --setenv="PORT=${CANARY_API_PORT}" \
+    --setenv="DATABASE_URL=file:${snapshot}" \
+    --setenv=PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin \
+    /opt/bazigb-runtime/current/bin/node dist/main.js
+
+  systemd-run --quiet --collect --unit="${web_unit}" \
+    --uid="${RUNTIME_USER}" --gid="${APP_GROUP}" \
+    --property="WorkingDirectory=${candidate}/apps/web" \
+    --property="RuntimeMaxSec=${CANARY_RUNTIME_SECONDS}" \
+    --property=CPUQuota=100% --property=MemoryMax=768M --property=TasksMax=128 \
+    --property=NoNewPrivileges=yes --property=PrivateTmp=yes \
+    --property=ProtectSystem=strict \
+    --property=StandardOutput=null --property=StandardError=null \
+    --setenv="PORT=${CANARY_WEB_PORT}" \
+    --setenv=PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin \
+    /opt/bazigb-runtime/current/bin/node .next/standalone/apps/web/server.js
+
+  api_url="http://127.0.0.1:${CANARY_API_PORT}/api/rooms"
+  web_url="http://127.0.0.1:${CANARY_WEB_PORT}/fa/lobby"
+  deadline=$((SECONDS + CANARY_RUNTIME_SECONDS))
+  while (( SECONDS <= deadline )); do
+    api_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+      --connect-timeout 2 --max-time 5 "${api_url}" || :)"
+    web_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+      --connect-timeout 2 --max-time 5 "${web_url}" || :)"
+    if [[ "${api_status}" == '200' && "${web_status}" == '200' ]]; then
+      result='PASS'
+      break
+    fi
+    sleep 2
+  done
+  [[ "${result}" == 'PASS' ]] || die 'Canary health checks did not both return HTTP 200.'
+
+  finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  append_canary_evidence "${result}" "${api_status}" "${web_status}" \
+    "${db_checksum}" "${started_at}" "${finished_at}"
+  evidence_written=1
+  printf 'canary_ok release_id=%s api_http=%s web_http=%s evidence=%s\n' \
+    "${release_id}" "${api_status}" "${web_status}" "${EVIDENCE_FILE}"
+  cleanup_canary
+  trap - EXIT INT TERM
 }
 
 prepare() {
@@ -213,6 +338,7 @@ activate() {
 case "${1:-}" in
   prepare) prepare ;;
   verify) verify ;;
+  canary|preflight) canary ;;
   activate) activate ;;
-  *) die 'Usage: bazigb-release {prepare|verify|activate} RELEASE_ID [LOCK_SHA256]' ;;
+  *) die 'Usage: bazigb-release {prepare|verify|canary|preflight|activate} RELEASE_ID [LOCK_SHA256]' ;;
 esac
