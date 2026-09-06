@@ -4,7 +4,8 @@ import { fileURLToPath } from 'url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const supplied = process.env.BAZIGB_CHANGED_FILES;
-const base = process.env.BAZIGB_DIFF_BASE ?? 'origin/main';
+const requestedBase = process.env.BAZIGB_DIFF_BASE ?? 'origin/main';
+const base = /^0{40}$/.test(requestedBase) ? 'origin/main' : requestedBase;
 const changed = supplied !== undefined
   ? supplied.split('\n').filter(Boolean)
   : (() => {
