@@ -144,6 +144,7 @@ describe('Vegas Game Logic (old rules)', () => {
     state = {
       ...state,
       board: casinos,
+      playerCash: { p1: 1_000_000, p2: 0 },
       playerDiceRemaining: { p1: 1, p2: 1 },
       playerDice: { p1: [6], p2: [6] },
       rolled: true,
