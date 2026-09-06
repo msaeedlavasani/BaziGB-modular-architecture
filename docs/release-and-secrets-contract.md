@@ -176,6 +176,15 @@ The minimum ordered flow is:
 9. Verify API, web, authentication, room creation/join/reconnect, one critical path per advertised game, logs, database reads/writes, and external SMS when applicable.
 10. Observe a defined window. Roll back on trigger; do not patch production ad hoc.
 
+The first Systemd cutover is a distinct transaction because no previous versioned
+`current` pointer exists. Before replacing active unit definitions, the controller
+must checkpoint the legacy units. A failed restart or mandatory health check must
+restore those unit files, reload Systemd, restart the legacy services, verify their
+health, and remove the failed candidate from `current`. Later releases use the
+normal versioned-pointer rollback path. Remote npm execution must prepend the
+pinned runtime directory to `PATH` so npm lifecycle subprocesses use the same
+approved Node.js version as the production services.
+
 Human browser and mobile experience tests remain assigned to the user. Machine health and contract checks remain part of the release system.
 
 ## No-go and rollback triggers

@@ -55,7 +55,8 @@ rsync -az --delete --timeout=600 \
 rsync -az -e "${RSYNC_SSH}" "${MANIFEST}" "${PROD_HOST}:${CANDIDATE_PATH}/release.manifest"
 
 printf 'Installing locked production dependencies inside the candidate...\n'
-"${SSH[@]}" "${PROD_HOST}" "${REMOTE_NODE_ROOT}/bin/npm" ci \
+"${SSH[@]}" "${PROD_HOST}" env "PATH=${REMOTE_NODE_ROOT}/bin:/usr/bin:/bin" \
+  "${REMOTE_NODE_ROOT}/bin/npm" ci \
   --prefix "${CANDIDATE_PATH}" \
   --registry "${NPM_REGISTRY}" \
   --fetch-retries 2 --fetch-timeout 120000 \

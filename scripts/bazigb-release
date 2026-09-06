@@ -11,6 +11,12 @@ DEPLOY_USER="bazigb-deploy"
 RUNTIME_USER="bazigb-runtime"
 APP_GROUP="bazigb-app"
 SQLITE_BACKUP="${BAZIGB_SQLITE_BACKUP:-/usr/local/sbin/bazigb-sqlite-backup}"
+SYSTEMD_ROOT="${BAZIGB_SYSTEMD_ROOT:-/etc/systemd/system}"
+LEGACY_ROOT="${BAZIGB_LEGACY_ROOT:-/opt/bazigb}"
+SERVER_UNIT="${SYSTEMD_ROOT}/bazigb-server.service"
+WEB_UNIT="${SYSTEMD_ROOT}/bazigb-web.service"
+SERVER_UNIT_NEXT="${SERVER_UNIT}.next"
+WEB_UNIT_NEXT="${WEB_UNIT}.next"
 
 die() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -67,6 +73,34 @@ health_check() {
     curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/fa/lobby >/dev/null
 }
 
+prepare_first_cutover() {
+  timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  first_cutover_checkpoint="${SHARED}/backups/first-cutover-${timestamp}"
+  [[ -d "${LEGACY_ROOT}" ]] || die 'Legacy application root is missing.'
+  [[ -f "${SERVER_UNIT}" && -f "${WEB_UNIT}" ]] || die 'Active legacy units are missing.'
+  [[ -f "${SERVER_UNIT_NEXT}" && -f "${WEB_UNIT_NEXT}" ]] || die 'Staged release units are missing.'
+  install -d -m 0700 -o root -g root "${first_cutover_checkpoint}"
+  cp -a "${SERVER_UNIT}" "${first_cutover_checkpoint}/bazigb-server.service"
+  cp -a "${WEB_UNIT}" "${first_cutover_checkpoint}/bazigb-web.service"
+}
+
+install_staged_units() {
+  install -m 0644 -o root -g root "${SERVER_UNIT_NEXT}" "${SERVER_UNIT}"
+  install -m 0644 -o root -g root "${WEB_UNIT_NEXT}" "${WEB_UNIT}"
+  systemctl daemon-reload
+}
+
+restore_legacy_units() {
+  install -m 0644 -o root -g root \
+    "${first_cutover_checkpoint}/bazigb-server.service" "${SERVER_UNIT}"
+  install -m 0644 -o root -g root \
+    "${first_cutover_checkpoint}/bazigb-web.service" "${WEB_UNIT}"
+  systemctl daemon-reload
+  if [[ -L "${CURRENT}" ]]; then
+    mv -Tf "${CURRENT}" "${ROOT}/.failed-${release_id}"
+  fi
+}
+
 activate() {
   verify
   [[ -f "${SHARED}/.env" ]] || die 'Shared environment file is missing.'
@@ -76,15 +110,17 @@ activate() {
   database_checkpoint
 
   old_target=''
+  first_cutover_checkpoint=''
   if [[ -L "${CURRENT}" ]]; then
     old_target="$(readlink "${CURRENT}")"
     ln -sfn "${old_target}" "${PREVIOUS}"
+  else
+    prepare_first_cutover
+    install_staged_units
   fi
   ln -s "${candidate}" "${ROOT}/.current-${release_id}"
   mv -Tf "${ROOT}/.current-${release_id}" "${CURRENT}"
-  systemctl restart bazigb-server bazigb-web
-
-  if health_check; then
+  if systemctl restart bazigb-server bazigb-web && health_check; then
     return 0
   fi
 
@@ -93,6 +129,10 @@ activate() {
     mv -Tf "${ROOT}/.rollback-${release_id}" "${CURRENT}"
     systemctl restart bazigb-server bazigb-web
     health_check || die 'Activation and rollback health checks both failed.'
+  else
+    restore_legacy_units
+    systemctl restart bazigb-server bazigb-web
+    health_check || die 'First activation and legacy rollback health checks both failed.'
   fi
   die 'Activation health check failed; previous release restored.'
 }
