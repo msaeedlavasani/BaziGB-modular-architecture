@@ -185,6 +185,22 @@ normal versioned-pointer rollback path. Remote npm execution must prepend the
 pinned runtime directory to `PATH` so npm lifecycle subprocesses use the same
 approved Node.js version as the production services.
 
+The staged Server unit must load `/srv/bazigb/shared/.env` through an explicit
+`EnvironmentFile` directive and declare the pinned Node runtime directory first
+in `PATH`. The service keeps `Group=bazigb-app` and explicitly retains
+`SupplementaryGroups=bazigb-runtime` so protected shared state remains accessible
+without weakening filesystem permissions. First cutover fails closed if any of
+these declarations is absent. Secret values remain outside release directories
+and validation must never print them.
+
+Release diagnosis follows the invariant **preserve evidence, preserve service**.
+Production rollback remains automatic and a broken Production process is never
+kept serving merely to retain logs. When diagnosis needs a live process, run the
+immutable candidate in a bounded parallel Systemd diagnostic slot on separate
+ports while the healthy Legacy services remain untouched. Preserve the failed
+candidate and redacted logs; stop the diagnostic slot if it threatens service or
+resource safety.
+
 Production dependency installation must explicitly generate the Prisma client
 after the locked install. Package-manager install-script policy is not accepted
 as implicit generation evidence: candidate verification must reject the

@@ -90,8 +90,11 @@ After=network.target
 Type=simple
 User=bazigb-runtime
 Group=bazigb-app
+SupplementaryGroups=bazigb-runtime
 WorkingDirectory=/srv/bazigb/current/apps/server
+EnvironmentFile=/srv/bazigb/shared/.env
 Environment=NODE_ENV=production
+Environment=PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin
 ExecStart=/opt/bazigb-runtime/current/bin/node dist/main.js
 Restart=always
 RestartSec=3

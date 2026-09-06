@@ -230,6 +230,23 @@ test('failed first cutover restores legacy units and leaves no active release po
   }
 
   try {
+    const missingEnvironment = spawnSync('bash', [controllerPath.pathname, 'activate', releaseId, checksum], {
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        BAZIGB_RELEASE_ROOT: root,
+        BAZIGB_SQLITE_BACKUP: backup,
+        BAZIGB_SYSTEMD_ROOT: systemd,
+        BAZIGB_LEGACY_ROOT: legacy,
+        BAZIGB_HEALTH_MAX_ATTEMPTS: '1',
+      },
+      encoding: 'utf8',
+    });
+    assert.notEqual(missingEnvironment.status, 0);
+    assert.match(missingEnvironment.stderr, /must load the shared environment file/);
+    assert.throws(() => readFileSync(restartCount));
+
+    writeFileSync(join(systemd, 'bazigb-server.service.next'), '[Service]\nWorkingDirectory=/srv/bazigb/current/apps/server\nEnvironmentFile=/srv/bazigb/shared/.env\nEnvironment=PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin\nSupplementaryGroups=bazigb-runtime\n');
     const result = spawnSync('bash', [controllerPath.pathname, 'activate', releaseId, checksum], {
       env: {
         ...process.env,
@@ -316,5 +333,17 @@ test('host preparation stages units instead of activating them', () => {
   assert.match(source, /pre-cutover-/);
   assert.match(source, /bazigb-sqlite-backup.*checkpoint.*dev\.db/);
   assert.match(source, /\/opt\/bazigb-runtime\/current\/bin\/node/);
+  assert.match(source, /EnvironmentFile=\/srv\/bazigb\/shared\/\.env/);
+  assert.match(source, /Environment=PATH=\/opt\/bazigb-runtime\/current\/bin:\/usr\/bin:\/bin/);
+  assert.match(source, /SupplementaryGroups=bazigb-runtime/);
   assert.match(source, /NoNewPrivileges=true/);
+});
+
+test('first cutover rejects a staged server unit without its environment contract', () => {
+  const source = readFileSync(controllerPath, 'utf8');
+  assert.match(source, /grep -Fxq 'EnvironmentFile=\/srv\/bazigb\/shared\/\.env'/);
+  assert.match(source, /Staged server unit must load the shared environment file/);
+  assert.match(source, /grep -Fxq 'Environment=PATH=\/opt\/bazigb-runtime\/current\/bin:\/usr\/bin:\/bin'/);
+  assert.match(source, /grep -Fxq 'SupplementaryGroups=bazigb-runtime'/);
+  assert.match(source, /retain access to the protected runtime group/);
 });

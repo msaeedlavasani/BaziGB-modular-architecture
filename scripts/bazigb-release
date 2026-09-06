@@ -146,6 +146,12 @@ prepare_first_cutover() {
   [[ -d "${LEGACY_ROOT}" ]] || die 'Legacy application root is missing.'
   [[ -f "${SERVER_UNIT}" && -f "${WEB_UNIT}" ]] || die 'Active legacy units are missing.'
   [[ -f "${SERVER_UNIT_NEXT}" && -f "${WEB_UNIT_NEXT}" ]] || die 'Staged release units are missing.'
+  grep -Fxq 'EnvironmentFile=/srv/bazigb/shared/.env' "${SERVER_UNIT_NEXT}" ||
+    die 'Staged server unit must load the shared environment file.'
+  grep -Fxq 'Environment=PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin' "${SERVER_UNIT_NEXT}" ||
+    die 'Staged server unit must declare the pinned Node PATH.'
+  grep -Fxq 'SupplementaryGroups=bazigb-runtime' "${SERVER_UNIT_NEXT}" ||
+    die 'Staged server unit must retain access to the protected runtime group.'
   install -d -m 0700 -o root -g root "${first_cutover_checkpoint}"
   cp -a "${SERVER_UNIT}" "${first_cutover_checkpoint}/bazigb-server.service"
   cp -a "${WEB_UNIT}" "${first_cutover_checkpoint}/bazigb-web.service"
