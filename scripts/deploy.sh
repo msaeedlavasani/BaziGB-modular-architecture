@@ -62,6 +62,11 @@ printf 'Installing locked production dependencies inside the candidate...\n'
   --fetch-retries 2 --fetch-timeout 120000 \
   --omit=dev --workspaces --include-workspace-root
 
+printf 'Generating Prisma client explicitly...\n'
+"${SSH[@]}" "${PROD_HOST}" env "PATH=${REMOTE_NODE_ROOT}/bin:/usr/bin:/bin" \
+  "${REMOTE_NODE_ROOT}/bin/npm" run prisma:generate \
+  --workspace @bazigb/server --prefix "${CANDIDATE_PATH}"
+
 printf 'Verifying immutable candidate metadata...\n'
 "${SSH[@]}" "${PROD_HOST}" sudo /usr/local/sbin/bazigb-release verify "${RELEASE_ID}" "${LOCK_SHA256}"
 

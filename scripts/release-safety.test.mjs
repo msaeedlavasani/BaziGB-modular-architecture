@@ -72,6 +72,8 @@ test('deploy preserves pinned SSH trust and avoids root defaults', () => {
   assert.match(source, /ACTIVATE_APPROVED/);
   assert.match(source, /https:\/\/package-mirror\.liara\.ir\/repository\/npm\//);
   assert.match(source, /PATH=\$\{REMOTE_NODE_ROOT\}\/bin:\/usr\/bin:\/bin/);
+  assert.match(source, /npm" run prisma:generate/);
+  assert.match(source, /--workspace @bazigb\/server/);
   assert.match(source, /BAZIGB_NPM_REGISTRY must use HTTPS/);
 });
 
@@ -81,8 +83,16 @@ test('release controller uses isolated releases and mandatory health checks', ()
   assert.match(source, /database_checkpoint/);
   assert.match(source, /bazigb-sqlite-backup/);
   assert.match(readFileSync(backupPath, 'utf8'), /PRAGMA integrity_check/);
-  assert.match(source, /curl --fail/);
-  assert.match(source, /api\/rooms[^\n]+&&/);
+  assert.match(source, /--write-out '%\{http_code\}'/);
+  assert.match(source, /connection_failure/);
+  assert.match(source, /http_404/);
+  assert.match(source, /timeout/);
+  assert.match(source, /HEALTH_DEADLINE_SECONDS/);
+  assert.match(source, /HEALTH_RETRY_SECONDS/);
+  assert.match(source, /Generated Prisma client is missing/);
+  assert.match(source, /ensure_persistent_link/);
+  assert.match(source, /probe_endpoint api/);
+  assert.match(source, /probe_endpoint web/);
   assert.match(source, /TRUST_PROXY_HOPS=1/);
   assert.match(source, /prepare_first_cutover/);
   assert.match(source, /restore_legacy_units/);
@@ -100,9 +110,11 @@ test('failed activation atomically restores the previous release', () => {
   const lock = '{"lockfileVersion":3}\n';
   const checksum = createHash('sha256').update(lock).digest('hex');
   const curlCount = join(root, 'curl-count');
+  const restartCount = join(root, 'restart-count');
   const backup = join(root, 'sqlite-backup');
 
   mkdirSync(join(candidate, 'apps/server/dist'), { recursive: true });
+  mkdirSync(join(candidate, 'node_modules/.prisma/client'), { recursive: true });
   mkdirSync(join(candidate, 'apps/server/prisma'), { recursive: true });
   mkdirSync(join(candidate, 'apps/web/.next/standalone/apps/web'), { recursive: true });
   mkdirSync(previous, { recursive: true });
@@ -112,17 +124,18 @@ test('failed activation atomically restores the previous release', () => {
   writeFileSync(join(candidate, 'package-lock.json'), lock);
   writeFileSync(join(candidate, 'release.manifest'), `release_id=${releaseId}\ngit_revision=${releaseId}\n`);
   writeFileSync(join(candidate, 'apps/server/dist/main.js'), '');
+  writeFileSync(join(candidate, 'node_modules/.prisma/client/default.js'), 'generated client');
   writeFileSync(join(candidate, 'apps/web/.next/standalone/apps/web/server.js'), '');
   writeFileSync(join(root, 'shared/.env'), 'NODE_ENV=production\nTRUST_PROXY_HOPS=1\n');
   writeFileSync(join(root, 'shared/data/dev.db'), 'sqlite fixture');
   symlinkSync(previous, join(root, 'current'));
 
   writeFileSync(backup, '#!/bin/sh\ncp "$1" "$2"\n');
-  writeFileSync(join(bin, 'systemctl'), '#!/bin/sh\nexit 0\n');
+  writeFileSync(join(bin, 'systemctl'), `#!/bin/sh\nif [ "$1" = "restart" ]; then count=0; [ ! -f "${restartCount}" ] || count=$(cat "${restartCount}"); count=$((count + 1)); printf '%s' "$count" > "${restartCount}"; fi\nexit 0\n`);
   writeFileSync(join(bin, 'chown'), '#!/bin/sh\nexit 0\n');
   writeFileSync(
     join(bin, 'curl'),
-    `#!/bin/sh\ncount=0\n[ ! -f "${curlCount}" ] || count=$(cat "${curlCount}")\ncount=$((count + 1))\nprintf '%s' "$count" > "${curlCount}"\n[ "$count" -gt 1 ]\n`,
+    `#!/bin/sh\ncount=0\n[ ! -f "${curlCount}" ] || count=$(cat "${curlCount}")\ncount=$((count + 1))\nprintf '%s' "$count" > "${curlCount}"\nrestarts=$(cat "${restartCount}")\nif [ "$restarts" -gt 1 ]; then printf '200'; exit 0; fi\nexit 7\n`,
   );
   writeFileSync(join(bin, 'mv'), '#!/bin/sh\n[ "$1" = "-Tf" ] && shift\n/bin/mv -f "$1" "$2"\n');
   for (const executable of [
@@ -142,11 +155,13 @@ test('failed activation atomically restores the previous release', () => {
         PATH: `${bin}:${process.env.PATH}`,
         BAZIGB_RELEASE_ROOT: root,
         BAZIGB_SQLITE_BACKUP: backup,
+        BAZIGB_HEALTH_MAX_ATTEMPTS: '1',
       },
       encoding: 'utf8',
     });
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /previous release restored/);
+    assert.match(result.stderr, /connection_failure/);
     assert.equal(readlinkSync(join(root, 'current')), previous);
     assert.equal(readlinkSync(join(root, 'previous')), previous);
   } finally {
@@ -164,11 +179,13 @@ test('failed first cutover restores legacy units and leaves no active release po
   const lock = '{"lockfileVersion":3}\n';
   const checksum = createHash('sha256').update(lock).digest('hex');
   const curlCount = join(root, 'curl-count');
+  const restartCount = join(root, 'restart-count');
   const backup = join(root, 'sqlite-backup');
   const legacyServerUnit = '[Service]\nWorkingDirectory=/opt/bazigb/apps/server\n';
   const legacyWebUnit = '[Service]\nWorkingDirectory=/opt/bazigb/apps/web\n';
 
   mkdirSync(join(candidate, 'apps/server/dist'), { recursive: true });
+  mkdirSync(join(candidate, 'node_modules/.prisma/client'), { recursive: true });
   mkdirSync(join(candidate, 'apps/server/prisma'), { recursive: true });
   mkdirSync(join(candidate, 'apps/web/.next/standalone/apps/web'), { recursive: true });
   mkdirSync(join(root, 'shared/data'), { recursive: true });
@@ -179,6 +196,7 @@ test('failed first cutover restores legacy units and leaves no active release po
   writeFileSync(join(candidate, 'package-lock.json'), lock);
   writeFileSync(join(candidate, 'release.manifest'), `release_id=${releaseId}\ngit_revision=${releaseId}\n`);
   writeFileSync(join(candidate, 'apps/server/dist/main.js'), '');
+  writeFileSync(join(candidate, 'node_modules/.prisma/client/default.js'), 'generated client');
   writeFileSync(join(candidate, 'apps/web/.next/standalone/apps/web/server.js'), '');
   writeFileSync(join(root, 'shared/.env'), 'NODE_ENV=production\nTRUST_PROXY_HOPS=1\n');
   writeFileSync(join(root, 'shared/data/dev.db'), 'sqlite fixture');
@@ -188,7 +206,7 @@ test('failed first cutover restores legacy units and leaves no active release po
   writeFileSync(join(systemd, 'bazigb-web.service.next'), '[Service]\nWorkingDirectory=/srv/bazigb/current/apps/web\n');
 
   writeFileSync(backup, '#!/bin/sh\ncp "$1" "$2"\n');
-  writeFileSync(join(bin, 'systemctl'), '#!/bin/sh\nexit 0\n');
+  writeFileSync(join(bin, 'systemctl'), `#!/bin/sh\nif [ "$1" = "restart" ]; then count=0; [ ! -f "${restartCount}" ] || count=$(cat "${restartCount}"); count=$((count + 1)); printf '%s' "$count" > "${restartCount}"; fi\nexit 0\n`);
   writeFileSync(join(bin, 'chown'), '#!/bin/sh\nexit 0\n');
   writeFileSync(
     join(bin, 'install'),
@@ -196,7 +214,7 @@ test('failed first cutover restores legacy units and leaves no active release po
   );
   writeFileSync(
     join(bin, 'curl'),
-    `#!/bin/sh\ncount=0\n[ ! -f "${curlCount}" ] || count=$(cat "${curlCount}")\ncount=$((count + 1))\nprintf '%s' "$count" > "${curlCount}"\n[ "$count" -gt 1 ]\n`,
+    `#!/bin/sh\ncount=0\n[ ! -f "${curlCount}" ] || count=$(cat "${curlCount}")\ncount=$((count + 1))\nprintf '%s' "$count" > "${curlCount}"\nrestarts=$(cat "${restartCount}")\nif [ "$restarts" -gt 1 ]; then printf '200'; exit 0; fi\nexit 7\n`,
   );
   writeFileSync(join(bin, 'mv'), '#!/bin/sh\n[ "$1" = "-Tf" ] && shift\n/bin/mv -f "$1" "$2"\n');
   for (const executable of [
@@ -219,11 +237,13 @@ test('failed first cutover restores legacy units and leaves no active release po
         BAZIGB_SQLITE_BACKUP: backup,
         BAZIGB_SYSTEMD_ROOT: systemd,
         BAZIGB_LEGACY_ROOT: legacy,
+        BAZIGB_HEALTH_MAX_ATTEMPTS: '1',
       },
       encoding: 'utf8',
     });
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /previous release restored/);
+    assert.match(result.stderr, /connection_failure/);
     assert.equal(readFileSync(join(systemd, 'bazigb-server.service'), 'utf8'), legacyServerUnit);
     assert.equal(readFileSync(join(systemd, 'bazigb-web.service'), 'utf8'), legacyWebUnit);
     assert.equal(readlinkSync(join(root, `.failed-${releaseId}`)), candidate);
@@ -241,10 +261,12 @@ test('release verification accepts an intact candidate and rejects lockfile drif
   const checksum = createHash('sha256').update(lock).digest('hex');
 
   mkdirSync(join(candidate, 'apps/server/dist'), { recursive: true });
+  mkdirSync(join(candidate, 'node_modules/.prisma/client'), { recursive: true });
   mkdirSync(join(candidate, 'apps/web/.next/standalone/apps/web'), { recursive: true });
   writeFileSync(join(candidate, 'package-lock.json'), lock);
   writeFileSync(join(candidate, 'release.manifest'), `release_id=${releaseId}\ngit_revision=${releaseId}\n`);
   writeFileSync(join(candidate, 'apps/server/dist/main.js'), '');
+  writeFileSync(join(candidate, 'node_modules/.prisma/client/default.js'), 'generated client');
   writeFileSync(join(candidate, 'apps/web/.next/standalone/apps/web/server.js'), '');
 
   try {
@@ -253,6 +275,18 @@ test('release verification accepts an intact candidate and rejects lockfile drif
       encoding: 'utf8',
     });
     assert.equal(valid.status, 0, valid.stderr);
+
+    writeFileSync(
+      join(candidate, 'node_modules/.prisma/client/default.js'),
+      'throw new Error("@prisma/client did not initialize yet")',
+    );
+    const missingPrisma = spawnSync('bash', [controllerPath.pathname, 'verify', releaseId, checksum], {
+      env: { ...process.env, BAZIGB_RELEASE_ROOT: root },
+      encoding: 'utf8',
+    });
+    assert.notEqual(missingPrisma.status, 0);
+    assert.match(missingPrisma.stderr, /Generated Prisma client is missing/);
+    writeFileSync(join(candidate, 'node_modules/.prisma/client/default.js'), 'generated client');
 
     writeFileSync(join(candidate, 'package-lock.json'), `${lock}tampered\n`);
     const tampered = spawnSync('bash', [controllerPath.pathname, 'verify', releaseId, checksum], {

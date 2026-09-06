@@ -17,6 +17,12 @@ SERVER_UNIT="${SYSTEMD_ROOT}/bazigb-server.service"
 WEB_UNIT="${SYSTEMD_ROOT}/bazigb-web.service"
 SERVER_UNIT_NEXT="${SERVER_UNIT}.next"
 WEB_UNIT_NEXT="${WEB_UNIT}.next"
+API_HEALTH_URL="${BAZIGB_API_HEALTH_URL:-http://127.0.0.1:3001/api/rooms}"
+CANDIDATE_WEB_HEALTH_URL="${BAZIGB_CANDIDATE_WEB_HEALTH_URL:-http://127.0.0.1:3000/fa/lobby}"
+LEGACY_WEB_HEALTH_URL="${BAZIGB_LEGACY_WEB_HEALTH_URL:-http://127.0.0.1:3000/lobby}"
+HEALTH_DEADLINE_SECONDS="${BAZIGB_HEALTH_DEADLINE_SECONDS:-30}"
+HEALTH_RETRY_SECONDS="${BAZIGB_HEALTH_RETRY_SECONDS:-2}"
+HEALTH_MAX_ATTEMPTS="${BAZIGB_HEALTH_MAX_ATTEMPTS:-0}"
 
 die() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -40,6 +46,9 @@ verify() {
   grep -Fxq "git_revision=${release_id}" "${candidate}/release.manifest" || die 'Manifest Git revision mismatch.'
   [[ -f "${candidate}/apps/server/dist/main.js" ]] || die 'Server build output is missing.'
   [[ -f "${candidate}/apps/web/.next/standalone/apps/web/server.js" ]] || die 'Web build output is missing.'
+  [[ -f "${candidate}/node_modules/.prisma/client/default.js" ]] || die 'Generated Prisma client is missing.'
+  ! grep -Fq '@prisma/client did not initialize yet' \
+    "${candidate}/node_modules/.prisma/client/default.js" || die 'Generated Prisma client is missing.'
 }
 
 prepare() {
@@ -48,10 +57,19 @@ prepare() {
 }
 
 link_persistent_data() {
-  [[ ! -e "${candidate}/.env" ]] || die 'Candidate unexpectedly contains .env.'
-  [[ ! -e "${candidate}/apps/server/prisma/dev.db" ]] || die 'Candidate unexpectedly contains dev.db.'
-  ln -s "${SHARED}/.env" "${candidate}/.env"
-  ln -s "${SHARED}/data/dev.db" "${candidate}/apps/server/prisma/dev.db"
+  ensure_persistent_link "${SHARED}/.env" "${candidate}/.env" '.env'
+  ensure_persistent_link "${SHARED}/data/dev.db" "${candidate}/apps/server/prisma/dev.db" 'dev.db'
+}
+
+ensure_persistent_link() {
+  target="$1"
+  link="$2"
+  label="$3"
+  if [[ -L "${link}" && "$(readlink "${link}")" == "${target}" ]]; then
+    return 0
+  fi
+  [[ ! -e "${link}" && ! -L "${link}" ]] || die "Candidate unexpectedly contains ${label}."
+  ln -s "${target}" "${link}"
 }
 
 database_checkpoint() {
@@ -68,9 +86,58 @@ verify_runtime_environment() {
     die 'Shared environment must declare TRUST_PROXY_HOPS=1 for the canonical single-proxy topology.'
 }
 
+probe_endpoint() {
+  label="$1"
+  url="$2"
+  deadline=$((SECONDS + HEALTH_DEADLINE_SECONDS))
+  attempts=0
+  last_class='not_attempted'
+  last_status='none'
+
+  while (( SECONDS <= deadline )); do
+    attempts=$((attempts + 1))
+    set +e
+    http_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+      --connect-timeout 2 --max-time 5 "${url}")"
+    curl_status=$?
+    set -e
+
+    if [[ "${curl_status}" -eq 0 && "${http_status}" =~ ^[23][0-9][0-9]$ ]]; then
+      printf 'health_ok endpoint=%s status=%s\n' "${label}" "${http_status}"
+      return 0
+    fi
+
+    last_status="${http_status:-none}"
+    case "${curl_status}" in
+      7) last_class='connection_failure' ;;
+      28) last_class='timeout' ;;
+      0)
+        if [[ "${http_status}" == '404' ]]; then
+          last_class='http_404'
+        else
+          last_class='http_error'
+        fi
+        ;;
+      *) last_class='transport_error' ;;
+    esac
+    if [[ "${HEALTH_MAX_ATTEMPTS}" -gt 0 && "${attempts}" -ge "${HEALTH_MAX_ATTEMPTS}" ]]; then
+      break
+    fi
+    sleep "${HEALTH_RETRY_SECONDS}"
+  done
+
+  printf 'health_fail endpoint=%s class=%s status=%s\n' \
+    "${label}" "${last_class}" "${last_status}" >&2
+  return 1
+}
+
 health_check() {
-  curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3001/api/rooms >/dev/null &&
-    curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/fa/lobby >/dev/null
+  web_url="$1"
+  api_status=0
+  web_status=0
+  probe_endpoint api "${API_HEALTH_URL}" || api_status=$?
+  probe_endpoint web "${web_url}" || web_status=$?
+  [[ "${api_status}" -eq 0 && "${web_status}" -eq 0 ]]
 }
 
 prepare_first_cutover() {
@@ -120,7 +187,7 @@ activate() {
   fi
   ln -s "${candidate}" "${ROOT}/.current-${release_id}"
   mv -Tf "${ROOT}/.current-${release_id}" "${CURRENT}"
-  if systemctl restart bazigb-server bazigb-web && health_check; then
+  if systemctl restart bazigb-server bazigb-web && health_check "${CANDIDATE_WEB_HEALTH_URL}"; then
     return 0
   fi
 
@@ -128,11 +195,11 @@ activate() {
     ln -s "${old_target}" "${ROOT}/.rollback-${release_id}"
     mv -Tf "${ROOT}/.rollback-${release_id}" "${CURRENT}"
     systemctl restart bazigb-server bazigb-web
-    health_check || die 'Activation and rollback health checks both failed.'
+    health_check "${CANDIDATE_WEB_HEALTH_URL}" || die 'Activation and rollback health checks both failed.'
   else
     restore_legacy_units
     systemctl restart bazigb-server bazigb-web
-    health_check || die 'First activation and legacy rollback health checks both failed.'
+    health_check "${LEGACY_WEB_HEALTH_URL}" || die 'First activation and legacy rollback health checks both failed.'
   fi
   die 'Activation health check failed; previous release restored.'
 }

@@ -185,6 +185,12 @@ normal versioned-pointer rollback path. Remote npm execution must prepend the
 pinned runtime directory to `PATH` so npm lifecycle subprocesses use the same
 approved Node.js version as the production services.
 
+Production dependency installation must explicitly generate the Prisma client
+after the locked install. Package-manager install-script policy is not accepted
+as implicit generation evidence: candidate verification must reject the
+uninitialized Prisma stub, and a runtime-equivalent server probe must reach the
+API before activation approval.
+
 Human browser and mobile experience tests remain assigned to the user. Machine health and contract checks remain part of the release system.
 
 ## No-go and rollback triggers
