@@ -179,6 +179,7 @@ test('failed first cutover restores legacy units and leaves no active release po
   const lock = '{"lockfileVersion":3}\n';
   const checksum = createHash('sha256').update(lock).digest('hex');
   const curlCount = join(root, 'curl-count');
+  const curlUrls = join(root, 'curl-urls');
   const restartCount = join(root, 'restart-count');
   const backup = join(root, 'sqlite-backup');
   const legacyServerUnit = '[Service]\nWorkingDirectory=/opt/bazigb/apps/server\n';
@@ -214,7 +215,7 @@ test('failed first cutover restores legacy units and leaves no active release po
   );
   writeFileSync(
     join(bin, 'curl'),
-    `#!/bin/sh\ncount=0\n[ ! -f "${curlCount}" ] || count=$(cat "${curlCount}")\ncount=$((count + 1))\nprintf '%s' "$count" > "${curlCount}"\nrestarts=$(cat "${restartCount}")\nif [ "$restarts" -gt 1 ]; then printf '200'; exit 0; fi\nexit 7\n`,
+    `#!/bin/sh\nfor arg in "$@"; do case "$arg" in http*) printf '%s\\n' "$arg" >> "${curlUrls}";; esac; done\ncount=0\n[ ! -f "${curlCount}" ] || count=$(cat "${curlCount}")\ncount=$((count + 1))\nprintf '%s' "$count" > "${curlCount}"\nrestarts=$(cat "${restartCount}")\nif [ "$restarts" -gt 1 ]; then printf '200'; exit 0; fi\nexit 7\n`,
   );
   writeFileSync(join(bin, 'mv'), '#!/bin/sh\n[ "$1" = "-Tf" ] && shift\n/bin/mv -f "$1" "$2"\n');
   for (const executable of [
@@ -248,6 +249,9 @@ test('failed first cutover restores legacy units and leaves no active release po
     assert.equal(readFileSync(join(systemd, 'bazigb-web.service'), 'utf8'), legacyWebUnit);
     assert.equal(readlinkSync(join(root, `.failed-${releaseId}`)), candidate);
     assert.throws(() => readlinkSync(join(root, 'current')));
+    const probedUrls = readFileSync(curlUrls, 'utf8');
+    assert.match(probedUrls, /http:\/\/127\.0\.0\.1:3000\/fa\/lobby/);
+    assert.match(probedUrls, /http:\/\/127\.0\.0\.1:3000\/lobby/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -191,6 +191,17 @@ as implicit generation evidence: candidate verification must reject the
 uninitialized Prisma stub, and a runtime-equivalent server probe must reach the
 API before activation approval.
 
+CI pins the production Node version and rehearses the deploy order against the
+same built Server and standalone Web artifacts: locked install with lifecycle
+scripts disabled, explicit Prisma generation, production dependency pruning,
+process startup on temporary ports, and bounded API plus `/fa/lobby` readiness
+probes. The synthetic CI database is disposable and is not a production
+migration rehearsal. Controller fixtures separately prove first-cutover failure
+restores the Legacy units and checks Legacy `/lobby`. CI cannot reproduce the
+host's Systemd, Caddy, ownership, or filesystem topology; those differences
+require a short read-only remote preflight and are never described as full
+environment equivalence.
+
 Human browser and mobile experience tests remain assigned to the user. Machine health and contract checks remain part of the release system.
 
 ## No-go and rollback triggers

@@ -27,7 +27,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24.20.0
           cache: npm
 
       - name: Install dependencies
@@ -42,7 +42,7 @@ jobs:
       - name: Guard schema, migration and generated changes
         run: npm run test:sensitive-diff && npm run check:sensitive-diff
         env:
-          BAZIGB_DIFF_BASE: ${{ github.event_name == 'push' && github.event.before || 'origin/main' }}
+          BAZIGB_DIFF_BASE: origin/main
 
       - name: Check branch lifecycle fixtures
         run: npm run test:branch-health
@@ -62,7 +62,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: 24.20.0
           cache: npm
 
       - name: Install dependencies
@@ -94,3 +94,6 @@ jobs:
 
       - name: Build server
         run: npm run build:server
+
+      - name: Verify deployable release artifact
+        run: npm run test:release-safety && npm run test:release-artifact
