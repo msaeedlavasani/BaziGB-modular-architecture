@@ -338,7 +338,7 @@ activate() {
 case "${1:-}" in
   prepare) prepare ;;
   verify) verify ;;
-  canary|preflight) canary ;;
+  canary|preflight) canary "$@" ;;
   activate) activate ;;
   *) die 'Usage: bazigb-release {prepare|verify|canary|preflight|activate} RELEASE_ID [LOCK_SHA256]' ;;
 esac

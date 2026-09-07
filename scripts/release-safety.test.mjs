@@ -104,7 +104,7 @@ test('canary is bounded, isolated, redacted, and cannot widen deploy-user access
   const controller = readFileSync(controllerPath, 'utf8');
   const prepare = readFileSync(preparePath, 'utf8');
 
-  assert.match(controller, /canary\|preflight\) canary/);
+  assert.match(controller, /canary\|preflight\) canary "\$@"/);
   assert.match(controller, /Canary must run through the approved root controller/);
   assert.match(controller, /Canary requires exactly RELEASE_ID and LOCK_SHA256/);
   assert.match(controller, /DATABASE_URL=file:\$\{snapshot\}/);
@@ -122,6 +122,73 @@ test('canary is bounded, isolated, redacted, and cannot widen deploy-user access
   assert.match(sudoers, /bazigb-release canary \*/);
   assert.match(sudoers, /bazigb-release preflight \*/);
   assert.doesNotMatch(sudoers, /systemctl|systemd-run|journalctl|\/bin\/cat|\.env|dev\.db/);
+});
+
+test('public canary CLI forwards complete arguments and rejects incomplete invocation', () => {
+  const root = mkdtempSync(join(tmpdir(), 'bazigb-canary-cli-test-'));
+  const bin = join(root, 'bin');
+  const releaseId = 'abcdef1';
+  const candidate = join(root, 'releases', releaseId);
+  const lock = '{"lockfileVersion":3}\n';
+  const checksum = createHash('sha256').update(lock).digest('hex');
+  const backup = join(root, 'sqlite-backup');
+  const evidenceDir = join(root, 'evidence');
+
+  mkdirSync(join(candidate, 'apps/server/dist'), { recursive: true });
+  mkdirSync(join(candidate, 'node_modules/.prisma/client'), { recursive: true });
+  mkdirSync(join(candidate, 'apps/web/.next/standalone/apps/web'), { recursive: true });
+  mkdirSync(join(root, 'shared/data'), { recursive: true });
+  mkdirSync(bin);
+  writeFileSync(join(candidate, 'package-lock.json'), lock);
+  writeFileSync(join(candidate, 'release.manifest'), `release_id=${releaseId}\ngit_revision=${releaseId}\n`);
+  writeFileSync(join(candidate, 'apps/server/dist/main.js'), '');
+  writeFileSync(join(candidate, 'node_modules/.prisma/client/default.js'), 'generated client');
+  writeFileSync(join(candidate, 'apps/web/.next/standalone/apps/web/server.js'), '');
+  writeFileSync(join(root, 'shared/.env'), 'NODE_ENV=production\n');
+  writeFileSync(join(root, 'shared/data/dev.db'), 'isolated sqlite fixture');
+  writeFileSync(backup, '#!/bin/sh\ncp "$1" "$2"\n');
+  writeFileSync(join(bin, 'id'), '#!/bin/sh\nprintf "0\\n"\n');
+  writeFileSync(join(bin, 'install'), '#!/bin/sh\nfor last do :; done\nmkdir -p "$last"\n');
+  writeFileSync(join(bin, 'chown'), '#!/bin/sh\nexit 0\n');
+  writeFileSync(join(bin, 'ss'), '#!/bin/sh\nexit 1\n');
+  writeFileSync(join(bin, 'systemd-run'), '#!/bin/sh\nexit 0\n');
+  writeFileSync(join(bin, 'systemctl'), '#!/bin/sh\nexit 0\n');
+  writeFileSync(join(bin, 'curl'), '#!/bin/sh\nprintf "200"\n');
+  writeFileSync(join(bin, 'flock'), '#!/bin/sh\nexit 0\n');
+  for (const executable of [backup, ...['id', 'install', 'chown', 'ss', 'systemd-run', 'systemctl', 'curl', 'flock'].map((name) => join(bin, name))]) {
+    chmodSync(executable, 0o755);
+  }
+
+  const env = {
+    ...process.env,
+    PATH: `${bin}:${process.env.PATH}`,
+    BAZIGB_RELEASE_ROOT: root,
+    BAZIGB_SQLITE_BACKUP: backup,
+    BAZIGB_CANARY_ROOT: join(root, 'canary'),
+    BAZIGB_EVIDENCE_DIR: evidenceDir,
+  };
+
+  try {
+    const valid = spawnSync('bash', [controllerPath.pathname, 'canary', releaseId, checksum], {
+      env,
+      encoding: 'utf8',
+    });
+    assert.equal(valid.status, 0, valid.stderr);
+    assert.match(valid.stdout, new RegExp(`canary_ok release_id=${releaseId} api_http=200 web_http=200`));
+    const evidence = readFileSync(join(evidenceDir, 'canary-evidence.jsonl'), 'utf8');
+    assert.match(evidence, new RegExp(`"releaseId":"${releaseId}"`));
+    assert.match(evidence, /"result":"PASS"/);
+    assert.match(evidence, /"apiHttp":"200","webHttp":"200"/);
+
+    const incomplete = spawnSync('bash', [controllerPath.pathname, 'canary', releaseId], {
+      env,
+      encoding: 'utf8',
+    });
+    assert.notEqual(incomplete.status, 0);
+    assert.match(incomplete.stderr, /Canary requires exactly RELEASE_ID and LOCK_SHA256/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('failed activation atomically restores the previous release', () => {
