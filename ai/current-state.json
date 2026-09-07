@@ -9,7 +9,7 @@
   "currentGate": {
     "taskId": "DO-RELEASE-001",
     "owner": "Human Direction",
-    "gate": "browser-hold-control-package-in-progress; production-remains-on-941c1d15; activation-not-authorized"
+    "gate": "browser-hold-loopback-correction-in-progress-after-failed-attempt-20260907T213911Z-52064; production-remains-on-941c1d15; activation-not-authorized"
   },
   "nextProposedTask": "DO-RELEASE-001",
   "branchControl": {

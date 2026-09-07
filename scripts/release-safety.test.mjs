@@ -165,6 +165,9 @@ test('canary is bounded, isolated, redacted, and cannot widen deploy-user access
   assert.match(controller, /BROWSER_HOLD_TTL_SECONDS/);
   assert.match(controller, /evidenceClass":"real_browser/);
   assert.match(controller, /Browser-Hold TTL expired without browser evidence/);
+  assert.match(controller, /--property=IPAddressDeny=any --property=IPAddressAllow=localhost/);
+  assert.match(controller, /verify_canary_network_isolation/);
+  assert.match(controller, /Browser-Hold artifact or network identity mismatch/);
   assert.match(controller, /CPUQuota=100%/);
   assert.match(controller, /MemoryMax=512M/);
   assert.match(controller, /TasksMax=128/);
@@ -269,6 +272,7 @@ test('public canary CLI forwards complete arguments and rejects incomplete invoc
   const backup = join(root, 'sqlite-backup');
   const evidenceDir = join(root, 'evidence');
   const capture = join(root, 'process-environment');
+  const listenerReady = join(root, 'listener-ready');
 
   mkdirSync(join(candidate, 'apps/server/dist'), { recursive: true });
   mkdirSync(join(candidate, 'node_modules/.prisma/client'), { recursive: true });
@@ -290,10 +294,10 @@ test('public canary CLI forwards complete arguments and rejects incomplete invoc
   writeFileSync(join(bin, 'id'), '#!/bin/sh\nprintf "0\\n"\n');
   writeFileSync(join(bin, 'install'), '#!/bin/sh\nfor last do :; done\nmkdir -p "$last"\n');
   writeFileSync(join(bin, 'chown'), '#!/bin/sh\nexit 0\n');
-  writeFileSync(join(bin, 'ss'), '#!/bin/sh\nexit 1\n');
+  writeFileSync(join(bin, 'ss'), `#!/bin/sh\n[ -f "${listenerReady}" ] && printf 'LISTEN 0 128 0.0.0.0:3100 0.0.0.0:*\\n'\n`);
   writeFileSync(
     join(bin, 'systemd-run'),
-    `#!/usr/bin/env bash\nenv_file=''\nwhile [[ "$#" -gt 0 && "$1" != '/usr/bin/env' ]]; do\n  case "$1" in --property=EnvironmentFile=*) env_file="\${1#*=}";; esac\n  shift\ndone\n[[ -z "$env_file" ]] || { set -a; source "$env_file"; set +a; }\nshift\nenv_args=()\nwhile [[ "$#" -gt 0 && "$1" != '/opt/bazigb-runtime/current/bin/node' ]]; do env_args+=("$1"); shift; done\nshift\n/usr/bin/env "\${env_args[@]}" "${join(bin, 'canary-probe')}" "$1"\n`,
+    `#!/usr/bin/env bash\nenv_file=''\nwhile [[ "$#" -gt 0 && "$1" != '/usr/bin/env' ]]; do\n  case "$1" in --property=EnvironmentFile=*) env_file="\${1#--property=EnvironmentFile=}";; esac\n  shift\ndone\n[[ -z "$env_file" ]] || { set -a; source "$env_file"; set +a; }\nshift\nenv_args=()\nwhile [[ "$#" -gt 0 && "$1" != '/opt/bazigb-runtime/current/bin/node' ]]; do env_args+=("$1"); shift; done\nshift\ntouch "${listenerReady}"\n/usr/bin/env "\${env_args[@]}" "${join(bin, 'canary-probe')}" "$1"\n`,
   );
   writeFileSync(
     join(bin, 'canary-probe'),
@@ -301,7 +305,7 @@ test('public canary CLI forwards complete arguments and rejects incomplete invoc
   );
   writeFileSync(
     join(bin, 'systemctl'),
-    '#!/bin/sh\nif [ "$1" = "show" ]; then printf "Result=success\\nExecMainCode=exited\\nExecMainStatus=0\\n"; fi\nexit 0\n',
+    '#!/bin/sh\nif [ "$1" = "show" ]; then printf "Result=success\\nExecMainCode=exited\\nExecMainStatus=0\\nIPAddressDeny=any\\nIPAddressAllow=localhost\\n"; fi\nexit 0\n',
   );
   writeFileSync(join(bin, 'curl'), '#!/bin/sh\nprintf "200"\n');
   writeFileSync(join(bin, 'flock'), '#!/bin/sh\nexit 0\n');

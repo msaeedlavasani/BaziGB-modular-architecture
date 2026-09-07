@@ -235,6 +235,10 @@ recorded separately as `real_browser` evidence. HTTP-only evidence can never be
 promoted to Browser PASS. Success, failure, signal, and TTL expiry all stop the
 transient units and remove the snapshot; Production services, pointers,
 configuration, proxy, and database remain unchanged.
+Loopback-only is an evidenced property, not a label: both transient units must
+report an effective deny-all/allow-localhost policy and have live listeners
+before browser readiness is emitted. The controller must not write the
+`loopback_only` evidence value unless that verification passed.
 
 ## No-go and rollback triggers
 

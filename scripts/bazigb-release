@@ -159,11 +159,25 @@ browser_result() {
   verify
   browser_dir="${CANARY_ROOT}/${release_id}-${browser_attempt}"
   [[ -f "${browser_dir}/browser-ready" ]] || die 'Browser-Hold is missing, stale, or has the wrong identity.'
-  expected_ready="${release_id}|$(candidate_fingerprint)"
-  [[ "$(cat "${browser_dir}/browser-ready")" == "${expected_ready}" ]] || die 'Browser-Hold artifact identity mismatch.'
+  expected_ready="${release_id}|$(candidate_fingerprint)|loopback_only"
+  [[ "$(cat "${browser_dir}/browser-ready")" == "${expected_ready}" ]] || die 'Browser-Hold artifact or network identity mismatch.'
   [[ ! -e "${browser_dir}/browser-result" ]] || die 'Browser result was already recorded.'
   append_browser_evidence "${browser_outcome}" "${browser_attempt}"
   printf '%s\n' "${browser_outcome}" >"${browser_dir}/browser-result"
+}
+
+verify_canary_network_isolation() {
+  for isolated_unit in "${api_unit}.service" "${web_unit}.service"; do
+    effective_policy="$(systemctl show "${isolated_unit}" --property=IPAddressDeny --property=IPAddressAllow --no-pager)"
+    printf '%s\n' "${effective_policy}" | grep -Fxq 'IPAddressDeny=any' || \
+      die 'Canary unit does not enforce IPAddressDeny=any.'
+    printf '%s\n' "${effective_policy}" | grep -Fxq 'IPAddressAllow=localhost' || \
+      die 'Canary unit does not enforce IPAddressAllow=localhost.'
+  done
+  for isolated_port in "${CANARY_API_PORT}" "${CANARY_WEB_PORT}"; do
+    ss -H -ltn "sport = :${isolated_port}" | grep -q . || die 'Canary listener is not ready.'
+  done
+  network_exposure='loopback_only'
 }
 
 capture_canary_outcome() {
@@ -432,6 +446,7 @@ canary() {
     --property="RuntimeMaxSec=${runtime_seconds}" \
     --property=CPUQuota=100% --property=MemoryMax=512M --property=TasksMax=128 \
     --property=NoNewPrivileges=yes --property=PrivateTmp=yes \
+    --property=IPAddressDeny=any --property=IPAddressAllow=localhost \
     --property=ProtectSystem=strict --property="ReadWritePaths=${run_dir}" \
     --property=StandardOutput=null --property=StandardError=null \
     /usr/bin/env "PORT=${CANARY_API_PORT}" "DATABASE_URL=file:${snapshot_real}" \
@@ -445,6 +460,7 @@ canary() {
     --property="RuntimeMaxSec=${runtime_seconds}" \
     --property=CPUQuota=100% --property=MemoryMax=768M --property=TasksMax=128 \
     --property=NoNewPrivileges=yes --property=PrivateTmp=yes \
+    --property=IPAddressDeny=any --property=IPAddressAllow=localhost \
     --property=ProtectSystem=strict \
     --property=StandardOutput=null --property=StandardError=null \
     /usr/bin/env "PORT=${CANARY_WEB_PORT}" \
@@ -458,6 +474,8 @@ canary() {
   public_asset_url="http://127.0.0.1:${CANARY_WEB_PORT}/brand/logo.svg"
   static_js="$(find "${candidate}/apps/web/.next/standalone/apps/web/.next/static" -type f -name '*.js' -print | LC_ALL=C sort | head -n 1)"
   versioned_js_url="http://127.0.0.1:${CANARY_WEB_PORT}/_next/static/${static_js#*apps/web/.next/static/}"
+  network_exposure='not_verified'
+  verify_canary_network_isolation
   deadline=$((SECONDS + CANARY_RUNTIME_SECONDS))
   while (( SECONDS <= deadline )); do
     api_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
@@ -486,7 +504,8 @@ canary() {
     "${db_checksum}" "${started_at}" "${finished_at}"
   evidence_written=1
   if [[ "${browser_hold}" -eq 1 ]]; then
-    printf '%s\n' "${release_id}|$(candidate_fingerprint)" >"${run_dir}/browser-ready"
+    [[ "${network_exposure}" == 'loopback_only' ]] || die 'Browser-Hold network isolation was not verified.'
+    printf '%s\n' "${release_id}|$(candidate_fingerprint)|${network_exposure}" >"${run_dir}/browser-ready"
     chmod 0600 "${run_dir}/browser-ready"
     printf 'browser_hold_ready release_id=%s attempt_id=%s port=%s ttl_seconds=%s\n' \
       "${release_id}" "${attempt_id}" "${CANARY_WEB_PORT}" "${BROWSER_HOLD_TTL_SECONDS}"
