@@ -44,7 +44,7 @@
     "test:impact": "node scripts/check-impact.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "1.51.1",
+    "@playwright/test": "1.63.0",
     "concurrently": "^8.2.2"
   }
 }
