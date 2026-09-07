@@ -133,6 +133,76 @@ test('canary is bounded, isolated, redacted, and cannot widen deploy-user access
   assert.doesNotMatch(sudoers, /systemctl|systemd-run|journalctl|\/bin\/cat|\.env|dev\.db/);
 });
 
+test('failed activation restores Legacy before a bounded isolated diagnostic hold', () => {
+  const source = readFileSync(controllerPath, 'utf8');
+  const hold = source.slice(source.indexOf('start_diagnostic_hold()'), source.indexOf('canary()'));
+  const activation = source.slice(source.indexOf('activate()'), source.indexOf('case "${1:-}"'));
+
+  assert.ok(activation.indexOf('restore_legacy_units') < activation.indexOf('start_diagnostic_hold'));
+  assert.match(hold, /DIAGNOSTIC_TTL_SECONDS/);
+  assert.match(hold, /RuntimeMaxSec=\$\{DIAGNOSTIC_TTL_SECONDS\}/);
+  assert.match(hold, /--on-active="\$\{DIAGNOSTIC_TTL_SECONDS\}s"/);
+  assert.match(hold, /IPAddressDeny=any/);
+  assert.match(hold, /IPAddressAllow=localhost/);
+  assert.match(hold, /install -m 0600[^\n]+"\$\{checkpoint\}" "\$\{diagnostic_db\}"/);
+  assert.match(hold, /JWT_SECRET=%s/);
+  assert.match(hold, /"\$\{ephemeral_secret\}" >"\$\{diagnostic_env\}"/);
+  assert.doesNotMatch(hold, /EnvironmentFile=\$\{SHARED\}\/\.env/);
+  assert.match(hold, /data_corruption\|secret_exposure\|security\|shared_state_damage/);
+  assert.match(hold, /StandardOutput=null/);
+  assert.match(hold, /stream_hash_only/);
+  assert.match(hold, /event=process_output digest=%s/);
+  assert.doesNotMatch(hold, /printf[^\n]*\$line[^\n]*redacted\.log/);
+  assert.match(source, /diagnostic_hold_cleanup/);
+  assert.match(source, /9>>"\$\{EVIDENCE_FILE\}"/);
+});
+
+test('diagnostic TTL cleanup removes only its isolated hold and appends evidence', () => {
+  const root = mkdtempSync(join(tmpdir(), 'bazigb-diagnostic-cleanup-test-'));
+  const bin = join(root, 'bin');
+  const releaseId = 'abcdef1';
+  const attemptId = '20260907T010000Z-1234';
+  const diagnosticRoot = join(root, 'diagnostic');
+  const diagnosticDir = join(diagnosticRoot, `${releaseId}-${attemptId}`);
+  const evidenceDir = join(root, 'evidence');
+  mkdirSync(diagnosticDir, { recursive: true });
+  mkdirSync(bin);
+  writeFileSync(join(diagnosticDir, 'diagnostic.db'), 'isolated');
+  for (const [name, source] of [
+    ['id', '#!/bin/sh\nprintf "0\\n"\n'],
+    ['systemctl', '#!/bin/sh\nexit 0\n'],
+    ['flock', '#!/bin/sh\nexit 0\n'],
+    ['chown', '#!/bin/sh\nexit 0\n'],
+    ['install', '#!/bin/sh\nfor last do :; done\nmkdir -p "$last"\n'],
+  ]) {
+    writeFileSync(join(bin, name), source);
+    chmodSync(join(bin, name), 0o755);
+  }
+  try {
+    const result = spawnSync(
+      'bash',
+      [controllerPath.pathname, 'diagnostic-cleanup', releaseId, attemptId],
+      {
+        env: {
+          ...process.env,
+          PATH: `${bin}:${process.env.PATH}`,
+          BAZIGB_RELEASE_ROOT: root,
+          BAZIGB_DIAGNOSTIC_ROOT: diagnosticRoot,
+          BAZIGB_EVIDENCE_DIR: evidenceDir,
+        },
+        encoding: 'utf8',
+      },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.throws(() => readFileSync(join(diagnosticDir, 'diagnostic.db')));
+    const evidence = readFileSync(join(evidenceDir, 'canary-evidence.jsonl'), 'utf8');
+    assert.match(evidence, /"event":"diagnostic_hold_cleanup"/);
+    assert.match(evidence, new RegExp(`"attemptId":"${attemptId}"`));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('public canary CLI forwards complete arguments and rejects incomplete invocation', () => {
   const root = mkdtempSync(join(tmpdir(), 'bazigb-canary-cli-test-'));
   const bin = join(root, 'bin');
@@ -302,6 +372,7 @@ test('failed activation atomically restores the previous release', () => {
     assert.match(result.stderr, /connection_failure/);
     assert.equal(readlinkSync(join(root, 'current')), previous);
     assert.equal(readlinkSync(join(root, 'previous')), previous);
+    assert.equal(readFileSync(join(root, 'shared/data/dev.db'), 'utf8'), 'sqlite fixture');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

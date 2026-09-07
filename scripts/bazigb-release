@@ -29,6 +29,10 @@ CANARY_RUNTIME_SECONDS=90
 CANARY_ROOT="${BAZIGB_CANARY_ROOT:-/run/bazigb-canary}"
 EVIDENCE_DIR="${BAZIGB_EVIDENCE_DIR:-/var/log/bazigb-release}"
 EVIDENCE_FILE="${EVIDENCE_DIR}/canary-evidence.jsonl"
+DIAGNOSTIC_ROOT="${BAZIGB_DIAGNOSTIC_ROOT:-/run/bazigb-diagnostic}"
+DIAGNOSTIC_API_PORT=3201
+DIAGNOSTIC_WEB_PORT=3200
+DIAGNOSTIC_TTL_SECONDS=1800
 
 die() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -123,6 +127,111 @@ diagnose() {
     'index($0, "\"releaseId\":\"" release "\"") && index($0, "\"attemptId\":\"" attempt "\"") { print; found=1; exit } END { if (!found) exit 1 }' \
     "${EVIDENCE_FILE}")" || die 'Canary attempt was not found.'
   printf '%s\n' "${evidence_line}"
+}
+
+append_diagnostic_evidence() {
+  diagnostic_event="$1"
+  diagnostic_attempt="$2"
+  diagnostic_health="$3"
+  diagnostic_failure="$4"
+  diagnostic_log="$5"
+  install -d -m 0750 -o root -g "${APP_GROUP}" "${EVIDENCE_DIR}"
+  touch "${EVIDENCE_FILE}"
+  chown root:"${APP_GROUP}" "${EVIDENCE_FILE}"
+  chmod 0640 "${EVIDENCE_FILE}"
+  (
+    flock -x 9
+    printf '{"schemaVersion":"1.1.0","event":"%s","releaseId":"%s","attemptId":"%s","health":"%s","failureClass":"%s","redactedLog":"%s","ttlSeconds":%s,"timestamp":"%s"}\n' \
+      "${diagnostic_event}" "${release_id}" "${diagnostic_attempt}" \
+      "${diagnostic_health}" "${diagnostic_failure}" "${diagnostic_log}" \
+      "${DIAGNOSTIC_TTL_SECONDS}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >&9
+  ) 9>>"${EVIDENCE_FILE}"
+}
+
+diagnostic_cleanup() {
+  [[ "$#" -eq 3 ]] || die 'Diagnostic cleanup requires exactly RELEASE_ID and ATTEMPT_ID.'
+  [[ "$(id -u)" -eq 0 ]] || die 'Diagnostic cleanup is root-only.'
+  diagnostic_attempt="$3"
+  [[ "${diagnostic_attempt}" =~ ^[0-9]{8}T[0-9]{6}Z-[0-9]+$ ]] || die 'Invalid diagnostic attempt id.'
+  diagnostic_dir="${DIAGNOSTIC_ROOT}/${release_id}-${diagnostic_attempt}"
+  [[ "${diagnostic_dir}" == "${DIAGNOSTIC_ROOT}/"* ]] || die 'Diagnostic path escaped its root.'
+  systemctl stop "bazigb-api-diagnostic-${diagnostic_attempt}.service" \
+    "bazigb-web-diagnostic-${diagnostic_attempt}.service" >/dev/null 2>&1 || :
+  systemctl reset-failed "bazigb-api-diagnostic-${diagnostic_attempt}.service" \
+    "bazigb-web-diagnostic-${diagnostic_attempt}.service" >/dev/null 2>&1 || :
+  diagnostic_log='none'
+  if [[ -f "${diagnostic_dir}/api.redacted.log" || -f "${diagnostic_dir}/web.redacted.log" ]]; then
+    diagnostic_log="sha256:$(sha256sum "${diagnostic_dir}"/*.redacted.log 2>/dev/null | sha256sum | awk '{print $1}')"
+  fi
+  [[ ! -d "${diagnostic_dir}" ]] || rm -rf -- "${diagnostic_dir}"
+  append_diagnostic_evidence 'diagnostic_hold_cleanup' "${diagnostic_attempt}" \
+    'stopped' 'none' "${diagnostic_log}"
+}
+
+start_diagnostic_hold() {
+  checkpoint="$1"
+  failure_class="$2"
+  command -v systemd-run >/dev/null 2>&1 || return 1
+  case "${failure_class}" in
+    data_corruption|secret_exposure|security|shared_state_damage)
+      append_diagnostic_evidence 'diagnostic_hold_forbidden' "$(date -u +%Y%m%dT%H%M%SZ)-$$" \
+        'not_started' "${failure_class}" 'raw_output_suppressed'
+      return 0
+      ;;
+    activation_health_failure|activation_restart_failure) ;;
+    *) return 0 ;;
+  esac
+  [[ -f "${checkpoint}" ]] || return 0
+
+  diagnostic_attempt="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  diagnostic_dir="${DIAGNOSTIC_ROOT}/${release_id}-${diagnostic_attempt}"
+  install -d -m 0700 -o "${RUNTIME_USER}" -g "${RUNTIME_USER}" "${diagnostic_dir}"
+  diagnostic_db="${diagnostic_dir}/diagnostic.db"
+  diagnostic_env="${diagnostic_dir}/diagnostic.env"
+  diagnostic_runner="${diagnostic_dir}/digest-output"
+  install -m 0600 -o "${RUNTIME_USER}" -g "${RUNTIME_USER}" "${checkpoint}" "${diagnostic_db}"
+  ephemeral_secret="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
+  printf 'NODE_ENV=production\nTRUST_PROXY_HOPS=1\nPORT=%s\nDATABASE_URL=file:%s\nJWT_SECRET=%s\n' \
+    "${DIAGNOSTIC_API_PORT}" "${diagnostic_db}" "${ephemeral_secret}" >"${diagnostic_env}"
+  printf '%s\n' '#!/usr/bin/env bash' 'set -o pipefail' \
+    'log_file="$1"; shift' \
+    '"$@" 2>&1 | while IFS= read -r line; do digest="$(printf "%s" "$line" | sha256sum | awk '\''{print $1}'\'')"; printf "event=process_output digest=%s\n" "$digest" >>"$log_file"; done' \
+    >"${diagnostic_runner}"
+  chown "${RUNTIME_USER}:${RUNTIME_USER}" "${diagnostic_env}"
+  chown "${RUNTIME_USER}:${RUNTIME_USER}" "${diagnostic_runner}"
+  chmod 0600 "${diagnostic_env}"
+  chmod 0500 "${diagnostic_runner}"
+
+  systemd-run --quiet --unit="bazigb-api-diagnostic-${diagnostic_attempt}" \
+    --uid="${RUNTIME_USER}" --gid="${APP_GROUP}" \
+    --property="SupplementaryGroups=${RUNTIME_USER}" \
+    --property="WorkingDirectory=${candidate}/apps/server" \
+    --property="EnvironmentFile=${diagnostic_env}" \
+    --property="RuntimeMaxSec=${DIAGNOSTIC_TTL_SECONDS}" \
+    --property=CPUQuota=50% --property=MemoryMax=512M --property=TasksMax=128 \
+    --property=NoNewPrivileges=yes --property=PrivateTmp=yes --property=ProtectSystem=strict \
+    --property="ReadWritePaths=${diagnostic_dir}" \
+    --property=IPAddressDeny=any --property=IPAddressAllow=localhost \
+    --property=StandardOutput=null --property=StandardError=null \
+    /usr/bin/env PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin \
+    "${diagnostic_runner}" "${diagnostic_dir}/api.redacted.log" \
+    /opt/bazigb-runtime/current/bin/node dist/main.js
+  systemd-run --quiet --unit="bazigb-web-diagnostic-${diagnostic_attempt}" \
+    --uid="${RUNTIME_USER}" --gid="${APP_GROUP}" \
+    --property="WorkingDirectory=${candidate}/apps/web" \
+    --property="RuntimeMaxSec=${DIAGNOSTIC_TTL_SECONDS}" \
+    --property=CPUQuota=50% --property=MemoryMax=768M --property=TasksMax=128 \
+    --property=NoNewPrivileges=yes --property=PrivateTmp=yes --property=ProtectSystem=strict \
+    --property=IPAddressDeny=any --property=IPAddressAllow=localhost \
+    --property=StandardOutput=null --property=StandardError=null \
+    /usr/bin/env "PORT=${DIAGNOSTIC_WEB_PORT}" PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin \
+    "${diagnostic_runner}" "${diagnostic_dir}/web.redacted.log" \
+    /opt/bazigb-runtime/current/bin/node .next/standalone/apps/web/server.js
+  systemd-run --quiet --unit="bazigb-diagnostic-cleanup-${diagnostic_attempt}" \
+    --on-active="${DIAGNOSTIC_TTL_SECONDS}s" \
+    /usr/local/sbin/bazigb-release diagnostic-cleanup "${release_id}" "${diagnostic_attempt}"
+  append_diagnostic_evidence 'diagnostic_hold_started' "${diagnostic_attempt}" \
+    'isolated_pending' "${failure_class}" 'stream_hash_only'
 }
 
 canary() {
@@ -386,8 +495,12 @@ activate() {
   fi
   ln -s "${candidate}" "${ROOT}/.current-${release_id}"
   mv -Tf "${ROOT}/.current-${release_id}" "${CURRENT}"
-  if systemctl restart bazigb-server bazigb-web && health_check "${CANDIDATE_WEB_HEALTH_URL}"; then
-    return 0
+  activation_failure_class='activation_restart_failure'
+  if systemctl restart bazigb-server bazigb-web; then
+    activation_failure_class='activation_health_failure'
+    if health_check "${CANDIDATE_WEB_HEALTH_URL}"; then
+      return 0
+    fi
   fi
 
   if [[ -n "${old_target}" ]]; then
@@ -400,6 +513,9 @@ activate() {
     systemctl restart bazigb-server bazigb-web
     health_check "${LEGACY_WEB_HEALTH_URL}" || die 'First activation and legacy rollback health checks both failed.'
   fi
+  if ! start_diagnostic_hold "${destination}" "${activation_failure_class}"; then
+    : # Legacy rollback remains authoritative when the optional hold cannot start.
+  fi
   die 'Activation health check failed; previous release restored.'
 }
 
@@ -408,6 +524,7 @@ case "${1:-}" in
   verify) verify ;;
   canary|preflight) canary "$@" ;;
   diagnose) diagnose "$@" ;;
+  diagnostic-cleanup) diagnostic_cleanup "$@" ;;
   activate) activate ;;
   *) die 'Usage: bazigb-release {prepare|verify|canary|preflight|diagnose|activate} RELEASE_ID [LOCK_SHA256_OR_ATTEMPT_ID]' ;;
 esac
