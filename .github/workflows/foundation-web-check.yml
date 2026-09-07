@@ -43,6 +43,9 @@ jobs:
         run: npm run test:sensitive-diff && npm run check:sensitive-diff
         env:
           BAZIGB_DIFF_BASE: origin/main
+          # DO-RELEASE-001: human-approved runtime datasource isolation change.
+          # Exact-file and release-branch scope prevents reusable schema authority.
+          BAZIGB_APPROVED_SENSITIVE_FILES: ${{ github.ref_name == 'codex/release-health-contract' && 'apps/server/src/prisma/prisma.service.ts' || '' }}
 
       - name: Check branch lifecycle fixtures
         run: npm run test:branch-health

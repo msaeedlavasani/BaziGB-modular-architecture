@@ -19,9 +19,16 @@ const sensitive = changed.filter((file) =>
   || /(^|\/)(generated)(\/|$)/i.test(file)
   || /schema\.(prisma|sql|graphql)$/i.test(file));
 
-if (sensitive.length > 0 && process.env.BAZIGB_ALLOW_SENSITIVE_CHANGE !== 'true') {
+const approvedSensitiveFiles = new Set(
+  (process.env.BAZIGB_APPROVED_SENSITIVE_FILES ?? '').split('\n').filter(Boolean),
+);
+const scopedAuthority = sensitive.length > 0
+  && sensitive.every((file) => approvedSensitiveFiles.has(file));
+const authorityGranted = process.env.BAZIGB_ALLOW_SENSITIVE_CHANGE === 'true' || scopedAuthority;
+
+if (sensitive.length > 0 && !authorityGranted) {
   console.error('Sensitive diff requires an explicitly approved Task Passport:');
   for (const file of sensitive) console.error(`- ${file}`);
   process.exit(1);
 }
-console.log(`Sensitive-diff check passed: ${sensitive.length} sensitive file(s), authority=${process.env.BAZIGB_ALLOW_SENSITIVE_CHANGE === 'true' ? 'granted' : 'not-needed'}.`);
+console.log(`Sensitive-diff check passed: ${sensitive.length} sensitive file(s), authority=${authorityGranted ? 'granted' : 'not-needed'}.`);
