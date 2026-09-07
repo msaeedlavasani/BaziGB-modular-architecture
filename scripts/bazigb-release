@@ -70,10 +70,59 @@ append_canary_evidence() {
   chmod 0640 "${EVIDENCE_FILE}"
   (
     flock -x 9
-    printf '{"schemaVersion":"1.0.0","event":"release_canary","releaseId":"%s","result":"%s","apiHttp":"%s","webHttp":"%s","snapshotSha256":"%s","startedAt":"%s","finishedAt":"%s"}\n' \
-      "${release_id}" "${result}" "${api_status}" "${web_status}" \
-      "${db_checksum}" "${started_at}" "${finished_at}" >&9
+    printf '{"schemaVersion":"1.1.0","event":"release_canary","releaseId":"%s","attemptId":"%s","result":"%s","apiHttp":"%s","webHttp":"%s","snapshotSha256":"%s","failureClass":"%s","apiExitCode":"%s","apiExitStatus":"%s","apiUnitResult":"%s","lifecycle":"%s","startedAt":"%s","finishedAt":"%s"}\n' \
+      "${release_id}" "${attempt_id}" "${result}" "${api_status}" "${web_status}" \
+      "${db_checksum}" "${failure_class}" "${api_exit_code}" "${api_exit_status}" \
+      "${api_unit_result}" "${lifecycle_event}" "${started_at}" "${finished_at}" >&9
   ) 9>>"${EVIDENCE_FILE}"
+}
+
+capture_canary_outcome() {
+  api_exit_code='unknown'
+  api_exit_status='unknown'
+  api_unit_result='unknown'
+  metadata="$(systemctl show "${api_unit}.service" \
+    --property=Result --property=ExecMainCode --property=ExecMainStatus \
+    --no-pager 2>/dev/null || :)"
+  while IFS='=' read -r key value; do
+    case "${key}" in
+      Result)
+        [[ "${value}" =~ ^(success|exit-code|timeout|signal|core-dump|watchdog|start-limit-hit|resources|protocol)$ ]] && \
+          api_unit_result="${value}"
+        ;;
+      ExecMainCode)
+        [[ "${value}" =~ ^(exited|killed|dumped)$ ]] && api_exit_code="${value}"
+        ;;
+      ExecMainStatus)
+        [[ "${value}" =~ ^[0-9]{1,3}$ ]] && api_exit_status="${value}"
+        ;;
+    esac
+  done <<<"${metadata}"
+
+  if [[ "${api_exit_status}" =~ ^[0-9]+$ && "${api_exit_status}" -ne 0 ]]; then
+    failure_class='api_process_exit_nonzero'
+    lifecycle_event='api_process_exit_nonzero'
+  elif [[ "${api_unit_result}" != 'unknown' && "${api_unit_result}" != 'success' ]]; then
+    failure_class="api_unit_${api_unit_result}"
+    lifecycle_event='api_unit_failed'
+  elif [[ "${result}" != 'PASS' ]]; then
+    failure_class='health_deadline_exceeded'
+    lifecycle_event='canary_health_deadline_exceeded'
+  else
+    failure_class='none'
+    lifecycle_event='canary_health_passed'
+  fi
+}
+
+diagnose() {
+  [[ "$#" -eq 3 ]] || die 'Diagnose requires exactly RELEASE_ID and ATTEMPT_ID.'
+  attempt_id="$3"
+  [[ "${attempt_id}" =~ ^[0-9]{8}T[0-9]{6}Z-[0-9]+$ ]] || die 'Invalid Canary attempt id.'
+  [[ -f "${EVIDENCE_FILE}" ]] || die 'Canary evidence is missing.'
+  evidence_line="$(awk -v release="${release_id}" -v attempt="${attempt_id}" \
+    'index($0, "\"releaseId\":\"" release "\"") && index($0, "\"attemptId\":\"" attempt "\"") { print; found=1; exit } END { if (!found) exit 1 }' \
+    "${EVIDENCE_FILE}")" || die 'Canary attempt was not found.'
+  printf '%s\n' "${evidence_line}"
 }
 
 canary() {
@@ -89,14 +138,23 @@ canary() {
   web_unit="bazigb-web-canary-${release_id}"
   run_dir="${CANARY_ROOT}/${release_id}-$(date -u +%Y%m%dT%H%M%SZ)-$$"
   snapshot="${run_dir}/canary.db"
+  attempt_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
   started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   api_status='not_run'
   web_status='not_run'
   db_checksum='not_created'
   result='FAIL'
+  failure_class='not_started'
+  lifecycle_event='canary_not_started'
+  api_exit_code='unknown'
+  api_exit_status='unknown'
+  api_unit_result='unknown'
   evidence_written=0
 
   cleanup_canary() {
+    if [[ "${evidence_written}" -eq 0 ]]; then
+      capture_canary_outcome
+    fi
     systemctl stop "${api_unit}.service" "${web_unit}.service" >/dev/null 2>&1 || :
     systemctl reset-failed "${api_unit}.service" "${web_unit}.service" >/dev/null 2>&1 || :
     if [[ "${run_dir}" == "${CANARY_ROOT}/"* && -d "${run_dir}" ]]; then
@@ -117,6 +175,16 @@ canary() {
   chmod 0600 "${snapshot}"
   db_checksum="$(sha256sum "${snapshot}" | awk '{print $1}')"
 
+  run_dir_real="$(readlink -f "${run_dir}")"
+  snapshot_real="$(readlink -f "${snapshot}")"
+  production_db_real="$(readlink -f "${SHARED}/data/dev.db")"
+  [[ "${snapshot_real}" == "${run_dir_real}/canary.db" ]] || die 'Canary snapshot escaped its isolated run directory.'
+  [[ "${snapshot_real}" != "${production_db_real}" ]] || die 'Canary database resolves to the Production database.'
+  [[ "${CANARY_API_PORT}" =~ ^[0-9]{4,5}$ && "${CANARY_WEB_PORT}" =~ ^[0-9]{4,5}$ ]] || \
+    die 'Canary ports are invalid.'
+  [[ "${CANARY_API_PORT}" != "${CANARY_WEB_PORT}" && "${CANARY_API_PORT}" != '3001' && "${CANARY_WEB_PORT}" != '3000' ]] || \
+    die 'Canary ports must be isolated from each other and Legacy.'
+
   for port in "${CANARY_API_PORT}" "${CANARY_WEB_PORT}"; do
     if ss -H -ltn "sport = :${port}" | grep -q .; then
       die "Canary port ${port} is already in use."
@@ -133,9 +201,8 @@ canary() {
     --property=NoNewPrivileges=yes --property=PrivateTmp=yes \
     --property=ProtectSystem=strict --property="ReadWritePaths=${run_dir}" \
     --property=StandardOutput=null --property=StandardError=null \
-    --setenv="PORT=${CANARY_API_PORT}" \
-    --setenv="DATABASE_URL=file:${snapshot}" \
-    --setenv=PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin \
+    /usr/bin/env "PORT=${CANARY_API_PORT}" "DATABASE_URL=file:${snapshot_real}" \
+    PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin \
     /opt/bazigb-runtime/current/bin/node dist/main.js
 
   systemd-run --quiet --collect --unit="${web_unit}" \
@@ -146,8 +213,8 @@ canary() {
     --property=NoNewPrivileges=yes --property=PrivateTmp=yes \
     --property=ProtectSystem=strict \
     --property=StandardOutput=null --property=StandardError=null \
-    --setenv="PORT=${CANARY_WEB_PORT}" \
-    --setenv=PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin \
+    /usr/bin/env "PORT=${CANARY_WEB_PORT}" \
+    PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin \
     /opt/bazigb-runtime/current/bin/node .next/standalone/apps/web/server.js
 
   api_url="http://127.0.0.1:${CANARY_API_PORT}/api/rooms"
@@ -166,6 +233,7 @@ canary() {
   done
   [[ "${result}" == 'PASS' ]] || die 'Canary health checks did not both return HTTP 200.'
 
+  capture_canary_outcome
   finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   append_canary_evidence "${result}" "${api_status}" "${web_status}" \
     "${db_checksum}" "${started_at}" "${finished_at}"
@@ -339,6 +407,7 @@ case "${1:-}" in
   prepare) prepare ;;
   verify) verify ;;
   canary|preflight) canary "$@" ;;
+  diagnose) diagnose "$@" ;;
   activate) activate ;;
-  *) die 'Usage: bazigb-release {prepare|verify|canary|preflight|activate} RELEASE_ID [LOCK_SHA256]' ;;
+  *) die 'Usage: bazigb-release {prepare|verify|canary|preflight|diagnose|activate} RELEASE_ID [LOCK_SHA256_OR_ATTEMPT_ID]' ;;
 esac

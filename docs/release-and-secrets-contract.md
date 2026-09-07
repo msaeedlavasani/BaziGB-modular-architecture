@@ -194,6 +194,10 @@ these declarations is absent. Secret values remain outside release directories
 and validation must never print them.
 
 Release diagnosis follows the invariant **preserve evidence, preserve service**.
+The root-owned controller records only allowlisted structured exit metadata and
+fixed lifecycle classifications in append-only evidence. Operators diagnose a
+specific release and attempt through that redacted evidence; direct Journal,
+environment, database, and raw-log access is not part of the deploy identity.
 Production rollback remains automatic and a broken Production process is never
 kept serving merely to retain logs. When diagnosis needs a live process, run the
 immutable candidate in a bounded parallel Systemd diagnostic slot on separate

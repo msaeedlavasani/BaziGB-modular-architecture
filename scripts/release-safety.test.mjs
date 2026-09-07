@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   readlinkSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -107,7 +108,9 @@ test('canary is bounded, isolated, redacted, and cannot widen deploy-user access
   assert.match(controller, /canary\|preflight\) canary "\$@"/);
   assert.match(controller, /Canary must run through the approved root controller/);
   assert.match(controller, /Canary requires exactly RELEASE_ID and LOCK_SHA256/);
-  assert.match(controller, /DATABASE_URL=file:\$\{snapshot\}/);
+  assert.match(controller, /\/usr\/bin\/env "PORT=\$\{CANARY_API_PORT\}" "DATABASE_URL=file:\$\{snapshot_real\}"/);
+  assert.match(controller, /Canary database resolves to the Production database/);
+  assert.match(controller, /Canary ports must be isolated from each other and Legacy/);
   assert.match(controller, /RuntimeMaxSec=\$\{CANARY_RUNTIME_SECONDS\}/);
   assert.match(controller, /CPUQuota=100%/);
   assert.match(controller, /MemoryMax=512M/);
@@ -115,12 +118,18 @@ test('canary is bounded, isolated, redacted, and cannot widen deploy-user access
   assert.match(controller, /StandardOutput=null/);
   assert.match(controller, /StandardError=null/);
   assert.match(controller, /9>>"\$\{EVIDENCE_FILE\}"/);
+  assert.match(controller, /systemctl show/);
+  assert.match(controller, /failure_class='api_process_exit_nonzero'/);
+  assert.match(controller, /diagnose\) diagnose "\$@"/);
+  assert.doesNotMatch(controller, /journalctl/);
+  assert.doesNotMatch(controller, /\.MESSAGE|MESSAGE=/);
   assert.doesNotMatch(controller, /rm[^\n]*EVIDENCE/);
   assert.doesNotMatch(controller, /cat[^\n]*SHARED[^\n]*\.env/);
 
   const sudoers = prepare.match(/cat >\/etc\/sudoers\.d\/bazigb-release[\s\S]*?^SUDOERS$/m)?.[0] ?? '';
   assert.match(sudoers, /bazigb-release canary \*/);
   assert.match(sudoers, /bazigb-release preflight \*/);
+  assert.match(sudoers, /bazigb-release diagnose \*/);
   assert.doesNotMatch(sudoers, /systemctl|systemd-run|journalctl|\/bin\/cat|\.env|dev\.db/);
 });
 
@@ -133,6 +142,7 @@ test('public canary CLI forwards complete arguments and rejects incomplete invoc
   const checksum = createHash('sha256').update(lock).digest('hex');
   const backup = join(root, 'sqlite-backup');
   const evidenceDir = join(root, 'evidence');
+  const capture = join(root, 'process-environment');
 
   mkdirSync(join(candidate, 'apps/server/dist'), { recursive: true });
   mkdirSync(join(candidate, 'node_modules/.prisma/client'), { recursive: true });
@@ -144,18 +154,31 @@ test('public canary CLI forwards complete arguments and rejects incomplete invoc
   writeFileSync(join(candidate, 'apps/server/dist/main.js'), '');
   writeFileSync(join(candidate, 'node_modules/.prisma/client/default.js'), 'generated client');
   writeFileSync(join(candidate, 'apps/web/.next/standalone/apps/web/server.js'), '');
-  writeFileSync(join(root, 'shared/.env'), 'NODE_ENV=production\n');
+  writeFileSync(
+    join(root, 'shared/.env'),
+    'NODE_ENV=production\nPORT=3001\nDATABASE_URL=file:/srv/bazigb/shared/data/dev.db\nJWT_SECRET=must-not-leak\n',
+  );
   writeFileSync(join(root, 'shared/data/dev.db'), 'isolated sqlite fixture');
   writeFileSync(backup, '#!/bin/sh\ncp "$1" "$2"\n');
   writeFileSync(join(bin, 'id'), '#!/bin/sh\nprintf "0\\n"\n');
   writeFileSync(join(bin, 'install'), '#!/bin/sh\nfor last do :; done\nmkdir -p "$last"\n');
   writeFileSync(join(bin, 'chown'), '#!/bin/sh\nexit 0\n');
   writeFileSync(join(bin, 'ss'), '#!/bin/sh\nexit 1\n');
-  writeFileSync(join(bin, 'systemd-run'), '#!/bin/sh\nexit 0\n');
-  writeFileSync(join(bin, 'systemctl'), '#!/bin/sh\nexit 0\n');
+  writeFileSync(
+    join(bin, 'systemd-run'),
+    `#!/usr/bin/env bash\nenv_file=''\nwhile [[ "$#" -gt 0 && "$1" != '/usr/bin/env' ]]; do\n  case "$1" in --property=EnvironmentFile=*) env_file="\${1#*=}";; esac\n  shift\ndone\n[[ -z "$env_file" ]] || { set -a; source "$env_file"; set +a; }\nshift\nenv_args=()\nwhile [[ "$#" -gt 0 && "$1" != '/opt/bazigb-runtime/current/bin/node' ]]; do env_args+=("$1"); shift; done\nshift\n/usr/bin/env "\${env_args[@]}" "${join(bin, 'canary-probe')}" "$1"\n`,
+  );
+  writeFileSync(
+    join(bin, 'canary-probe'),
+    `#!/bin/sh\nprintf '%s|%s|%s|%s\\n' "$1" "$PORT" "\${DATABASE_URL:-unset}" "$PATH" >> "${capture}"\n`,
+  );
+  writeFileSync(
+    join(bin, 'systemctl'),
+    '#!/bin/sh\nif [ "$1" = "show" ]; then printf "Result=success\\nExecMainCode=exited\\nExecMainStatus=0\\n"; fi\nexit 0\n',
+  );
   writeFileSync(join(bin, 'curl'), '#!/bin/sh\nprintf "200"\n');
   writeFileSync(join(bin, 'flock'), '#!/bin/sh\nexit 0\n');
-  for (const executable of [backup, ...['id', 'install', 'chown', 'ss', 'systemd-run', 'systemctl', 'curl', 'flock'].map((name) => join(bin, name))]) {
+  for (const executable of [backup, ...['id', 'install', 'chown', 'ss', 'systemd-run', 'systemctl', 'curl', 'flock', 'canary-probe'].map((name) => join(bin, name))]) {
     chmodSync(executable, 0o755);
   }
 
@@ -169,6 +192,8 @@ test('public canary CLI forwards complete arguments and rejects incomplete invoc
   };
 
   try {
+    mkdirSync(evidenceDir, { recursive: true });
+    writeFileSync(join(evidenceDir, 'canary-evidence.jsonl'), '{"schemaVersion":"1.0.0","event":"preserved"}\n');
     const valid = spawnSync('bash', [controllerPath.pathname, 'canary', releaseId, checksum], {
       env,
       encoding: 'utf8',
@@ -179,6 +204,28 @@ test('public canary CLI forwards complete arguments and rejects incomplete invoc
     assert.match(evidence, new RegExp(`"releaseId":"${releaseId}"`));
     assert.match(evidence, /"result":"PASS"/);
     assert.match(evidence, /"apiHttp":"200","webHttp":"200"/);
+    assert.match(evidence, /^\{"schemaVersion":"1\.0\.0","event":"preserved"\}/);
+    assert.doesNotMatch(evidence, /must-not-leak|JWT_SECRET|\/srv\/bazigb\/shared\/data\/dev\.db/);
+    const processEnvironment = readFileSync(capture, 'utf8');
+    const canonicalRoot = realpathSync(root);
+    assert.match(processEnvironment, new RegExp(`dist/main\\.js\\|3101\\|file:${canonicalRoot.replaceAll('/', '\\/')}\\/canary\\/${releaseId}-[^|]+\\/canary\\.db\\|`));
+    assert.doesNotMatch(processEnvironment, /\|3001\||\/srv\/bazigb\/shared\/data\/dev\.db/);
+
+    const attemptId = JSON.parse(evidence.trim().split('\n').at(-1)).attemptId;
+    const diagnosed = spawnSync('bash', [controllerPath.pathname, 'diagnose', releaseId, attemptId], {
+      env,
+      encoding: 'utf8',
+    });
+    assert.equal(diagnosed.status, 0, diagnosed.stderr);
+    assert.match(diagnosed.stdout, new RegExp(`"attemptId":"${attemptId}"`));
+    assert.doesNotMatch(diagnosed.stdout, /must-not-leak|JWT_SECRET/);
+
+    const invalidAttempt = spawnSync('bash', [controllerPath.pathname, 'diagnose', releaseId, '../journal'], {
+      env,
+      encoding: 'utf8',
+    });
+    assert.notEqual(invalidAttempt.status, 0);
+    assert.match(invalidAttempt.stderr, /Invalid Canary attempt id/);
 
     const incomplete = spawnSync('bash', [controllerPath.pathname, 'canary', releaseId], {
       env,
