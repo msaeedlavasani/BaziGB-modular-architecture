@@ -224,6 +224,18 @@ environment equivalence.
 
 Human browser and mobile experience tests remain assigned to the user. Machine health and contract checks remain part of the release system.
 
+### Successful Canary Browser-Hold
+
+A machine Canary PASS does not prove browser hydration or critical journeys. The
+root-owned controller may keep a successful Canary available on loopback-only
+ports for a maximum of 15 minutes, bound to the exact revision, lock checksum,
+artifact fingerprint, isolated database snapshot, and Canary attempt. A browser
+result is accepted only through the controller for that live attempt and is
+recorded separately as `real_browser` evidence. HTTP-only evidence can never be
+promoted to Browser PASS. Success, failure, signal, and TTL expiry all stop the
+transient units and remove the snapshot; Production services, pointers,
+configuration, proxy, and database remain unchanged.
+
 ## No-go and rollback triggers
 
 A release is NO-GO or must roll back when any of these occurs:

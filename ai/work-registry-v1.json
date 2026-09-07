@@ -205,6 +205,9 @@
         "stopConditions": ["scope-expansion", "resource-overrun", "consequential-git-or-production-action"],
         "closure": {"receiver": "Control Tower", "requiredDelivery": ["changed-files", "validation-results", "risk-and-next-gate"], "branchDecision": "pending-control-tower"}
       }
+    },
+    {
+      "id":"DO-BROWSER-HOLD-001","title":"Add an artifact-bound Browser-Hold release gate","category":"Delivery and Operations","domain":"Release Engineering","workstream":"Release Verification","milestone":"release-readiness","outcome":"A successful isolated Canary remains safely available long enough for real-browser acceptance without touching Production","accountable":"Delivery and Operations","contributors":["Evaluation and Quality","AI Orchestration","Human Direction"],"source":["post-activation-browser-incident","explicit-human-approval-2026-09-08"],"state":"in-progress","priority":"P0","risk":"http-health-can-pass-while-browser-runtime-is-broken","dependencies":["DO-RELEASE-001"],"scope":["controller-browser-hold","artifact-binding","loopback-only-browser-runner","ttl-cleanup","append-only-browser-evidence","release-gate-separation"],"exclusions":["production-activation","production-restart","database-mutation","merge-main","feature-work"],"acceptance":["browser-hold-bound-to-exact-artifact","http-only-evidence-cannot-promote-browser-pass","ttl-and-all-exits-clean-up","real-browser-evidence-recorded","production-invariants-unchanged"],"machineEvidence":[],"humanEvidence":["bundled-browser-hold-authority-2026-09-08"],"resource":{"band":"high","approved":true,"estimate":"8-to-12-percent"},"approvalGate":"stop-after-one-isolated-browser-canary","artifact":["scripts/bazigb-release","scripts/browser-canary.mjs","browser-canary-evidence"],"receiver":"Control Tower","learningDestination":"release-and-validation-contracts","related":["DO-RELEASE-001","DO-RECOVERY-001"]
     }
   ]
 }

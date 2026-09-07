@@ -26,6 +26,7 @@ HEALTH_MAX_ATTEMPTS="${BAZIGB_HEALTH_MAX_ATTEMPTS:-0}"
 CANARY_API_PORT=3101
 CANARY_WEB_PORT=3100
 CANARY_RUNTIME_SECONDS=90
+BROWSER_HOLD_TTL_SECONDS="${BAZIGB_BROWSER_HOLD_TTL_SECONDS:-900}"
 CANARY_ROOT="${BAZIGB_CANARY_ROOT:-/run/bazigb-canary}"
 EVIDENCE_DIR="${BAZIGB_EVIDENCE_DIR:-/var/log/bazigb-release}"
 EVIDENCE_FILE="${EVIDENCE_DIR}/canary-evidence.jsonl"
@@ -93,6 +94,20 @@ require_fresh_canary_pass() {
     die 'Canary PASS is stale.'
 }
 
+require_fresh_browser_pass() {
+  fingerprint="$(candidate_fingerprint)"
+  browser_line="$(awk -v release="${release_id}" -v fingerprint="${fingerprint}" \
+    'index($0, "\"event\":\"browser_canary\"") && index($0, "\"releaseId\":\"" release "\"") && index($0, "\"artifactSha256\":\"" fingerprint "\"") { line=$0 } END { if (line) print line; else exit 1 }' \
+    "${EVIDENCE_FILE}")" || die 'Fresh real-browser PASS evidence is missing.'
+  [[ "${browser_line}" == *'"result":"PASS"'* && "${browser_line}" == *'"evidenceClass":"real_browser"'* ]] || \
+    die 'Latest Browser Canary result is not PASS.'
+  browser_epoch="$(printf '%s\n' "${browser_line}" | sed -n 's/.*"finishedEpoch":\([0-9][0-9]*\).*/\1/p')"
+  [[ "${browser_epoch}" =~ ^[0-9]+$ ]] || die 'Browser Canary evidence has no valid completion time.'
+  now_epoch="$(date +%s)"
+  (( now_epoch >= browser_epoch && now_epoch - browser_epoch <= CANARY_MAX_AGE_SECONDS )) || \
+    die 'Browser Canary PASS is stale.'
+}
+
 append_canary_evidence() {
   result="$1"
   api_status="$2"
@@ -114,6 +129,41 @@ append_canary_evidence() {
       "${api_exit_code}" "${api_exit_status}" "${api_unit_result}" "${lifecycle_event}" \
       "${started_at}" "${finished_at}" "${finished_epoch}" >&9
   ) 9>>"${EVIDENCE_FILE}"
+}
+
+append_browser_evidence() {
+  browser_result="$1"
+  browser_attempt="$2"
+  artifact_checksum="$(candidate_fingerprint)"
+  install -d -m 0750 -o root -g "${APP_GROUP}" "${EVIDENCE_DIR}"
+  touch "${EVIDENCE_FILE}"
+  chown root:"${APP_GROUP}" "${EVIDENCE_FILE}"
+  chmod 0640 "${EVIDENCE_FILE}"
+  (
+    flock -x 9
+    printf '{"schemaVersion":"1.3.0","event":"browser_canary","releaseId":"%s","artifactSha256":"%s","attemptId":"%s","result":"%s","exposure":"loopback_only","ttlSeconds":%s,"evidenceClass":"real_browser","timestamp":"%s","finishedEpoch":%s}\n' \
+      "${release_id}" "${artifact_checksum}" "${browser_attempt}" "${browser_result}" \
+      "${BROWSER_HOLD_TTL_SECONDS}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(date +%s)" >&9
+  ) 9>>"${EVIDENCE_FILE}"
+}
+
+browser_result() {
+  [[ "${BROWSER_HOLD_TTL_SECONDS}" =~ ^[0-9]+$ ]] && (( BROWSER_HOLD_TTL_SECONDS >= 1 && BROWSER_HOLD_TTL_SECONDS <= 900 )) || \
+    die 'Browser-Hold TTL must be between 1 and 900 seconds.'
+  [[ "$#" -eq 6 ]] || die 'Browser result requires RELEASE_ID, LOCK_SHA256, browser-result, ATTEMPT_ID and PASS|FAIL.'
+  [[ "${4}" == 'browser-result' ]] || die 'Invalid Browser-Hold action.'
+  browser_attempt="${5}"
+  browser_outcome="${6}"
+  [[ "${browser_attempt}" =~ ^[0-9]{8}T[0-9]{6}Z-[0-9]+$ ]] || die 'Invalid Browser-Hold attempt id.'
+  [[ "${browser_outcome}" =~ ^(PASS|FAIL)$ ]] || die 'Invalid Browser-Hold result.'
+  verify
+  browser_dir="${CANARY_ROOT}/${release_id}-${browser_attempt}"
+  [[ -f "${browser_dir}/browser-ready" ]] || die 'Browser-Hold is missing, stale, or has the wrong identity.'
+  expected_ready="${release_id}|$(candidate_fingerprint)"
+  [[ "$(cat "${browser_dir}/browser-ready")" == "${expected_ready}" ]] || die 'Browser-Hold artifact identity mismatch.'
+  [[ ! -e "${browser_dir}/browser-result" ]] || die 'Browser result was already recorded.'
+  append_browser_evidence "${browser_outcome}" "${browser_attempt}"
+  printf '%s\n' "${browser_outcome}" >"${browser_dir}/browser-result"
 }
 
 capture_canary_outcome() {
@@ -297,7 +347,9 @@ start_diagnostic_hold() {
 }
 
 canary() {
-  [[ "$#" -eq 3 ]] || die 'Canary requires exactly RELEASE_ID and LOCK_SHA256.'
+  [[ "${BROWSER_HOLD_TTL_SECONDS}" =~ ^[0-9]+$ ]] && (( BROWSER_HOLD_TTL_SECONDS >= 1 && BROWSER_HOLD_TTL_SECONDS <= 900 )) || \
+    die 'Browser-Hold TTL must be between 1 and 900 seconds.'
+  [[ "$#" -eq 3 || ( "$#" -eq 4 && "${4}" == 'browser-hold' ) ]] || die 'Canary requires RELEASE_ID and LOCK_SHA256, optionally with browser-hold.'
   [[ "$(id -u)" -eq 0 ]] || die 'Canary must run through the approved root controller.'
   verify
   command -v systemd-run >/dev/null 2>&1 || die 'systemd-run is required.'
@@ -307,9 +359,15 @@ canary() {
 
   api_unit="bazigb-api-canary-${release_id}"
   web_unit="bazigb-web-canary-${release_id}"
-  run_dir="${CANARY_ROOT}/${release_id}-$(date -u +%Y%m%dT%H%M%SZ)-$$"
-  snapshot="${run_dir}/canary.db"
   attempt_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  run_dir="${CANARY_ROOT}/${release_id}-${attempt_id}"
+  snapshot="${run_dir}/canary.db"
+  browser_hold=0
+  runtime_seconds="${CANARY_RUNTIME_SECONDS}"
+  if [[ "${4:-}" == 'browser-hold' ]]; then
+    browser_hold=1
+    runtime_seconds="${BROWSER_HOLD_TTL_SECONDS}"
+  fi
   started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   api_status='not_run'
   web_status='not_run'
@@ -371,7 +429,7 @@ canary() {
     --property="SupplementaryGroups=${RUNTIME_USER}" \
     --property="WorkingDirectory=${candidate}/apps/server" \
     --property="EnvironmentFile=${SHARED}/.env" \
-    --property="RuntimeMaxSec=${CANARY_RUNTIME_SECONDS}" \
+    --property="RuntimeMaxSec=${runtime_seconds}" \
     --property=CPUQuota=100% --property=MemoryMax=512M --property=TasksMax=128 \
     --property=NoNewPrivileges=yes --property=PrivateTmp=yes \
     --property=ProtectSystem=strict --property="ReadWritePaths=${run_dir}" \
@@ -384,7 +442,7 @@ canary() {
   systemd-run --quiet --collect --unit="${web_unit}" \
     --uid="${RUNTIME_USER}" --gid="${APP_GROUP}" \
     --property="WorkingDirectory=${candidate}/apps/web" \
-    --property="RuntimeMaxSec=${CANARY_RUNTIME_SECONDS}" \
+    --property="RuntimeMaxSec=${runtime_seconds}" \
     --property=CPUQuota=100% --property=MemoryMax=768M --property=TasksMax=128 \
     --property=NoNewPrivileges=yes --property=PrivateTmp=yes \
     --property=ProtectSystem=strict \
@@ -427,6 +485,21 @@ canary() {
   append_canary_evidence "${result}" "${api_status}" "${web_status}" \
     "${db_checksum}" "${started_at}" "${finished_at}"
   evidence_written=1
+  if [[ "${browser_hold}" -eq 1 ]]; then
+    printf '%s\n' "${release_id}|$(candidate_fingerprint)" >"${run_dir}/browser-ready"
+    chmod 0600 "${run_dir}/browser-ready"
+    printf 'browser_hold_ready release_id=%s attempt_id=%s port=%s ttl_seconds=%s\n' \
+      "${release_id}" "${attempt_id}" "${CANARY_WEB_PORT}" "${BROWSER_HOLD_TTL_SECONDS}"
+    hold_deadline=$((SECONDS + BROWSER_HOLD_TTL_SECONDS))
+    while (( SECONDS <= hold_deadline )); do
+      if [[ -f "${run_dir}/browser-result" ]]; then
+        [[ "$(cat "${run_dir}/browser-result")" == 'PASS' ]] || die 'Browser Canary reported failure.'
+        break
+      fi
+      sleep 1
+    done
+    [[ -f "${run_dir}/browser-result" ]] || die 'Browser-Hold TTL expired without browser evidence.'
+  fi
   printf 'canary_ok release_id=%s api_http=%s web_http=%s same_origin_http=%s public_asset_http=%s versioned_js_http=%s database_target=%s evidence=%s\n' \
     "${release_id}" "${api_status}" "${web_status}" "${same_origin_status}" "${public_asset_status}" "${versioned_js_status}" \
     "${database_target_status}" "${EVIDENCE_FILE}"
@@ -562,6 +635,7 @@ restore_legacy_units() {
 activate() {
   verify
   require_fresh_canary_pass
+  require_fresh_browser_pass
   [[ -f "${SHARED}/.env" ]] || die 'Shared environment file is missing.'
   [[ -f "${SHARED}/data/dev.db" ]] || die 'Shared SQLite database is missing.'
   verify_runtime_environment
@@ -606,7 +680,10 @@ activate() {
 case "${1:-}" in
   prepare) prepare ;;
   verify) verify ;;
-  canary|preflight) canary "$@" ;;
+  canary) canary "$@" ;;
+  preflight)
+    if [[ "${4:-}" == 'browser-result' ]]; then browser_result "$@"; else canary "$@"; fi
+    ;;
   diagnose) diagnose "$@" ;;
   diagnostic-cleanup) diagnostic_cleanup "$@" ;;
   activate) activate ;;

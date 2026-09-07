@@ -60,6 +60,9 @@ function seedCanaryPass(candidate, evidenceDir, releaseId, overrides = {}) {
       result: 'PASS',
       finishedEpoch: Math.floor(Date.now() / 1000),
       ...overrides,
+    })}\n${JSON.stringify({
+      event: 'browser_canary', releaseId, artifactSha256, result: 'PASS',
+      evidenceClass: 'real_browser', finishedEpoch: Math.floor(Date.now() / 1000),
     })}\n`,
   );
 }
@@ -147,9 +150,10 @@ test('canary is bounded, isolated, redacted, and cannot widen deploy-user access
   const controller = readFileSync(controllerPath, 'utf8');
   const prepare = readFileSync(preparePath, 'utf8');
 
-  assert.match(controller, /canary\|preflight\) canary "\$@"/);
+  assert.match(controller, /canary\) canary "\$@"/);
+  assert.match(controller, /browser_result "\$@"/);
   assert.match(controller, /Canary must run through the approved root controller/);
-  assert.match(controller, /Canary requires exactly RELEASE_ID and LOCK_SHA256/);
+  assert.match(controller, /Canary requires RELEASE_ID and LOCK_SHA256/);
   assert.match(controller, /\/usr\/bin\/env "PORT=\$\{CANARY_API_PORT\}" "DATABASE_URL=file:\$\{snapshot_real\}"/);
   assert.match(controller, /Canary database resolves to the Production database/);
   assert.match(controller, /RELEASE_EXPECTED_DATABASE_PATH=\$\{snapshot_real\}/);
@@ -157,7 +161,10 @@ test('canary is bounded, isolated, redacted, and cannot widen deploy-user access
   assert.match(controller, /same_origin_url=.*\/api\/release-health/);
   assert.match(controller, /artifactSha256/);
   assert.match(controller, /Canary ports must be isolated from each other and Legacy/);
-  assert.match(controller, /RuntimeMaxSec=\$\{CANARY_RUNTIME_SECONDS\}/);
+  assert.match(controller, /RuntimeMaxSec=\$\{runtime_seconds\}/);
+  assert.match(controller, /BROWSER_HOLD_TTL_SECONDS/);
+  assert.match(controller, /evidenceClass":"real_browser/);
+  assert.match(controller, /Browser-Hold TTL expired without browser evidence/);
   assert.match(controller, /CPUQuota=100%/);
   assert.match(controller, /MemoryMax=512M/);
   assert.match(controller, /TasksMax=128/);
@@ -353,7 +360,7 @@ test('public canary CLI forwards complete arguments and rejects incomplete invoc
       encoding: 'utf8',
     });
     assert.notEqual(incomplete.status, 0);
-    assert.match(incomplete.stderr, /Canary requires exactly RELEASE_ID and LOCK_SHA256/);
+    assert.match(incomplete.stderr, /Canary requires RELEASE_ID and LOCK_SHA256/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -391,6 +398,12 @@ test('activation rejects stale, failed, and wrong-revision Canary evidence', () 
 
     seedCanaryPass(candidate, evidenceDir, '1234567');
     assert.match(run().stderr, /does not match the candidate artifact/);
+
+    seedCanaryPass(candidate, evidenceDir, releaseId);
+    const evidencePath = join(evidenceDir, 'canary-evidence.jsonl');
+    const httpOnly = readFileSync(evidencePath, 'utf8').split('\n')[0];
+    writeFileSync(evidencePath, `${httpOnly}\n`);
+    assert.match(run().stderr, /real-browser PASS evidence is missing/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

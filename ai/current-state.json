@@ -1,15 +1,15 @@
 {
   "version": "1.0.0",
-  "updated": "2026-09-05",
+  "updated": "2026-09-08",
   "repository": "BaziGB-modular-architecture",
-  "branch": "main",
-  "baseRevision": "c30ddce480497aacdfbd2a543f022d9e61330959",
-  "workingTree": "local-uncommitted-alpha-security-and-recovery-checkpoint-on-c30ddce",
+  "branch": "codex/release-health-contract",
+  "baseRevision": "d1b25c1957999604de705b1f232e38609eff7d6e",
+  "workingTree": "browser-hold-control-package-in-progress",
   "activeMilestone": "release-readiness",
   "currentGate": {
     "taskId": "DO-RELEASE-001",
     "owner": "Human Direction",
-    "gate": "security-dependencies-accepted-with-independent-follow-up-hardening; canonical-release-requires-TRUST_PROXY_HOPS-1; recovery-mechanism-machine-validated; real-backup-restore-and-release-rehearsal-require-next-bundled-authority"
+    "gate": "browser-hold-control-package-in-progress; production-remains-on-941c1d15; activation-not-authorized"
   },
   "nextProposedTask": "DO-RELEASE-001",
   "branchControl": {

@@ -45,6 +45,12 @@ Do not use screenshot exchange as the design-system construction method. Store d
 
 Each transition requires its own evidence and authority. Never collapse them in reporting.
 
+Browser acceptance is a separate gate from HTTP readiness. PASS requires a real
+browser runner against a live, artifact-bound Browser-Hold plus append-only
+`real_browser` evidence for that exact attempt. HTML, API, logo, or JavaScript
+HTTP 200 responses alone are insufficient. Unsupported stateful journeys remain
+NOT RUN rather than being inferred from hydration.
+
 The canonical release, database, backup, rollback, and credential authority rules are defined in `docs/release-and-secrets-contract.md`. Contract acceptance does not authorize implementation, production access, reading secret values, backup execution, migration, rotation, or deployment.
 
 ## Next.js validation isolation
