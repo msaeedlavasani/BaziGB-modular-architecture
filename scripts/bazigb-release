@@ -33,6 +33,7 @@ DIAGNOSTIC_ROOT="${BAZIGB_DIAGNOSTIC_ROOT:-/run/bazigb-diagnostic}"
 DIAGNOSTIC_API_PORT=3201
 DIAGNOSTIC_WEB_PORT=3200
 DIAGNOSTIC_TTL_SECONDS=1800
+CANARY_MAX_AGE_SECONDS="${BAZIGB_CANARY_MAX_AGE_SECONDS:-900}"
 
 die() {
   printf 'ERROR: %s\n' "$*" >&2
@@ -61,6 +62,30 @@ verify() {
     "${candidate}/node_modules/.prisma/client/default.js" || die 'Generated Prisma client is missing.'
 }
 
+candidate_fingerprint() {
+  sha256sum \
+    "${candidate}/release.manifest" \
+    "${candidate}/package-lock.json" \
+    "${candidate}/apps/server/dist/main.js" \
+    "${candidate}/apps/web/.next/standalone/apps/web/server.js" \
+    "${candidate}/node_modules/.prisma/client/default.js" |
+    awk '{print $1}' | sha256sum | awk '{print $1}'
+}
+
+require_fresh_canary_pass() {
+  fingerprint="$(candidate_fingerprint)"
+  [[ -f "${EVIDENCE_FILE}" ]] || die 'Fresh Canary PASS evidence is missing.'
+  evidence_line="$(awk -v release="${release_id}" -v fingerprint="${fingerprint}" \
+    'index($0, "\"event\":\"release_canary\"") && index($0, "\"releaseId\":\"" release "\"") && index($0, "\"artifactSha256\":\"" fingerprint "\"") { line=$0 } END { if (line) print line; else exit 1 }' \
+    "${EVIDENCE_FILE}")" || die 'Canary PASS does not match the candidate artifact.'
+  [[ "${evidence_line}" == *'"result":"PASS"'* ]] || die 'Latest Canary result for this candidate is not PASS.'
+  finished_epoch="$(printf '%s\n' "${evidence_line}" | sed -n 's/.*"finishedEpoch":\([0-9][0-9]*\).*/\1/p')"
+  [[ "${finished_epoch}" =~ ^[0-9]+$ ]] || die 'Canary evidence has no valid completion time.'
+  now_epoch="$(date +%s)"
+  (( now_epoch >= finished_epoch && now_epoch - finished_epoch <= CANARY_MAX_AGE_SECONDS )) || \
+    die 'Canary PASS is stale.'
+}
+
 append_canary_evidence() {
   result="$1"
   api_status="$2"
@@ -68,16 +93,19 @@ append_canary_evidence() {
   db_checksum="$4"
   started_at="$5"
   finished_at="$6"
+  artifact_checksum="$(candidate_fingerprint)"
+  finished_epoch="$(date +%s)"
   install -d -m 0750 -o root -g "${APP_GROUP}" "${EVIDENCE_DIR}"
   touch "${EVIDENCE_FILE}"
   chown root:"${APP_GROUP}" "${EVIDENCE_FILE}"
   chmod 0640 "${EVIDENCE_FILE}"
   (
     flock -x 9
-    printf '{"schemaVersion":"1.1.0","event":"release_canary","releaseId":"%s","attemptId":"%s","result":"%s","apiHttp":"%s","webHttp":"%s","snapshotSha256":"%s","failureClass":"%s","apiExitCode":"%s","apiExitStatus":"%s","apiUnitResult":"%s","lifecycle":"%s","startedAt":"%s","finishedAt":"%s"}\n' \
-      "${release_id}" "${attempt_id}" "${result}" "${api_status}" "${web_status}" \
-      "${db_checksum}" "${failure_class}" "${api_exit_code}" "${api_exit_status}" \
-      "${api_unit_result}" "${lifecycle_event}" "${started_at}" "${finished_at}" >&9
+    printf '{"schemaVersion":"1.2.0","event":"release_canary","releaseId":"%s","artifactSha256":"%s","attemptId":"%s","result":"%s","apiHttp":"%s","webHttp":"%s","sameOriginHttp":"%s","databaseTarget":"%s","snapshotSha256":"%s","failureClass":"%s","apiExitCode":"%s","apiExitStatus":"%s","apiUnitResult":"%s","lifecycle":"%s","startedAt":"%s","finishedAt":"%s","finishedEpoch":%s}\n' \
+      "${release_id}" "${artifact_checksum}" "${attempt_id}" "${result}" "${api_status}" "${web_status}" \
+      "${same_origin_status}" "${database_target_status}" "${db_checksum}" "${failure_class}" \
+      "${api_exit_code}" "${api_exit_status}" "${api_unit_result}" "${lifecycle_event}" \
+      "${started_at}" "${finished_at}" "${finished_epoch}" >&9
   ) 9>>"${EVIDENCE_FILE}"
 }
 
@@ -135,14 +163,26 @@ append_diagnostic_evidence() {
   diagnostic_health="$3"
   diagnostic_failure="$4"
   diagnostic_log="$5"
+  artifact_checksum='unknown'
+  if [[ -f "${candidate}/release.manifest" && -f "${candidate}/package-lock.json" && \
+        -f "${candidate}/apps/server/dist/main.js" && \
+        -f "${candidate}/apps/web/.next/standalone/apps/web/server.js" && \
+        -f "${candidate}/node_modules/.prisma/client/default.js" ]]; then
+    artifact_checksum="$(candidate_fingerprint)"
+  elif [[ -f "${EVIDENCE_FILE}" ]]; then
+    prior_artifact="$(awk -v release="${release_id}" -v attempt="${diagnostic_attempt}" \
+      'index($0, "\"releaseId\":\"" release "\"") && index($0, "\"attemptId\":\"" attempt "\"") { line=$0 } END { print line }' \
+      "${EVIDENCE_FILE}" | sed -n 's/.*"artifactSha256":"\([0-9a-f]\{64\}\)".*/\1/p')"
+    [[ "${prior_artifact}" =~ ^[0-9a-f]{64}$ ]] && artifact_checksum="${prior_artifact}"
+  fi
   install -d -m 0750 -o root -g "${APP_GROUP}" "${EVIDENCE_DIR}"
   touch "${EVIDENCE_FILE}"
   chown root:"${APP_GROUP}" "${EVIDENCE_FILE}"
   chmod 0640 "${EVIDENCE_FILE}"
   (
     flock -x 9
-    printf '{"schemaVersion":"1.1.0","event":"%s","releaseId":"%s","attemptId":"%s","health":"%s","failureClass":"%s","redactedLog":"%s","ttlSeconds":%s,"timestamp":"%s"}\n' \
-      "${diagnostic_event}" "${release_id}" "${diagnostic_attempt}" \
+    printf '{"schemaVersion":"1.2.0","event":"%s","releaseId":"%s","artifactSha256":"%s","attemptId":"%s","health":"%s","failureClass":"%s","redactedLog":"%s","ttlSeconds":%s,"timestamp":"%s"}\n' \
+      "${diagnostic_event}" "${release_id}" "${artifact_checksum}" "${diagnostic_attempt}" \
       "${diagnostic_health}" "${diagnostic_failure}" "${diagnostic_log}" \
       "${DIAGNOSTIC_TTL_SECONDS}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >&9
   ) 9>>"${EVIDENCE_FILE}"
@@ -213,7 +253,8 @@ start_diagnostic_hold() {
     --property="ReadWritePaths=${diagnostic_dir}" \
     --property=IPAddressDeny=any --property=IPAddressAllow=localhost \
     --property=StandardOutput=null --property=StandardError=null \
-    /usr/bin/env PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin \
+    /usr/bin/env "RELEASE_EXPECTED_DATABASE_PATH=${diagnostic_db}" \
+    PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin \
     "${diagnostic_runner}" "${diagnostic_dir}/api.redacted.log" \
     /opt/bazigb-runtime/current/bin/node dist/main.js
   systemd-run --quiet --unit="bazigb-web-diagnostic-${diagnostic_attempt}" \
@@ -224,14 +265,28 @@ start_diagnostic_hold() {
     --property=NoNewPrivileges=yes --property=PrivateTmp=yes --property=ProtectSystem=strict \
     --property=IPAddressDeny=any --property=IPAddressAllow=localhost \
     --property=StandardOutput=null --property=StandardError=null \
-    /usr/bin/env "PORT=${DIAGNOSTIC_WEB_PORT}" PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin \
+    /usr/bin/env "PORT=${DIAGNOSTIC_WEB_PORT}" \
+    "API_PROXY_TARGET=http://127.0.0.1:${DIAGNOSTIC_API_PORT}" \
+    PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin \
     "${diagnostic_runner}" "${diagnostic_dir}/web.redacted.log" \
     /opt/bazigb-runtime/current/bin/node .next/standalone/apps/web/server.js
   systemd-run --quiet --unit="bazigb-diagnostic-cleanup-${diagnostic_attempt}" \
     --on-active="${DIAGNOSTIC_TTL_SECONDS}s" \
     /usr/local/sbin/bazigb-release diagnostic-cleanup "${release_id}" "${diagnostic_attempt}"
-  append_diagnostic_evidence 'diagnostic_hold_started' "${diagnostic_attempt}" \
-    'isolated_pending' "${failure_class}" 'stream_hash_only'
+  diagnostic_api_url="http://127.0.0.1:${DIAGNOSTIC_API_PORT}/api/release-health"
+  diagnostic_web_url="http://127.0.0.1:${DIAGNOSTIC_WEB_PORT}/fa/lobby"
+  diagnostic_same_origin_url="http://127.0.0.1:${DIAGNOSTIC_WEB_PORT}/api/release-health"
+  if probe_endpoint diagnostic-api "${diagnostic_api_url}" && \
+     probe_endpoint diagnostic-web "${diagnostic_web_url}" && \
+     probe_endpoint diagnostic-same-origin "${diagnostic_same_origin_url}"; then
+    append_diagnostic_evidence 'diagnostic_hold_ready' "${diagnostic_attempt}" \
+      'isolated_ready' "${failure_class}" 'stream_hash_only'
+    return 0
+  fi
+  diagnostic_cleanup diagnostic-cleanup "${release_id}" "${diagnostic_attempt}"
+  append_diagnostic_evidence 'diagnostic_hold_failed' "${diagnostic_attempt}" \
+    'not_ready' 'diagnostic_readiness_failure' 'stream_hash_only'
+  return 1
 }
 
 canary() {
@@ -251,6 +306,8 @@ canary() {
   started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   api_status='not_run'
   web_status='not_run'
+  same_origin_status='not_run'
+  database_target_status='not_verified'
   db_checksum='not_created'
   result='FAIL'
   failure_class='not_started'
@@ -311,6 +368,7 @@ canary() {
     --property=ProtectSystem=strict --property="ReadWritePaths=${run_dir}" \
     --property=StandardOutput=null --property=StandardError=null \
     /usr/bin/env "PORT=${CANARY_API_PORT}" "DATABASE_URL=file:${snapshot_real}" \
+    "RELEASE_EXPECTED_DATABASE_PATH=${snapshot_real}" \
     PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin \
     /opt/bazigb-runtime/current/bin/node dist/main.js
 
@@ -323,32 +381,38 @@ canary() {
     --property=ProtectSystem=strict \
     --property=StandardOutput=null --property=StandardError=null \
     /usr/bin/env "PORT=${CANARY_WEB_PORT}" \
+    "API_PROXY_TARGET=http://127.0.0.1:${CANARY_API_PORT}" \
     PATH=/opt/bazigb-runtime/current/bin:/usr/bin:/bin \
     /opt/bazigb-runtime/current/bin/node .next/standalone/apps/web/server.js
 
-  api_url="http://127.0.0.1:${CANARY_API_PORT}/api/rooms"
+  api_url="http://127.0.0.1:${CANARY_API_PORT}/api/release-health"
   web_url="http://127.0.0.1:${CANARY_WEB_PORT}/fa/lobby"
+  same_origin_url="http://127.0.0.1:${CANARY_WEB_PORT}/api/release-health"
   deadline=$((SECONDS + CANARY_RUNTIME_SECONDS))
   while (( SECONDS <= deadline )); do
     api_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
       --connect-timeout 2 --max-time 5 "${api_url}" || :)"
     web_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
       --connect-timeout 2 --max-time 5 "${web_url}" || :)"
-    if [[ "${api_status}" == '200' && "${web_status}" == '200' ]]; then
+    same_origin_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+      --connect-timeout 2 --max-time 5 "${same_origin_url}" || :)"
+    if [[ "${api_status}" == '200' && "${web_status}" == '200' && "${same_origin_status}" == '200' ]]; then
+      database_target_status='isolated_snapshot'
       result='PASS'
       break
     fi
     sleep 2
   done
-  [[ "${result}" == 'PASS' ]] || die 'Canary health checks did not both return HTTP 200.'
+  [[ "${result}" == 'PASS' ]] || die 'Canary release-chain checks did not all return HTTP 200.'
 
   capture_canary_outcome
   finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   append_canary_evidence "${result}" "${api_status}" "${web_status}" \
     "${db_checksum}" "${started_at}" "${finished_at}"
   evidence_written=1
-  printf 'canary_ok release_id=%s api_http=%s web_http=%s evidence=%s\n' \
-    "${release_id}" "${api_status}" "${web_status}" "${EVIDENCE_FILE}"
+  printf 'canary_ok release_id=%s api_http=%s web_http=%s same_origin_http=%s database_target=%s evidence=%s\n' \
+    "${release_id}" "${api_status}" "${web_status}" "${same_origin_status}" \
+    "${database_target_status}" "${EVIDENCE_FILE}"
   cleanup_canary
   trap - EXIT INT TERM
 }
@@ -386,6 +450,8 @@ database_checkpoint() {
 verify_runtime_environment() {
   grep -Eq '^TRUST_PROXY_HOPS=1$' "${SHARED}/.env" ||
     die 'Shared environment must declare TRUST_PROXY_HOPS=1 for the canonical single-proxy topology.'
+  grep -Fxq 'DATABASE_URL=file:/srv/bazigb/shared/data/dev.db' "${SHARED}/.env" ||
+    die 'Shared environment must preserve the canonical Production database path.'
 }
 
 probe_endpoint() {
@@ -478,6 +544,7 @@ restore_legacy_units() {
 
 activate() {
   verify
+  require_fresh_canary_pass
   [[ -f "${SHARED}/.env" ]] || die 'Shared environment file is missing.'
   [[ -f "${SHARED}/data/dev.db" ]] || die 'Shared SQLite database is missing.'
   verify_runtime_environment

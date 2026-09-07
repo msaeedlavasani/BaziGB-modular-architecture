@@ -64,6 +64,7 @@ printf 'Installing locked production dependencies inside the candidate...\n'
 
 printf 'Generating Prisma client explicitly...\n'
 "${SSH[@]}" "${PROD_HOST}" env "PATH=${REMOTE_NODE_ROOT}/bin:/usr/bin:/bin" \
+  "DATABASE_URL=file:${CANDIDATE_PATH}/apps/server/prisma/dev.db" \
   "${REMOTE_NODE_ROOT}/bin/npm" run prisma:generate \
   --workspace @bazigb/server --prefix "${CANDIDATE_PATH}"
 

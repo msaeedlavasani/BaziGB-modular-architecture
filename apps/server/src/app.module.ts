@@ -12,6 +12,7 @@ import { SiteSettingsModule } from './site-settings/site-settings.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SmsModule } from './sms/sms.module';
 import { CommonModule } from './common/common.module';
+import { ReleaseHealthController } from './release-health.controller';
 
 @Module({
   imports: [
@@ -30,5 +31,6 @@ import { CommonModule } from './common/common.module';
     NotificationsModule,
     SmsModule,
   ],
+  controllers: [ReleaseHealthController],
 })
 export class AppModule {}

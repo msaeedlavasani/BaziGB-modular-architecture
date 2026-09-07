@@ -23,10 +23,6 @@ const nextConfig = {
     // در پروداکشن، API_PROXY_TARGET باید http://localhost:3001 باشد
     const target = process.env.API_PROXY_TARGET ?? 'http://localhost:3001';
     return [
-      {
-        source: '/api/:path*',
-        destination: `${target}/api/:path*`,
-      },
       // Socket.IO: Next مسیر /socket.io/ را به /socket.io (بدون اسلش آخر)
       // ریدایرکت می‌کند و سرور Nest فقط با اسلش جواب می‌دهد — پس دو مسیر جدا
       // تعریف می‌شود تا اسلش آخر به سمت سرور حفظ شود.

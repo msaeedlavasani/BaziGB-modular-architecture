@@ -35,6 +35,33 @@ function runDeploy(env = {}) {
   });
 }
 
+function seedCanaryPass(candidate, evidenceDir, releaseId, overrides = {}) {
+  const files = [
+    'release.manifest',
+    'package-lock.json',
+    'apps/server/dist/main.js',
+    'apps/web/.next/standalone/apps/web/server.js',
+    'node_modules/.prisma/client/default.js',
+  ];
+  const digestList = files
+    .map((file) => createHash('sha256').update(readFileSync(join(candidate, file))).digest('hex'))
+    .map((digest) => `${digest}\n`)
+    .join('');
+  const artifactSha256 = createHash('sha256').update(digestList).digest('hex');
+  mkdirSync(evidenceDir, { recursive: true });
+  writeFileSync(
+    join(evidenceDir, 'canary-evidence.jsonl'),
+    `${JSON.stringify({
+      event: 'release_canary',
+      releaseId,
+      artifactSha256,
+      result: 'PASS',
+      finishedEpoch: Math.floor(Date.now() / 1000),
+      ...overrides,
+    })}\n`,
+  );
+}
+
 test('deploy refuses a missing release identity before network access', () => {
   const result = runDeploy();
   assert.notEqual(result.status, 0);
@@ -95,6 +122,8 @@ test('release controller uses isolated releases and mandatory health checks', ()
   assert.match(source, /probe_endpoint api/);
   assert.match(source, /probe_endpoint web/);
   assert.match(source, /TRUST_PROXY_HOPS=1/);
+  assert.match(source, /DATABASE_URL=file:\/srv\/bazigb\/shared\/data\/dev\.db/);
+  assert.match(source, /require_fresh_canary_pass/);
   assert.match(source, /prepare_first_cutover/);
   assert.match(source, /restore_legacy_units/);
   assert.match(source, /systemctl daemon-reload/);
@@ -110,6 +139,10 @@ test('canary is bounded, isolated, redacted, and cannot widen deploy-user access
   assert.match(controller, /Canary requires exactly RELEASE_ID and LOCK_SHA256/);
   assert.match(controller, /\/usr\/bin\/env "PORT=\$\{CANARY_API_PORT\}" "DATABASE_URL=file:\$\{snapshot_real\}"/);
   assert.match(controller, /Canary database resolves to the Production database/);
+  assert.match(controller, /RELEASE_EXPECTED_DATABASE_PATH=\$\{snapshot_real\}/);
+  assert.match(controller, /API_PROXY_TARGET=http:\/\/127\.0\.0\.1:\$\{CANARY_API_PORT\}/);
+  assert.match(controller, /same_origin_url=.*\/api\/release-health/);
+  assert.match(controller, /artifactSha256/);
   assert.match(controller, /Canary ports must be isolated from each other and Legacy/);
   assert.match(controller, /RuntimeMaxSec=\$\{CANARY_RUNTIME_SECONDS\}/);
   assert.match(controller, /CPUQuota=100%/);
@@ -151,6 +184,9 @@ test('failed activation restores Legacy before a bounded isolated diagnostic hol
   assert.match(hold, /data_corruption\|secret_exposure\|security\|shared_state_damage/);
   assert.match(hold, /StandardOutput=null/);
   assert.match(hold, /stream_hash_only/);
+  assert.match(hold, /diagnostic_hold_ready/);
+  assert.match(hold, /diagnostic_readiness_failure/);
+  assert.match(hold, /API_PROXY_TARGET=http:\/\/127\.0\.0\.1:\$\{DIAGNOSTIC_API_PORT\}/);
   assert.match(hold, /event=process_output digest=%s/);
   assert.doesNotMatch(hold, /printf[^\n]*\$line[^\n]*redacted\.log/);
   assert.match(source, /diagnostic_hold_cleanup/);
@@ -308,6 +344,42 @@ test('public canary CLI forwards complete arguments and rejects incomplete invoc
   }
 });
 
+test('activation rejects stale, failed, and wrong-revision Canary evidence', () => {
+  const root = mkdtempSync(join(tmpdir(), 'bazigb-canary-gate-test-'));
+  const releaseId = 'abcdef1';
+  const candidate = join(root, 'releases', releaseId);
+  const evidenceDir = join(root, 'evidence');
+  const lock = '{"lockfileVersion":3}\n';
+  const checksum = createHash('sha256').update(lock).digest('hex');
+  mkdirSync(join(candidate, 'apps/server/dist'), { recursive: true });
+  mkdirSync(join(candidate, 'node_modules/.prisma/client'), { recursive: true });
+  mkdirSync(join(candidate, 'apps/web/.next/standalone/apps/web'), { recursive: true });
+  writeFileSync(join(candidate, 'package-lock.json'), lock);
+  writeFileSync(join(candidate, 'release.manifest'), `release_id=${releaseId}\ngit_revision=${releaseId}\n`);
+  writeFileSync(join(candidate, 'apps/server/dist/main.js'), 'server');
+  writeFileSync(join(candidate, 'node_modules/.prisma/client/default.js'), 'generated client');
+  writeFileSync(join(candidate, 'apps/web/.next/standalone/apps/web/server.js'), 'web');
+  const run = () => spawnSync('bash', [controllerPath.pathname, 'activate', releaseId, checksum], {
+    env: { ...process.env, BAZIGB_RELEASE_ROOT: root, BAZIGB_EVIDENCE_DIR: evidenceDir },
+    encoding: 'utf8',
+  });
+
+  try {
+    seedCanaryPass(candidate, evidenceDir, releaseId, {
+      finishedEpoch: Math.floor(Date.now() / 1000) - 901,
+    });
+    assert.match(run().stderr, /Canary PASS is stale/);
+
+    seedCanaryPass(candidate, evidenceDir, releaseId, { result: 'FAIL' });
+    assert.match(run().stderr, /Latest Canary result.*is not PASS/);
+
+    seedCanaryPass(candidate, evidenceDir, '1234567');
+    assert.match(run().stderr, /does not match the candidate artifact/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('failed activation atomically restores the previous release', () => {
   const root = mkdtempSync(join(tmpdir(), 'bazigb-rollback-test-'));
   const bin = join(root, 'bin');
@@ -320,6 +392,7 @@ test('failed activation atomically restores the previous release', () => {
   const curlCount = join(root, 'curl-count');
   const restartCount = join(root, 'restart-count');
   const backup = join(root, 'sqlite-backup');
+  const evidenceDir = join(root, 'evidence');
 
   mkdirSync(join(candidate, 'apps/server/dist'), { recursive: true });
   mkdirSync(join(candidate, 'node_modules/.prisma/client'), { recursive: true });
@@ -334,8 +407,9 @@ test('failed activation atomically restores the previous release', () => {
   writeFileSync(join(candidate, 'apps/server/dist/main.js'), '');
   writeFileSync(join(candidate, 'node_modules/.prisma/client/default.js'), 'generated client');
   writeFileSync(join(candidate, 'apps/web/.next/standalone/apps/web/server.js'), '');
-  writeFileSync(join(root, 'shared/.env'), 'NODE_ENV=production\nTRUST_PROXY_HOPS=1\n');
+  writeFileSync(join(root, 'shared/.env'), 'NODE_ENV=production\nTRUST_PROXY_HOPS=1\nDATABASE_URL=file:/srv/bazigb/shared/data/dev.db\n');
   writeFileSync(join(root, 'shared/data/dev.db'), 'sqlite fixture');
+  seedCanaryPass(candidate, evidenceDir, releaseId);
   symlinkSync(previous, join(root, 'current'));
 
   writeFileSync(backup, '#!/bin/sh\ncp "$1" "$2"\n');
@@ -364,6 +438,7 @@ test('failed activation atomically restores the previous release', () => {
         BAZIGB_RELEASE_ROOT: root,
         BAZIGB_SQLITE_BACKUP: backup,
         BAZIGB_HEALTH_MAX_ATTEMPTS: '1',
+        BAZIGB_EVIDENCE_DIR: evidenceDir,
       },
       encoding: 'utf8',
     });
@@ -391,6 +466,7 @@ test('failed first cutover restores legacy units and leaves no active release po
   const curlUrls = join(root, 'curl-urls');
   const restartCount = join(root, 'restart-count');
   const backup = join(root, 'sqlite-backup');
+  const evidenceDir = join(root, 'evidence');
   const legacyServerUnit = '[Service]\nWorkingDirectory=/opt/bazigb/apps/server\n';
   const legacyWebUnit = '[Service]\nWorkingDirectory=/opt/bazigb/apps/web\n';
 
@@ -408,8 +484,9 @@ test('failed first cutover restores legacy units and leaves no active release po
   writeFileSync(join(candidate, 'apps/server/dist/main.js'), '');
   writeFileSync(join(candidate, 'node_modules/.prisma/client/default.js'), 'generated client');
   writeFileSync(join(candidate, 'apps/web/.next/standalone/apps/web/server.js'), '');
-  writeFileSync(join(root, 'shared/.env'), 'NODE_ENV=production\nTRUST_PROXY_HOPS=1\n');
+  writeFileSync(join(root, 'shared/.env'), 'NODE_ENV=production\nTRUST_PROXY_HOPS=1\nDATABASE_URL=file:/srv/bazigb/shared/data/dev.db\n');
   writeFileSync(join(root, 'shared/data/dev.db'), 'sqlite fixture');
+  seedCanaryPass(candidate, evidenceDir, releaseId);
   writeFileSync(join(systemd, 'bazigb-server.service'), legacyServerUnit);
   writeFileSync(join(systemd, 'bazigb-web.service'), legacyWebUnit);
   writeFileSync(join(systemd, 'bazigb-server.service.next'), '[Service]\nWorkingDirectory=/srv/bazigb/current/apps/server\n');
@@ -448,6 +525,7 @@ test('failed first cutover restores legacy units and leaves no active release po
         BAZIGB_SYSTEMD_ROOT: systemd,
         BAZIGB_LEGACY_ROOT: legacy,
         BAZIGB_HEALTH_MAX_ATTEMPTS: '1',
+        BAZIGB_EVIDENCE_DIR: evidenceDir,
       },
       encoding: 'utf8',
     });
@@ -465,6 +543,7 @@ test('failed first cutover restores legacy units and leaves no active release po
         BAZIGB_SYSTEMD_ROOT: systemd,
         BAZIGB_LEGACY_ROOT: legacy,
         BAZIGB_HEALTH_MAX_ATTEMPTS: '1',
+        BAZIGB_EVIDENCE_DIR: evidenceDir,
       },
       encoding: 'utf8',
     });

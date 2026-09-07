@@ -88,6 +88,12 @@ export function middleware(request: NextRequest) {
   }
 
   if (first && LOCALIZED_ROOTS.has(first)) {
+    const routedLocale = request.headers.get(LOCALE_HEADER);
+    if (routedLocale && isLocale(routedLocale)) {
+      return NextResponse.next({
+        request: { headers: withLocaleHeader(request, routedLocale) },
+      });
+    }
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = `/${fallbackLocale}${pathname}`;
     return NextResponse.redirect(redirectUrl);
