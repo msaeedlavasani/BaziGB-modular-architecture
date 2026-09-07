@@ -57,17 +57,24 @@ verify() {
   grep -Fxq "git_revision=${release_id}" "${candidate}/release.manifest" || die 'Manifest Git revision mismatch.'
   [[ -f "${candidate}/apps/server/dist/main.js" ]] || die 'Server build output is missing.'
   [[ -f "${candidate}/apps/web/.next/standalone/apps/web/server.js" ]] || die 'Web build output is missing.'
+  [[ -f "${candidate}/apps/web/.next/standalone/apps/web/public/brand/logo.svg" ]] || die 'Web public assets are missing from the standalone runtime.'
+  find "${candidate}/apps/web/.next/standalone/apps/web/.next/static" -type f -name '*.js' -print -quit | grep -q . || \
+    die 'Web versioned JavaScript assets are missing from the standalone runtime.'
   [[ -f "${candidate}/node_modules/.prisma/client/default.js" ]] || die 'Generated Prisma client is missing.'
   ! grep -Fq '@prisma/client did not initialize yet' \
     "${candidate}/node_modules/.prisma/client/default.js" || die 'Generated Prisma client is missing.'
 }
 
 candidate_fingerprint() {
+  static_js="$(find "${candidate}/apps/web/.next/standalone/apps/web/.next/static" -type f -name '*.js' -print | LC_ALL=C sort | head -n 1)"
+  [[ -n "${static_js}" ]] || die 'Web versioned JavaScript assets are missing from the standalone runtime.'
   sha256sum \
     "${candidate}/release.manifest" \
     "${candidate}/package-lock.json" \
     "${candidate}/apps/server/dist/main.js" \
     "${candidate}/apps/web/.next/standalone/apps/web/server.js" \
+    "${candidate}/apps/web/.next/standalone/apps/web/public/brand/logo.svg" \
+    "${static_js}" \
     "${candidate}/node_modules/.prisma/client/default.js" |
     awk '{print $1}' | sha256sum | awk '{print $1}'
 }
@@ -101,9 +108,9 @@ append_canary_evidence() {
   chmod 0640 "${EVIDENCE_FILE}"
   (
     flock -x 9
-    printf '{"schemaVersion":"1.2.0","event":"release_canary","releaseId":"%s","artifactSha256":"%s","attemptId":"%s","result":"%s","apiHttp":"%s","webHttp":"%s","sameOriginHttp":"%s","databaseTarget":"%s","snapshotSha256":"%s","failureClass":"%s","apiExitCode":"%s","apiExitStatus":"%s","apiUnitResult":"%s","lifecycle":"%s","startedAt":"%s","finishedAt":"%s","finishedEpoch":%s}\n' \
+    printf '{"schemaVersion":"1.3.0","event":"release_canary","releaseId":"%s","artifactSha256":"%s","attemptId":"%s","result":"%s","apiHttp":"%s","webHttp":"%s","sameOriginHttp":"%s","publicAssetHttp":"%s","versionedJsHttp":"%s","databaseTarget":"%s","snapshotSha256":"%s","failureClass":"%s","apiExitCode":"%s","apiExitStatus":"%s","apiUnitResult":"%s","lifecycle":"%s","startedAt":"%s","finishedAt":"%s","finishedEpoch":%s}\n' \
       "${release_id}" "${artifact_checksum}" "${attempt_id}" "${result}" "${api_status}" "${web_status}" \
-      "${same_origin_status}" "${database_target_status}" "${db_checksum}" "${failure_class}" \
+      "${same_origin_status}" "${public_asset_status}" "${versioned_js_status}" "${database_target_status}" "${db_checksum}" "${failure_class}" \
       "${api_exit_code}" "${api_exit_status}" "${api_unit_result}" "${lifecycle_event}" \
       "${started_at}" "${finished_at}" "${finished_epoch}" >&9
   ) 9>>"${EVIDENCE_FILE}"
@@ -307,6 +314,8 @@ canary() {
   api_status='not_run'
   web_status='not_run'
   same_origin_status='not_run'
+  public_asset_status='not_run'
+  versioned_js_status='not_run'
   database_target_status='not_verified'
   db_checksum='not_created'
   result='FAIL'
@@ -388,6 +397,9 @@ canary() {
   api_url="http://127.0.0.1:${CANARY_API_PORT}/api/release-health"
   web_url="http://127.0.0.1:${CANARY_WEB_PORT}/fa/lobby"
   same_origin_url="http://127.0.0.1:${CANARY_WEB_PORT}/api/release-health"
+  public_asset_url="http://127.0.0.1:${CANARY_WEB_PORT}/brand/logo.svg"
+  static_js="$(find "${candidate}/apps/web/.next/standalone/apps/web/.next/static" -type f -name '*.js' -print | LC_ALL=C sort | head -n 1)"
+  versioned_js_url="http://127.0.0.1:${CANARY_WEB_PORT}/_next/static/${static_js#*apps/web/.next/static/}"
   deadline=$((SECONDS + CANARY_RUNTIME_SECONDS))
   while (( SECONDS <= deadline )); do
     api_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
@@ -396,7 +408,12 @@ canary() {
       --connect-timeout 2 --max-time 5 "${web_url}" || :)"
     same_origin_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
       --connect-timeout 2 --max-time 5 "${same_origin_url}" || :)"
-    if [[ "${api_status}" == '200' && "${web_status}" == '200' && "${same_origin_status}" == '200' ]]; then
+    public_asset_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+      --connect-timeout 2 --max-time 5 "${public_asset_url}" || :)"
+    versioned_js_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+      --connect-timeout 2 --max-time 5 "${versioned_js_url}" || :)"
+    if [[ "${api_status}" == '200' && "${web_status}" == '200' && "${same_origin_status}" == '200' && \
+      "${public_asset_status}" == '200' && "${versioned_js_status}" == '200' ]]; then
       database_target_status='isolated_snapshot'
       result='PASS'
       break
@@ -410,8 +427,8 @@ canary() {
   append_canary_evidence "${result}" "${api_status}" "${web_status}" \
     "${db_checksum}" "${started_at}" "${finished_at}"
   evidence_written=1
-  printf 'canary_ok release_id=%s api_http=%s web_http=%s same_origin_http=%s database_target=%s evidence=%s\n' \
-    "${release_id}" "${api_status}" "${web_status}" "${same_origin_status}" \
+  printf 'canary_ok release_id=%s api_http=%s web_http=%s same_origin_http=%s public_asset_http=%s versioned_js_http=%s database_target=%s evidence=%s\n' \
+    "${release_id}" "${api_status}" "${web_status}" "${same_origin_status}" "${public_asset_status}" "${versioned_js_status}" \
     "${database_target_status}" "${EVIDENCE_FILE}"
   cleanup_canary
   trap - EXIT INT TERM

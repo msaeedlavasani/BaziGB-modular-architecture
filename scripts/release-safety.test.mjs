@@ -41,6 +41,8 @@ function seedCanaryPass(candidate, evidenceDir, releaseId, overrides = {}) {
     'package-lock.json',
     'apps/server/dist/main.js',
     'apps/web/.next/standalone/apps/web/server.js',
+    'apps/web/.next/standalone/apps/web/public/brand/logo.svg',
+    'apps/web/.next/standalone/apps/web/.next/static/chunks/app.js',
     'node_modules/.prisma/client/default.js',
   ];
   const digestList = files
@@ -60,6 +62,13 @@ function seedCanaryPass(candidate, evidenceDir, releaseId, overrides = {}) {
       ...overrides,
     })}\n`,
   );
+}
+
+function seedWebAssets(candidate) {
+  mkdirSync(join(candidate, 'apps/web/.next/standalone/apps/web/public/brand'), { recursive: true });
+  mkdirSync(join(candidate, 'apps/web/.next/standalone/apps/web/.next/static/chunks'), { recursive: true });
+  writeFileSync(join(candidate, 'apps/web/.next/standalone/apps/web/public/brand/logo.svg'), '<svg/>');
+  writeFileSync(join(candidate, 'apps/web/.next/standalone/apps/web/.next/static/chunks/app.js'), 'asset');
 }
 
 test('deploy refuses a missing release identity before network access', () => {
@@ -103,6 +112,8 @@ test('deploy preserves pinned SSH trust and avoids root defaults', () => {
   assert.match(source, /npm" run prisma:generate/);
   assert.match(source, /--workspace @bazigb\/server/);
   assert.match(source, /BAZIGB_NPM_REGISTRY must use HTTPS/);
+  assert.match(source, /cp -R apps\/web\/public\/\. apps\/web\/\.next\/standalone\/apps\/web\/public\//);
+  assert.match(source, /cp -R apps\/web\/\.next\/static\/\. apps\/web\/\.next\/standalone\/apps\/web\/\.next\/static\//);
 });
 
 test('release controller uses isolated releases and mandatory health checks', () => {
@@ -118,6 +129,8 @@ test('release controller uses isolated releases and mandatory health checks', ()
   assert.match(source, /HEALTH_DEADLINE_SECONDS/);
   assert.match(source, /HEALTH_RETRY_SECONDS/);
   assert.match(source, /Generated Prisma client is missing/);
+  assert.match(source, /Web public assets are missing from the standalone runtime/);
+  assert.match(source, /Web versioned JavaScript assets are missing from the standalone runtime/);
   assert.match(source, /ensure_persistent_link/);
   assert.match(source, /probe_endpoint api/);
   assert.match(source, /probe_endpoint web/);
@@ -260,6 +273,7 @@ test('public canary CLI forwards complete arguments and rejects incomplete invoc
   writeFileSync(join(candidate, 'apps/server/dist/main.js'), '');
   writeFileSync(join(candidate, 'node_modules/.prisma/client/default.js'), 'generated client');
   writeFileSync(join(candidate, 'apps/web/.next/standalone/apps/web/server.js'), '');
+  seedWebAssets(candidate);
   writeFileSync(
     join(root, 'shared/.env'),
     'NODE_ENV=production\nPORT=3001\nDATABASE_URL=file:/srv/bazigb/shared/data/dev.db\nJWT_SECRET=must-not-leak\n',
@@ -310,6 +324,7 @@ test('public canary CLI forwards complete arguments and rejects incomplete invoc
     assert.match(evidence, new RegExp(`"releaseId":"${releaseId}"`));
     assert.match(evidence, /"result":"PASS"/);
     assert.match(evidence, /"apiHttp":"200","webHttp":"200"/);
+    assert.match(evidence, /"publicAssetHttp":"200","versionedJsHttp":"200"/);
     assert.match(evidence, /^\{"schemaVersion":"1\.0\.0","event":"preserved"\}/);
     assert.doesNotMatch(evidence, /must-not-leak|JWT_SECRET|\/srv\/bazigb\/shared\/data\/dev\.db/);
     const processEnvironment = readFileSync(capture, 'utf8');
@@ -359,6 +374,7 @@ test('activation rejects stale, failed, and wrong-revision Canary evidence', () 
   writeFileSync(join(candidate, 'apps/server/dist/main.js'), 'server');
   writeFileSync(join(candidate, 'node_modules/.prisma/client/default.js'), 'generated client');
   writeFileSync(join(candidate, 'apps/web/.next/standalone/apps/web/server.js'), 'web');
+  seedWebAssets(candidate);
   const run = () => spawnSync('bash', [controllerPath.pathname, 'activate', releaseId, checksum], {
     env: { ...process.env, BAZIGB_RELEASE_ROOT: root, BAZIGB_EVIDENCE_DIR: evidenceDir },
     encoding: 'utf8',
@@ -407,6 +423,7 @@ test('failed activation atomically restores the previous release', () => {
   writeFileSync(join(candidate, 'apps/server/dist/main.js'), '');
   writeFileSync(join(candidate, 'node_modules/.prisma/client/default.js'), 'generated client');
   writeFileSync(join(candidate, 'apps/web/.next/standalone/apps/web/server.js'), '');
+  seedWebAssets(candidate);
   writeFileSync(join(root, 'shared/.env'), 'NODE_ENV=production\nTRUST_PROXY_HOPS=1\nDATABASE_URL=file:/srv/bazigb/shared/data/dev.db\n');
   writeFileSync(join(root, 'shared/data/dev.db'), 'sqlite fixture');
   seedCanaryPass(candidate, evidenceDir, releaseId);
@@ -484,6 +501,7 @@ test('failed first cutover restores legacy units and leaves no active release po
   writeFileSync(join(candidate, 'apps/server/dist/main.js'), '');
   writeFileSync(join(candidate, 'node_modules/.prisma/client/default.js'), 'generated client');
   writeFileSync(join(candidate, 'apps/web/.next/standalone/apps/web/server.js'), '');
+  seedWebAssets(candidate);
   writeFileSync(join(root, 'shared/.env'), 'NODE_ENV=production\nTRUST_PROXY_HOPS=1\nDATABASE_URL=file:/srv/bazigb/shared/data/dev.db\n');
   writeFileSync(join(root, 'shared/data/dev.db'), 'sqlite fixture');
   seedCanaryPass(candidate, evidenceDir, releaseId);
@@ -577,6 +595,7 @@ test('release verification accepts an intact candidate and rejects lockfile drif
   writeFileSync(join(candidate, 'apps/server/dist/main.js'), '');
   writeFileSync(join(candidate, 'node_modules/.prisma/client/default.js'), 'generated client');
   writeFileSync(join(candidate, 'apps/web/.next/standalone/apps/web/server.js'), '');
+  seedWebAssets(candidate);
 
   try {
     const valid = spawnSync('bash', [controllerPath.pathname, 'verify', releaseId, checksum], {
@@ -584,6 +603,24 @@ test('release verification accepts an intact candidate and rejects lockfile drif
       encoding: 'utf8',
     });
     assert.equal(valid.status, 0, valid.stderr);
+
+    rmSync(join(candidate, 'apps/web/.next/standalone/apps/web/public/brand/logo.svg'));
+    const missingPublic = spawnSync('bash', [controllerPath.pathname, 'verify', releaseId, checksum], {
+      env: { ...process.env, BAZIGB_RELEASE_ROOT: root },
+      encoding: 'utf8',
+    });
+    assert.notEqual(missingPublic.status, 0);
+    assert.match(missingPublic.stderr, /Web public assets are missing/);
+    seedWebAssets(candidate);
+
+    rmSync(join(candidate, 'apps/web/.next/standalone/apps/web/.next/static/chunks/app.js'));
+    const missingStatic = spawnSync('bash', [controllerPath.pathname, 'verify', releaseId, checksum], {
+      env: { ...process.env, BAZIGB_RELEASE_ROOT: root },
+      encoding: 'utf8',
+    });
+    assert.notEqual(missingStatic.status, 0);
+    assert.match(missingStatic.stderr, /Web versioned JavaScript assets are missing/);
+    seedWebAssets(candidate);
 
     writeFileSync(
       join(candidate, 'node_modules/.prisma/client/default.js'),

@@ -44,6 +44,13 @@ EOF
 printf 'Building candidate %s...\n' "${RELEASE_ID}"
 npm run build
 
+# Next.js standalone output intentionally excludes public and static assets.
+# Place them in the runtime tree before fingerprinting or transfer.
+install -d apps/web/.next/standalone/apps/web/public
+cp -R apps/web/public/. apps/web/.next/standalone/apps/web/public/
+install -d apps/web/.next/standalone/apps/web/.next/static
+cp -R apps/web/.next/static/. apps/web/.next/standalone/apps/web/.next/static/
+
 printf 'Preparing isolated release directory...\n'
 "${SSH[@]}" "${PROD_HOST}" sudo /usr/local/sbin/bazigb-release prepare "${RELEASE_ID}"
 

@@ -25,6 +25,15 @@ npm run build:packages
 npm run build:web
 npm run build:server
 
+install -d apps/web/.next/standalone/apps/web/public
+cp -R apps/web/public/. apps/web/.next/standalone/apps/web/public/
+install -d apps/web/.next/standalone/apps/web/.next/static
+cp -R apps/web/.next/static/. apps/web/.next/standalone/apps/web/.next/static/
+
+static_js="$(find apps/web/.next/standalone/apps/web/.next/static -type f -name '*.js' -print | LC_ALL=C sort | head -n 1)"
+[[ -n "${static_js}" ]] || { echo 'Release artifact has no versioned JavaScript asset.' >&2; exit 1; }
+static_js_url="/_next/static/${static_js#*apps/web/.next/static/}"
+
 tmp_base="${TMPDIR:-/tmp}"
 [[ "$(uname -s)" != 'Darwin' ]] || tmp_base='/private/tmp'
 tmp_root="$(mktemp -d "${tmp_base}/bazigb-release-smoke.XXXXXX")"
@@ -52,3 +61,5 @@ web_pid=$!
 probe api-database-target http://127.0.0.1:3101/api/release-health
 probe web http://127.0.0.1:3100/fa/lobby
 probe web-same-origin-api http://127.0.0.1:3100/api/release-health
+probe web-public-asset http://127.0.0.1:3100/brand/logo.svg
+probe web-versioned-javascript "http://127.0.0.1:3100${static_js_url}"
