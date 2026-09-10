@@ -114,6 +114,16 @@ test('deploy preserves pinned SSH trust and avoids root defaults', () => {
   assert.match(source, /PATH=\$\{REMOTE_NODE_ROOT\}\/bin:\/usr\/bin:\/bin/);
   assert.match(source, /npm" run prisma:generate/);
   assert.match(source, /--workspace @bazigb\/server/);
+  assert.match(source, /npm" prune/);
+  assert.match(source, /--omit=dev --workspaces --include-workspace-root/);
+  assert.ok(
+    source.indexOf('Installing locked build and production dependencies') <
+      source.indexOf('Generating Prisma client explicitly before production pruning...'),
+  );
+  assert.ok(
+    source.indexOf('Generating Prisma client explicitly before production pruning...') <
+      source.indexOf('Pruning development dependencies after generation...'),
+  );
   assert.match(source, /BAZIGB_NPM_REGISTRY must use HTTPS/);
   assert.match(source, /cp -R apps\/web\/public\/\. apps\/web\/\.next\/standalone\/apps\/web\/public\//);
   assert.match(source, /cp -R apps\/web\/\.next\/static\/\. apps\/web\/\.next\/standalone\/apps\/web\/\.next\/static\//);

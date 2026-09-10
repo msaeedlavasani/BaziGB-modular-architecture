@@ -61,19 +61,25 @@ rsync -az --delete --timeout=600 \
   ./ "${PROD_HOST}:${CANDIDATE_PATH}/"
 rsync -az -e "${RSYNC_SSH}" "${MANIFEST}" "${PROD_HOST}:${CANDIDATE_PATH}/release.manifest"
 
-printf 'Installing locked production dependencies inside the candidate...\n'
+printf 'Installing locked build and production dependencies inside the candidate...\n'
 "${SSH[@]}" "${PROD_HOST}" env "PATH=${REMOTE_NODE_ROOT}/bin:/usr/bin:/bin" \
   "${REMOTE_NODE_ROOT}/bin/npm" ci \
   --prefix "${CANDIDATE_PATH}" \
   --registry "${NPM_REGISTRY}" \
   --fetch-retries 2 --fetch-timeout 120000 \
-  --omit=dev --workspaces --include-workspace-root
+  --workspaces --include-workspace-root
 
-printf 'Generating Prisma client explicitly...\n'
+printf 'Generating Prisma client explicitly before production pruning...\n'
 "${SSH[@]}" "${PROD_HOST}" env "PATH=${REMOTE_NODE_ROOT}/bin:/usr/bin:/bin" \
   "DATABASE_URL=file:${CANDIDATE_PATH}/apps/server/prisma/dev.db" \
   "${REMOTE_NODE_ROOT}/bin/npm" run prisma:generate \
   --workspace @bazigb/server --prefix "${CANDIDATE_PATH}"
+
+printf 'Pruning development dependencies after generation...\n'
+"${SSH[@]}" "${PROD_HOST}" env "PATH=${REMOTE_NODE_ROOT}/bin:/usr/bin:/bin" \
+  "${REMOTE_NODE_ROOT}/bin/npm" prune \
+  --prefix "${CANDIDATE_PATH}" \
+  --omit=dev --workspaces --include-workspace-root
 
 printf 'Verifying immutable candidate metadata...\n'
 "${SSH[@]}" "${PROD_HOST}" sudo /usr/local/sbin/bazigb-release verify "${RELEASE_ID}" "${LOCK_SHA256}"
