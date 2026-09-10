@@ -12,6 +12,9 @@
   "engines": {
     "node": ">=20.19.0"
   },
+  "overrides": {
+    "multer": "2.3.0"
+  },
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "build:packages": "npm run build -w @bazigb/engine -w @bazigb/game-tic-tac-toe -w @bazigb/game-backgammon -w @bazigb/game-chess -w @bazigb/game-vegas",
