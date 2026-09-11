@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const root = resolve(import.meta.dirname, '..');
+const root = resolve(process.env.GITHUB_WORKSPACE ?? resolve(import.meta.dirname, '..'));
 const manifestPath = resolve(root, 'product-quality-manifest.json');
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 const failures = [];
