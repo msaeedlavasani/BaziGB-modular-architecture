@@ -700,6 +700,24 @@ test('first cutover rejects a staged server unit without its environment contrac
   assert.match(source, /retain access to the protected runtime group/);
 });
 
+test('CI initializes only a synthetic SQLite database before runtime', () => {
+  const workflow = readFileSync(new URL('../.github/workflows/foundation-web-check.yml', import.meta.url), 'utf8');
+  const prismaGenerate = workflow.indexOf('run: npm run prisma:generate -w @bazigb/server');
+  const databaseInit = workflow.indexOf('Initialize synthetic SQLite database');
+  const dbPush = workflow.indexOf('npx prisma db push --schema apps/server/prisma/schema.prisma --skip-generate');
+  const runnerTemp = workflow.indexOf('DATABASE_URL=file:${RUNNER_TEMP}/bazigb-ci.db');
+  const runtimeStart = workflow.indexOf('run: npm run dev');
+
+  assert.notEqual(prismaGenerate, -1);
+  assert.notEqual(databaseInit, -1);
+  assert.notEqual(dbPush, -1);
+  assert.notEqual(runnerTemp, -1);
+  assert.notEqual(runtimeStart, -1);
+  assert.ok(prismaGenerate < databaseInit);
+  assert.ok(databaseInit < runtimeStart);
+  assert.doesNotMatch(workflow, /DATABASE_URL=file:\/srv\/bazigb\/shared\/data\/dev\.db/);
+});
+
 test('CI runs the loopback browser canary before release artifact verification', () => {
   const workflow = readFileSync(new URL('../.github/workflows/foundation-web-check.yml', import.meta.url), 'utf8');
   const chromiumInstall = workflow.indexOf('npx playwright install --with-deps chromium');

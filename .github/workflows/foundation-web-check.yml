@@ -74,6 +74,11 @@ jobs:
       - name: Generate Prisma client
         run: npm run prisma:generate -w @bazigb/server
 
+      - name: Initialize synthetic SQLite database
+        run: |
+          echo "DATABASE_URL=file:${RUNNER_TEMP}/bazigb-ci.db" >> "$GITHUB_ENV"
+          DATABASE_URL="file:${RUNNER_TEMP}/bazigb-ci.db" npx prisma db push --schema apps/server/prisma/schema.prisma --skip-generate
+
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=moderate
 
