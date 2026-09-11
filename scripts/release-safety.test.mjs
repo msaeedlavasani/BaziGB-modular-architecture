@@ -755,6 +755,15 @@ test('CI uses a production-like standalone web runtime instead of dev/HMR', () =
   assert.doesNotMatch(workflow, /BAZIGB_WEB_RUNTIME_MODE: development/);
 });
 
+test('browser canary exercises synthetic create, join, and realtime journeys', () => {
+  const source = readFileSync(new URL('./browser-canary.mjs', import.meta.url), 'utf8');
+  assert.match(source, /page\.request\.post\(`\$\{baseUrl\}\/api\/rooms`/);
+  assert.match(source, /checkRoute\(`\/fa\/play\/\$\{encodeURIComponent\(roomCode\)\}`/);
+  assert.match(source, /websocketEvents\.some/);
+  assert.match(source, /navigation_abort_nonfatal/);
+  assert.match(source, /resourceFailures/);
+});
+
 test('CI runs the loopback browser canary before release artifact verification', () => {
   const workflow = readFileSync(new URL('../.github/workflows/foundation-web-check.yml', import.meta.url), 'utf8');
   const chromiumInstall = workflow.indexOf('npx playwright install --with-deps chromium');

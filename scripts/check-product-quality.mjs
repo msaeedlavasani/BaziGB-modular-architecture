@@ -65,7 +65,10 @@ if (browserReportPath) {
   if (existsSync(browserReportPath)) {
     const browserReport = JSON.parse(readFileSync(browserReportPath, 'utf8'));
     for (const route of manifest.routes.filter((item) => item.required === 'html' || item.required === 'hydration')) {
-      const status = browserReport.routeChecks?.[route.path] ?? 'NOT_RUN';
+      const direct = browserReport.routeChecks?.[route.path];
+      const template = route.path.replace(/:[^/]+/g, '[^/]+');
+      const matched = Object.entries(browserReport.routeChecks ?? {}).find(([actual]) => new RegExp(`^${template}$`).test(actual));
+      const status = direct ?? matched?.[1] ?? 'NOT_RUN';
       check(`browser:route:${route.id}`, status === 'PASS', {
         gate: 'PRODUCT_ACCEPTANCE', component: 'browser-route', route: route.path,
         status, errorCode: status === 'NOT_RUN' ? 'REQUIRED_ROUTE_NOT_RUN' : 'REQUIRED_ROUTE_NOT_PASS',
@@ -73,6 +76,14 @@ if (browserReportPath) {
       });
     }
     const results = browserReport.results ?? {};
+    const resourceFailures = browserReport.resourceFailures ?? [];
+    for (const failure of resourceFailures) {
+      check(`browser:resource:${failure.url ?? 'unknown'}`, false, {
+        gate: 'PRODUCT_ACCEPTANCE', component: 'browser-resource', route: failure.url ?? 'unknown',
+        status: failure.status ?? failure.error ?? 'FAIL', errorCode: failure.status ? 'BROWSER_HTTP_RESOURCE_FAILURE' : 'BROWSER_RESOURCE_FAILURE',
+        nextSafeAction: 'inspect the exact resource/status in the browser report before changing application code',
+      });
+    }
     for (const journey of manifest.journeys.filter((item) => item.required)) {
       const status = results[journey.id] ?? results[journey.id.replaceAll('-', '')] ?? 'NOT_RUN';
       check(`runtime:${journey.id}`, status === 'PASS', {

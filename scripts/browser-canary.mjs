@@ -13,13 +13,25 @@ const page = await browser.newPage();
 const failures = [];
 const routeChecks = {};
 const resourceFailures = [];
+const navigationAborts = [];
+const requestGenerations = new Map();
+let navigationGeneration = 0;
+page.on('request', (request) => requestGenerations.set(request, navigationGeneration));
 page.on('console', (message) => {
   if (message.type() === 'error') failures.push({ type: 'console', message: message.text().slice(0, 160) });
 });
 page.on('requestfailed', (request) => {
-  const entry = { type: 'requestfailed', url: new URL(request.url()).pathname, resourceType: request.resourceType(), error: request.failure()?.errorText ?? 'unknown' };
+  const error = request.failure()?.errorText ?? 'unknown';
+  const entry = { type: 'requestfailed', url: new URL(request.url()).pathname, resourceType: request.resourceType(), error };
+  const requestGeneration = requestGenerations.get(request) ?? navigationGeneration;
+  if (error === 'net::ERR_ABORTED' && requestGeneration < navigationGeneration) {
+    navigationAborts.push({ ...entry, classification: 'navigation_abort_nonfatal', generation: requestGeneration });
+    requestGenerations.delete(request);
+    return;
+  }
   resourceFailures.push(entry);
   failures.push(entry);
+  requestGenerations.delete(request);
 });
 page.on('response', (response) => {
   if (response.status() >= 400) {
@@ -31,9 +43,10 @@ page.on('response', (response) => {
 
 const results = {};
 const routeTimings = {};
-const report = { schemaVersion: '1.0.0', base: 'loopback', results, routeChecks, routeTimings, resourceFailures, failures };
+const report = { schemaVersion: '1.0.0', base: 'loopback', results, routeChecks, routeTimings, resourceFailures, navigationAborts, failures };
 async function checkRoute(path, key, bodyPredicate = (body) => body.trim().length > 0) {
   const started = Date.now();
+  navigationGeneration += 1;
   try {
     const response = await page.goto(`${baseUrl}${path}`, { waitUntil: 'domcontentloaded', timeout: 15_000 });
     await page.locator('body').waitFor({ state: 'visible', timeout: 10_000 });
@@ -61,10 +74,30 @@ try {
   await checkRoute('/fa/profile', 'profile', (body) => body.trim().length > 0 && !body.includes('Loading...'));
   results.profile = routeChecks['/fa/profile'];
   results.bot = 'NOT_RUN';
-  results.createRoom = 'NOT_RUN';
-  results.joinRoom = 'NOT_RUN';
-  results.realtime = 'NOT_RUN';
+  const createdRoom = await page.request.post(`${baseUrl}/api/rooms`, { data: { gameType: 'tic-tac-toe', maxRounds: 1 } });
+  if (createdRoom.status() >= 200 && createdRoom.status() < 300) {
+    const room = await createdRoom.json();
+    const roomCode = typeof room?.code === 'string' ? room.code : '';
+    results.createRoom = roomCode ? 'PASS' : 'FAIL';
+    if (roomCode) {
+      const websocketEvents = [];
+      page.on('websocket', (websocket) => websocketEvents.push(websocket.url()));
+      await checkRoute(`/fa/play/${encodeURIComponent(roomCode)}`, 'join-room', (body) => body.trim().length > 0 && !body.includes('Room not found'));
+      results.joinRoom = routeChecks[`/fa/play/${roomCode}`] ?? 'FAIL';
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      results.realtime = websocketEvents.some((url) => url.includes('/socket.io')) ? 'PASS' : 'FAIL';
+    } else {
+      results.joinRoom = 'FAIL';
+      results.realtime = 'NOT_RUN';
+    }
+  } else {
+    results.createRoom = 'FAIL';
+    results.joinRoom = 'NOT_RUN';
+    results.realtime = 'NOT_RUN';
+    failures.push({ type: 'journey', journey: 'create-room', status: createdRoom.status(), errorCode: 'CREATE_ROOM_HTTP_FAILURE' });
+  }
   results.consoleNetwork = resourceFailures.length === 0 && failures.filter((failure) => failure.type === 'console').length === 0 ? 'PASS' : 'FAIL';
+  report.abortClassification = navigationAborts.length > 0 ? 'nonfatal_navigation_aborts_observed' : 'none';
 } catch (error) {
   failures.push(`canary:${error instanceof Error ? error.message.slice(0, 160) : String(error).slice(0, 160)}`);
 } finally {
