@@ -107,10 +107,20 @@ jobs:
       - name: Build server
         run: npm run build:server
 
+      - name: Prepare production-like standalone web runtime
+        run: |
+          test -f apps/web/.next/standalone/apps/web/server.js
+          test -d apps/web/.next/static
+          test -d apps/web/public
+          cp -R apps/web/.next/static apps/web/.next/standalone/apps/web/.next/
+          cp -R apps/web/public apps/web/.next/standalone/apps/web/
+
       - name: Install pinned Playwright Chromium
         run: npx playwright install --with-deps chromium
 
       - name: Start local BaziGB runtime
+        env:
+          BAZIGB_WEB_RUNTIME_MODE: standalone
         run: npm run dev
 
       - name: Run loopback browser canary

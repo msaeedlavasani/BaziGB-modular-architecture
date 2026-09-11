@@ -11,6 +11,8 @@ const statePath = join(runtimeDirectory, 'state.json');
 const nodeExecutable = process.execPath;
 const isWindows = process.platform === 'win32';
 
+const webRuntimeMode = process.env.BAZIGB_WEB_RUNTIME_MODE ?? 'development';
+const webStandaloneRoot = join(repositoryRoot, 'apps/web/.next/standalone/apps/web');
 const services = {
   server: {
     cwd: join(repositoryRoot, 'apps/server'),
@@ -25,13 +27,18 @@ const services = {
     },
   },
   web: {
-    cwd: join(repositoryRoot, 'apps/web'),
-    script: join(repositoryRoot, 'node_modules/next/dist/bin/next'),
-    args: ['dev', '-p', '3000'],
+    cwd: webRuntimeMode === 'standalone' ? webStandaloneRoot : join(repositoryRoot, 'apps/web'),
+    script: webRuntimeMode === 'standalone'
+      ? join(webStandaloneRoot, 'server.js')
+      : join(repositoryRoot, 'node_modules/next/dist/bin/next'),
+    args: webRuntimeMode === 'standalone' ? [] : ['dev', '-p', '3000'],
     healthUrl: 'http://127.0.0.1:3000/fa/lobby',
     publicUrl: 'http://localhost:3000/fa/lobby',
     logPath: join(runtimeDirectory, 'web.log'),
-    env: {},
+    env: {
+      HOSTNAME: '127.0.0.1',
+      PORT: '3000',
+    },
   },
 };
 

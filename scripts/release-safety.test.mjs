@@ -13,6 +13,8 @@ import {
 } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { join } from 'node:path';
 import test from 'node:test';
 
@@ -737,6 +739,20 @@ test('CI archives sanitized runtime diagnostics after cleanup', () => {
   assert.match(workflow, /env \| cut -d= -f1/);
   assert.match(workflow, /\[REDACTED\]/);
   assert.doesNotMatch(workflow, /cat .*\.env|printenv|env$/m);
+});
+
+test('CI uses a production-like standalone web runtime instead of dev/HMR', () => {
+  const workflow = readFileSync(new URL('../.github/workflows/foundation-web-check.yml', import.meta.url), 'utf8');
+  assert.match(workflow, /Prepare production-like standalone web runtime/);
+  assert.match(workflow, /apps\/web\/\.next\/standalone\/apps\/web\/server\.js/);
+  assert.match(workflow, /cp -R apps\/web\/\.next\/static apps\/web\/\.next\/standalone\/apps\/web\/\.next\//);
+  assert.match(workflow, /cp -R apps\/web\/public apps\/web\/\.next\/standalone\/apps\/web\//);
+  assert.match(workflow, /BAZIGB_WEB_RUNTIME_MODE: standalone/);
+  const runtimeSource = readFileSync(resolve(fileURLToPath(new URL('./local-runtime.mjs', import.meta.url))), 'utf8');
+  assert.match(runtimeSource, /webRuntimeMode === 'standalone'/);
+  assert.match(runtimeSource, /HOSTNAME: '127\.0\.0\.1'/);
+  assert.match(runtimeSource, /PORT: '3000'/);
+  assert.doesNotMatch(workflow, /BAZIGB_WEB_RUNTIME_MODE: development/);
 });
 
 test('CI runs the loopback browser canary before release artifact verification', () => {
