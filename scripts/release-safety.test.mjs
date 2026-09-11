@@ -703,8 +703,8 @@ test('first cutover rejects a staged server unit without its environment contrac
 test('CI initializes only a synthetic SQLite database before runtime', () => {
   const workflow = readFileSync(new URL('../.github/workflows/foundation-web-check.yml', import.meta.url), 'utf8');
   const prismaGenerate = workflow.indexOf('run: npm run prisma:generate -w @bazigb/server');
-  const databaseInit = workflow.indexOf('Initialize synthetic SQLite database');
-  const dbPush = workflow.indexOf('npx prisma db push --schema apps/server/prisma/schema.prisma --skip-generate');
+  const databaseInit = workflow.indexOf('Initialize and verify synthetic SQLite database');
+  const dbPush = workflow.indexOf('npm exec --workspace @bazigb/server -- prisma db push --schema "$RUNNER_TEMP/bazigb-prisma/schema.prisma" --skip-generate');
   const runnerTemp = workflow.indexOf('DATABASE_URL=file:${RUNNER_TEMP}/bazigb-ci.db');
   const runtimeStart = workflow.indexOf('run: npm run dev');
 

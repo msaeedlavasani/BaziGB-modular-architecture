@@ -74,10 +74,14 @@ jobs:
       - name: Generate Prisma client
         run: npm run prisma:generate -w @bazigb/server
 
-      - name: Initialize synthetic SQLite database
+      - name: Initialize and verify synthetic SQLite database
         run: |
+          mkdir -p "$RUNNER_TEMP/bazigb-prisma"
+          cp apps/server/prisma/schema.prisma "$RUNNER_TEMP/bazigb-prisma/schema.prisma"
+          sed -i "s#file:./dev.db#file:${RUNNER_TEMP}/bazigb-ci.db#" "$RUNNER_TEMP/bazigb-prisma/schema.prisma"
+          DATABASE_URL="file:${RUNNER_TEMP}/bazigb-ci.db" npm exec --workspace @bazigb/server -- prisma db push --schema "$RUNNER_TEMP/bazigb-prisma/schema.prisma" --skip-generate
           echo "DATABASE_URL=file:${RUNNER_TEMP}/bazigb-ci.db" >> "$GITHUB_ENV"
-          DATABASE_URL="file:${RUNNER_TEMP}/bazigb-ci.db" npx prisma db push --schema apps/server/prisma/schema.prisma --skip-generate
+          DATABASE_URL="file:${RUNNER_TEMP}/bazigb-ci.db" python3 scripts/verify-ci-database.py
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=moderate
@@ -118,11 +122,18 @@ jobs:
         if: always()
         run: npm run dev:stop
 
+      - name: Run product quality gate
+        if: always()
+        env:
+          BAZIGB_BROWSER_CANARY_REPORT: .local-runtime/browser-canary.json
+          BAZIGB_PRODUCT_REPORT: ${{ runner.temp }}/bazigb-runtime-diagnostics/product-quality-report.json
+        run: node scripts/check-product-quality.mjs
+
       - name: Capture sanitized runtime diagnostics
         if: always()
         run: |
           mkdir -p "$RUNNER_TEMP/bazigb-runtime-diagnostics"
-          for log in .local-runtime/server.log .local-runtime/web.log; do
+          for log in .local-runtime/server.log .local-runtime/web.log .local-runtime/browser-canary.json; do
             if [ -f "$log" ]; then
               sed -E 's/(JWT_SECRET|DATABASE_URL|SMSIR_API_KEY|TOKEN|PASSWORD|API_KEY|SECRET)[^[:space:]]*/\1=[REDACTED]/Ig' "$log" > "$RUNNER_TEMP/bazigb-runtime-diagnostics/$(basename "$log")"
             else

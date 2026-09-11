@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "1.0.0",
+  "routes": [
+    {"id":"lobby","path":"/fa/lobby","source":"apps/web/src/app/lobby/page.tsx","access":"public","required":"html"},
+    {"id":"login","path":"/fa/login","source":"apps/web/src/app/(auth)/login/page.tsx","access":"public","required":"html"},
+    {"id":"profile","path":"/fa/profile","source":"apps/web/src/app/profile/page.tsx","access":"authenticated","required":"hydration"},
+    {"id":"leaderboard","path":"/fa/leaderboard","source":"apps/web/src/app/leaderboard/page.tsx","access":"public","required":"html"},
+    {"id":"games","path":"/fa/games","source":"apps/web/src/app/games/[gameId]/page.tsx","access":"public","required":"html"},
+    {"id":"game","path":"/fa/game/:gameId","source":"apps/web/src/app/game/[gameId]/page.tsx","access":"public","required":"html"},
+    {"id":"play","path":"/fa/play/:roomId","source":"apps/web/src/app/play/[roomId]/page.tsx","access":"authenticated_or_guest","required":"html"},
+    {"id":"rules","path":"/fa/rules","source":"apps/web/src/app/rules/page.tsx","access":"public","required":"html"},
+    {"id":"privacy","path":"/fa/privacy","source":"apps/web/src/app/privacy/page.tsx","access":"public","required":"html"},
+    {"id":"contact","path":"/fa/contact","source":"apps/web/src/app/contact/page.tsx","access":"public","required":"html"},
+    {"id":"admin","path":"/fa/admin","source":"apps/web/src/app/admin/page.tsx","access":"admin","required":"hydration"},
+    {"id":"admin-footer","path":"/fa/admin/footer","source":"apps/web/src/app/admin/footer/page.tsx","access":"admin","required":"hydration"},
+    {"id":"tournaments","path":"/fa/tournaments","source":"apps/web/src/app/tournaments/page.tsx","access":"public","required":"html"},
+    {"id":"tournament","path":"/fa/tournaments/:id","source":"apps/web/src/app/tournaments/[id]/page.tsx","access":"public","required":"html"}
+  ],
+  "api": [
+    {"id":"release-health","method":"GET","path":"/api/release-health","source":"apps/server/src/release-health.controller.ts","access":"public"},
+    {"id":"rooms-list","method":"GET","path":"/api/rooms","source":"apps/server/src/rooms/room.controller.ts","access":"public","databaseTables":["Room"]},
+    {"id":"rooms-by-code","method":"GET","path":"/api/rooms/:code","source":"apps/server/src/rooms/room.controller.ts","access":"public","databaseTables":["Room"]},
+    {"id":"leaderboard","method":"GET","path":"/api/leaderboard","source":"apps/server/src/leaderboard/leaderboard.controller.ts","access":"public","databaseTables":["User"]},
+    {"id":"auth-me","method":"GET","path":"/api/auth/me","source":"apps/server/src/auth/auth.controller.ts","access":"authenticated"},
+    {"id":"site-settings","method":"GET","path":"/api/site-settings","source":"apps/server/src/site-settings/site-settings.controller.ts","access":"public"}
+  ],
+  "database": {
+    "provider":"sqlite",
+    "schema":"apps/server/prisma/schema.prisma",
+    "requiredTables":["User","OtpCode","Room","GameHistory","SiteSetting","Notification","Tournament","TournamentPlayer","TournamentMatch"]
+  },
+  "games": [
+    {"id":"backgammon","source":"packages/games/backgammon"},
+    {"id":"chess","source":"packages/games/chess"},
+    {"id":"tic-tac-toe","source":"packages/games/tic-tac-toe"},
+    {"id":"vegas","source":"packages/games/vegas"}
+  ],
+  "journeys": [
+    {"id":"public-lobby","required":true,"status":"PASS|FAIL"},
+    {"id":"profile-auth-state","required":true,"status":"PASS|FAIL|BLOCKED"},
+    {"id":"rooms-list","required":true,"status":"PASS|FAIL"},
+    {"id":"leaderboard","required":true,"status":"PASS|FAIL"},
+    {"id":"login-page","required":true,"status":"PASS|FAIL"},
+    {"id":"create-room","required":true,"status":"PASS|FAIL|NOT_RUN"},
+    {"id":"join-room","required":true,"status":"PASS|FAIL|NOT_RUN"},
+    {"id":"realtime","required":true,"status":"PASS|FAIL|NOT_RUN"},
+    {"id":"console-network","required":true,"status":"PASS|FAIL"}
+  ],
+  "releaseIdentity": {
+    "requiredEnv":"GITHUB_SHA",
+    "lockfile":"package-lock.json",
+    "artifactEvidence":"runtime diagnostics and browser report"
+  }
+}
