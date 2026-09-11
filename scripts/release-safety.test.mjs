@@ -718,6 +718,27 @@ test('CI initializes only a synthetic SQLite database before runtime', () => {
   assert.doesNotMatch(workflow, /DATABASE_URL=file:\/srv\/bazigb\/shared\/data\/dev\.db/);
 });
 
+test('CI archives sanitized runtime diagnostics after cleanup', () => {
+  const workflow = readFileSync(new URL('../.github/workflows/foundation-web-check.yml', import.meta.url), 'utf8');
+  const cleanup = workflow.indexOf('run: npm run dev:stop');
+  const diagnostics = workflow.indexOf('Capture sanitized runtime diagnostics');
+  const upload = workflow.indexOf('Upload sanitized runtime diagnostics');
+  const artifactSmoke = workflow.indexOf('run: npm run test:release-safety && npm run test:release-artifact');
+
+  assert.notEqual(cleanup, -1);
+  assert.notEqual(diagnostics, -1);
+  assert.notEqual(upload, -1);
+  assert.notEqual(artifactSmoke, -1);
+  assert.ok(cleanup < diagnostics);
+  assert.ok(diagnostics < upload);
+  assert.ok(upload < artifactSmoke);
+  assert.match(workflow, /if: always\(\)/);
+  assert.match(workflow, /retention-days: 7/);
+  assert.match(workflow, /env \| cut -d= -f1/);
+  assert.match(workflow, /\[REDACTED\]/);
+  assert.doesNotMatch(workflow, /cat .*\.env|printenv|env$/m);
+});
+
 test('CI runs the loopback browser canary before release artifact verification', () => {
   const workflow = readFileSync(new URL('../.github/workflows/foundation-web-check.yml', import.meta.url), 'utf8');
   const chromiumInstall = workflow.indexOf('npx playwright install --with-deps chromium');

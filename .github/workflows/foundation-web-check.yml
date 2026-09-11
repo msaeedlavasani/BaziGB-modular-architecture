@@ -118,5 +118,42 @@ jobs:
         if: always()
         run: npm run dev:stop
 
+      - name: Capture sanitized runtime diagnostics
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/bazigb-runtime-diagnostics"
+          for log in .local-runtime/server.log .local-runtime/web.log; do
+            if [ -f "$log" ]; then
+              sed -E 's/(JWT_SECRET|DATABASE_URL|SMSIR_API_KEY|TOKEN|PASSWORD|API_KEY|SECRET)[^[:space:]]*/\1=[REDACTED]/Ig' "$log" > "$RUNNER_TEMP/bazigb-runtime-diagnostics/$(basename "$log")"
+            else
+              printf 'missing_log=%s\n' "$log" > "$RUNNER_TEMP/bazigb-runtime-diagnostics/$(basename "$log").missing"
+            fi
+          done
+          {
+            printf 'node=%s\nnpm=%s\nrunner_os=%s\n' "$(node --version)" "$(npm --version)" "${RUNNER_OS:-unknown}"
+            printf 'runtime_state=%s\n' "$([ -f .local-runtime/state.json ] && echo present || echo absent)"
+            printf 'env_names=\n'
+            env | cut -d= -f1 | sort
+            printf 'tracked_runtime_paths=\n'
+            git status --short -- .local-runtime apps/server apps/web
+          } > "$RUNNER_TEMP/bazigb-runtime-diagnostics/runtime-metadata.txt"
+          {
+            printf '%s\n' 'process_evidence='
+            ps -eo pid=,ppid=,pgid=,stat=,comm=,args= | grep -E 'local-runtime|nest|next|bazigb' | grep -v grep || true
+            printf '%s\n' 'listening_ports='
+            (ss -H -ltnp 2>/dev/null || true) | grep -E ':3000|:3001' || true
+          } | sed -E 's/(JWT_SECRET|DATABASE_URL|SMSIR_API_KEY|TOKEN|PASSWORD|API_KEY|SECRET)[^[:space:]]*/\1=[REDACTED]/Ig' > "$RUNNER_TEMP/bazigb-runtime-diagnostics/process-evidence.txt"
+          cat "$RUNNER_TEMP/bazigb-runtime-diagnostics/runtime-metadata.txt"
+          cat "$RUNNER_TEMP/bazigb-runtime-diagnostics/process-evidence.txt"
+
+      - name: Upload sanitized runtime diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bazigb-runtime-diagnostics-${{ github.run_id }}
+          path: ${{ runner.temp }}/bazigb-runtime-diagnostics
+          retention-days: 7
+          if-no-files-found: warn
+
       - name: Verify deployable release artifact
         run: npm run test:release-safety && npm run test:release-artifact
