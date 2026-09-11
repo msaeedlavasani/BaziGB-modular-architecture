@@ -699,3 +699,28 @@ test('first cutover rejects a staged server unit without its environment contrac
   assert.match(source, /grep -Fxq 'SupplementaryGroups=bazigb-runtime'/);
   assert.match(source, /retain access to the protected runtime group/);
 });
+
+test('CI runs the loopback browser canary before release artifact verification', () => {
+  const workflow = readFileSync(new URL('../.github/workflows/foundation-web-check.yml', import.meta.url), 'utf8');
+  const chromiumInstall = workflow.indexOf('npx playwright install --with-deps chromium');
+  const runtimeStart = workflow.indexOf('run: npm run dev');
+  const canary = workflow.indexOf('run: npm run test:browser-canary');
+  const loopbackUrl = workflow.indexOf('BAZIGB_BROWSER_CANARY_URL: http://127.0.0.1:3000');
+  const cleanup = workflow.indexOf('if: always()');
+  const cleanupCommand = workflow.indexOf('run: npm run dev:stop');
+  const artifactSmoke = workflow.indexOf('run: npm run test:release-safety && npm run test:release-artifact');
+
+  assert.notEqual(chromiumInstall, -1);
+  assert.notEqual(runtimeStart, -1);
+  assert.notEqual(canary, -1);
+  assert.notEqual(loopbackUrl, -1);
+  assert.notEqual(cleanup, -1);
+  assert.notEqual(cleanupCommand, -1);
+  assert.notEqual(artifactSmoke, -1);
+  assert.ok(chromiumInstall < runtimeStart);
+  assert.ok(runtimeStart < canary);
+  assert.ok(canary < cleanup);
+  assert.ok(cleanup < artifactSmoke);
+  assert.ok(cleanupCommand > cleanup);
+  assert.doesNotMatch(workflow, /BAZIGB_BROWSER_CANARY_URL:\s*(?!http:\/\/127\.0\.0\.1:3000)\S+/);
+});

@@ -98,5 +98,20 @@ jobs:
       - name: Build server
         run: npm run build:server
 
+      - name: Install pinned Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start local BaziGB runtime
+        run: npm run dev
+
+      - name: Run loopback browser canary
+        run: npm run test:browser-canary
+        env:
+          BAZIGB_BROWSER_CANARY_URL: http://127.0.0.1:3000
+
+      - name: Stop local BaziGB runtime
+        if: always()
+        run: npm run dev:stop
+
       - name: Verify deployable release artifact
         run: npm run test:release-safety && npm run test:release-artifact
