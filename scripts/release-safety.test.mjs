@@ -317,7 +317,7 @@ test('public canary CLI forwards complete arguments and rejects incomplete invoc
   );
   writeFileSync(
     join(bin, 'systemctl'),
-    '#!/bin/sh\nif [ "$1" = "show" ]; then printf "Result=success\\nExecMainCode=exited\\nExecMainStatus=0\\nIPAddressDeny=any\\nIPAddressAllow=localhost\\n"; fi\nexit 0\n',
+    '#!/bin/sh\nif [ "$1" = "show" ]; then printf "Result=success\\nExecMainCode=exited\\nExecMainStatus=0\\nIPAddressDeny=0.0.0.0/0 ::/0\\nIPAddressAllow=127.0.0.0/8 ::1/128\\n"; fi\nexit 0\n',
   );
   writeFileSync(join(bin, 'curl'), '#!/bin/sh\nprintf "200"\n');
   writeFileSync(join(bin, 'flock'), '#!/bin/sh\nexit 0\n');

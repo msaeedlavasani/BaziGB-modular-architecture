@@ -169,10 +169,14 @@ browser_result() {
 verify_canary_network_isolation() {
   for isolated_unit in "${api_unit}.service" "${web_unit}.service"; do
     effective_policy="$(systemctl show "${isolated_unit}" --property=IPAddressDeny --property=IPAddressAllow --no-pager)"
-    printf '%s\n' "${effective_policy}" | grep -Fxq 'IPAddressDeny=any' || \
-      die 'Canary unit does not enforce IPAddressDeny=any.'
-    printf '%s\n' "${effective_policy}" | grep -Fxq 'IPAddressAllow=localhost' || \
-      die 'Canary unit does not enforce IPAddressAllow=localhost.'
+    deny_policy="$(printf '%s\n' "${effective_policy}" | sed -n 's/^IPAddressDeny=//p')"
+    allow_policy="$(printf '%s\n' "${effective_policy}" | sed -n 's/^IPAddressAllow=//p')"
+    [[ "${deny_policy}" == 'any' || \
+      ( " ${deny_policy} " == *' 0.0.0.0/0 '* && " ${deny_policy} " == *' ::/0 '* ) ]] || \
+      die 'Canary unit does not enforce deny-all network policy.'
+    [[ "${allow_policy}" == 'localhost' || \
+      ( " ${allow_policy} " == *' 127.0.0.0/8 '* && " ${allow_policy} " == *' ::1/128 '* ) ]] || \
+      die 'Canary unit does not restrict the allow policy to localhost.'
   done
   for isolated_port in "${CANARY_API_PORT}" "${CANARY_WEB_PORT}"; do
     ss -H -ltn "sport = :${isolated_port}" | grep -q . || die 'Canary listener is not ready.'
