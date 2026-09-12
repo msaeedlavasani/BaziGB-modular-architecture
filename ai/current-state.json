@@ -1,22 +1,22 @@
 {
   "version": "1.0.0",
-  "updated": "2026-09-08",
+  "updated": "2026-09-12",
   "repository": "BaziGB-modular-architecture",
   "branch": "codex/release-health-contract",
-  "baseRevision": "d1b25c1957999604de705b1f232e38609eff7d6e",
-  "workingTree": "browser-hold-control-package-in-progress",
+  "baseRevision": "d292c743de333cfbeb495834652646116cbbb842",
+  "workingTree": "clean-release-candidate",
   "activeMilestone": "release-readiness",
   "currentGate": {
     "taskId": "DO-RELEASE-001",
     "owner": "Human Direction",
-    "gate": "browser-hold-loopback-correction-in-progress-after-failed-attempt-20260907T213911Z-52064; production-remains-on-941c1d15; activation-not-authorized"
+    "gate": "release-candidate-d292c743-exact-sha-ci-passed; main-promotion-not-yet-approved; production-remains-on-941c1d15; activation-not-authorized"
   },
   "nextProposedTask": "DO-RELEASE-001",
   "branchControl": {
     "canonicalDeploySource": "main",
-    "head": "c30ddce480497aacdfbd2a543f022d9e61330959",
-    "remoteMain": "c30ddce480497aacdfbd2a543f022d9e61330959",
-    "remoteEvidence": "local-origin-tracking-and-parent-transferred-GitHub-evidence; live-network-recheck-unavailable-in-current-task",
+    "head": "d292c743de333cfbeb495834652646116cbbb842",
+    "remoteMain": "3dabbb6c80b1ad2ce7e27da57bdcc25b8aa1e5e3",
+    "remoteEvidence": "direct-GitHub-readback-on-2026-09-12: codex/release-health-contract-at-d292c743; main-at-3dabbb6c; main-unchanged",
     "remoteBranchCount": 1,
     "recoveryTag": "archive/ai-governance-pre-main-2026-08-31",
     "recoveryTarget": "c361b5e2dd41f963f98b4b34e9d851c04b16760f",
@@ -37,18 +37,18 @@
     "fullWorkspaceTests": "passed"
   },
   "releaseCandidatePreflight": {
-    "status": "candidate-committed-CI-success-and-bootstrap-artifacts-transferred-by-parent-evidence-execution-not-started",
-    "head": "c30ddce480497aacdfbd2a543f022d9e61330959",
-    "workingTree": "clean-main",
-    "releaseSafety": "9-of-9-passed-at-c30ddce-on-2026-09-05",
-    "ci": "GitHub-Actions-run-33687088681-success-at-c30ddce-parent-evidence-current-task-live-recheck-unavailable",
+    "status": "release-line-candidate-exact-sha-ci-passed; main-promotion-and-deploy-not-authorized",
+    "head": "d292c743de333cfbeb495834652646116cbbb842",
+    "workingTree": "clean-release-candidate-before-canonical-reconciliation",
+    "releaseSafety": "passed-at-d292c743-in-GitHub-Actions-run-34715705470-on-2026-09-12",
+    "ci": "GitHub-Actions-run-34715705470-success-at-exact-sha-d292c743-on-codex/release-health-contract",
     "nodeRuntime": {
       "archive": "node-v24.20.0-linux-x64.tar.xz",
       "sha256": "2f2c0da162318f0de47665410c7c8c2ed3d36c8f3105de4bbc61176c70a7cbf2",
       "evidence": "checksum-pinned-in-repository-and-parent-transfer-evidence"
     },
     "serverBootstrap": "four-checksummed-artifacts-reported-at-/tmp/bazigb-bootstrap-c30ddce-under-bazigb-deploy; current-task-SSH-reauthentication-required-before-use; no-root-run-no-activation-no-restart-no-deploy",
-    "report": "docs/reports/aipde/2026-08-29-local-release-candidate-preflight.md"
+    "report": "revision-bound-GitHub-Actions-run-34715705470-and-browser-product-quality-artifacts"
   },
   "blockers": [
     "Release rollback is proven only in an isolated local rehearsal; staging and production proof remain pending",
