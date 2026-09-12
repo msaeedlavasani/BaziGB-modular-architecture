@@ -179,7 +179,11 @@ verify_canary_network_isolation() {
       die 'Canary unit does not restrict the allow policy to localhost.'
   done
   for isolated_port in "${CANARY_API_PORT}" "${CANARY_WEB_PORT}"; do
-    ss -H -ltn "sport = :${isolated_port}" | grep -q . || die 'Canary listener is not ready.'
+    listener_deadline=$((SECONDS + HEALTH_DEADLINE_SECONDS))
+    while ! ss -H -ltn "sport = :${isolated_port}" | grep -q .; do
+      (( SECONDS <= listener_deadline )) || die "Canary listener ${isolated_port} is not ready."
+      sleep 1
+    done
   done
   network_exposure='loopback_only'
 }

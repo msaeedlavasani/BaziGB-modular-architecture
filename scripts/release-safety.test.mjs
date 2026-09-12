@@ -179,6 +179,7 @@ test('canary is bounded, isolated, redacted, and cannot widen deploy-user access
   assert.match(controller, /Browser-Hold TTL expired without browser evidence/);
   assert.match(controller, /--property=IPAddressDeny=any --property=IPAddressAllow=localhost/);
   assert.match(controller, /verify_canary_network_isolation/);
+  assert.match(controller, /listener_deadline=\$\(\(SECONDS \+ HEALTH_DEADLINE_SECONDS\)\)/);
   assert.match(controller, /Browser-Hold artifact or network identity mismatch/);
   assert.match(controller, /CPUQuota=100%/);
   assert.match(controller, /MemoryMax=512M/);
