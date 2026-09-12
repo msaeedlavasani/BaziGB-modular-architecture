@@ -762,6 +762,39 @@ test('browser canary exercises synthetic create, join, and realtime journeys', (
   assert.match(source, /websocketEvents\.some/);
   assert.match(source, /navigation_abort_nonfatal/);
   assert.match(source, /resourceFailures/);
+  for (const route of [
+    '/fa/lobby',
+    '/fa/leaderboard',
+    '/fa/login',
+    '/fa/profile',
+    '/fa/games/tic-tac-toe',
+    '/fa/game/tic-tac-toe',
+    '/fa/rules',
+    '/fa/privacy',
+    '/fa/contact',
+    '/fa/admin',
+    '/fa/admin/footer',
+    '/fa/tournaments',
+    '/fa/tournaments/ci-synthetic',
+  ]) {
+    assert.ok(source.includes(`checkRoute('${route}'`), `${route} must be exercised by the browser canary`);
+  }
+  for (const [journey, assignment] of Object.entries({
+    'public-lobby': "results['public-lobby']",
+    'profile-auth-state': "results['profile-auth-state']",
+    'rooms-list': "results['rooms-list']",
+    leaderboard: 'results.leaderboard',
+    'login-page': "results['login-page']",
+    'create-room': "results['create-room']",
+    'join-room': "results['join-room']",
+    realtime: 'results.realtime',
+    'console-network': "results['console-network']",
+  })) {
+    assert.ok(source.includes(assignment), `${journey} must use its manifest journey id`);
+  }
+  assert.match(source, /isApiRequest/);
+  assert.match(source, /isNextAsset/);
+  assert.match(source, /request\.isNavigationRequest\(\)/);
 });
 
 test('CI runs the loopback browser canary before release artifact verification', () => {

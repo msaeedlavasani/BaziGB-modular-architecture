@@ -5,7 +5,7 @@
     {"id":"login","path":"/fa/login","source":"apps/web/src/app/(auth)/login/page.tsx","access":"public","required":"html"},
     {"id":"profile","path":"/fa/profile","source":"apps/web/src/app/profile/page.tsx","access":"authenticated","required":"hydration"},
     {"id":"leaderboard","path":"/fa/leaderboard","source":"apps/web/src/app/leaderboard/page.tsx","access":"public","required":"html"},
-    {"id":"games","path":"/fa/games","source":"apps/web/src/app/games/[gameId]/page.tsx","access":"public","required":"html"},
+    {"id":"games","path":"/fa/games/:gameId","source":"apps/web/src/app/games/[gameId]/page.tsx","access":"public","required":"html"},
     {"id":"game","path":"/fa/game/:gameId","source":"apps/web/src/app/game/[gameId]/page.tsx","access":"public","required":"html"},
     {"id":"play","path":"/fa/play/:roomId","source":"apps/web/src/app/play/[roomId]/page.tsx","access":"authenticated_or_guest","required":"html"},
     {"id":"rules","path":"/fa/rules","source":"apps/web/src/app/rules/page.tsx","access":"public","required":"html"},

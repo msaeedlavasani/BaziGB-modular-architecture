@@ -22,9 +22,24 @@ page.on('console', (message) => {
 });
 page.on('requestfailed', (request) => {
   const error = request.failure()?.errorText ?? 'unknown';
-  const entry = { type: 'requestfailed', url: new URL(request.url()).pathname, resourceType: request.resourceType(), error };
+  const requestUrl = new URL(request.url());
+  const path = requestUrl.pathname;
+  const resourceType = request.resourceType();
+  const headers = request.headers();
+  const entry = { type: 'requestfailed', url: path, resourceType, error };
   const requestGeneration = requestGenerations.get(request) ?? navigationGeneration;
-  if (error === 'net::ERR_ABORTED' && requestGeneration < navigationGeneration) {
+  const isApiRequest = path.startsWith('/api/') || path.startsWith('/socket.io');
+  const isNextAsset = path.startsWith('/_next/');
+  const isPrefetch = headers.purpose === 'prefetch' || headers['next-router-prefetch'] === '1';
+  const isNavigationAbort = request.isNavigationRequest() || resourceType === 'document';
+  const isStaleNavigationFetch = resourceType === 'fetch'
+    && requestGeneration < navigationGeneration
+    && !isApiRequest
+    && !isNextAsset;
+  if (error === 'net::ERR_ABORTED'
+    && !isApiRequest
+    && !isNextAsset
+    && (isNavigationAbort || isPrefetch || isStaleNavigationFetch)) {
     navigationAborts.push({ ...entry, classification: 'navigation_abort_nonfatal', generation: requestGeneration });
     requestGenerations.delete(request);
     return;
@@ -65,38 +80,48 @@ try {
   await checkRoute('/fa/lobby', 'lobby');
   results.html = routeChecks['/fa/lobby'];
   results.hydration = routeChecks['/fa/lobby'];
+  results['public-lobby'] = routeChecks['/fa/lobby'];
   results.logo = (await page.request.get(`${baseUrl}/brand/logo.svg`)).status() === 200 ? 'PASS' : 'FAIL';
-  results.rooms = (await page.request.get(`${baseUrl}/api/rooms`)).status() === 200 ? 'PASS' : 'FAIL';
+  results['rooms-list'] = (await page.request.get(`${baseUrl}/api/rooms`)).status() === 200 ? 'PASS' : 'FAIL';
   await checkRoute('/fa/leaderboard', 'leaderboard');
   results.leaderboard = routeChecks['/fa/leaderboard'];
   await checkRoute('/fa/login', 'login');
-  results.login = routeChecks['/fa/login'];
+  results['login-page'] = routeChecks['/fa/login'];
   await checkRoute('/fa/profile', 'profile', (body) => body.trim().length > 0 && !body.includes('Loading...'));
-  results.profile = routeChecks['/fa/profile'];
+  results['profile-auth-state'] = routeChecks['/fa/profile'];
+  await checkRoute('/fa/games/tic-tac-toe', 'games');
+  await checkRoute('/fa/game/tic-tac-toe', 'game');
+  await checkRoute('/fa/rules', 'rules');
+  await checkRoute('/fa/privacy', 'privacy');
+  await checkRoute('/fa/contact', 'contact');
+  await checkRoute('/fa/admin', 'admin');
+  await checkRoute('/fa/admin/footer', 'admin-footer');
+  await checkRoute('/fa/tournaments', 'tournaments');
+  await checkRoute('/fa/tournaments/ci-synthetic', 'tournament');
   results.bot = 'NOT_RUN';
   const createdRoom = await page.request.post(`${baseUrl}/api/rooms`, { data: { gameType: 'tic-tac-toe', maxRounds: 1 } });
   if (createdRoom.status() >= 200 && createdRoom.status() < 300) {
     const room = await createdRoom.json();
     const roomCode = typeof room?.code === 'string' ? room.code : '';
-    results.createRoom = roomCode ? 'PASS' : 'FAIL';
+    results['create-room'] = roomCode ? 'PASS' : 'FAIL';
     if (roomCode) {
       const websocketEvents = [];
       page.on('websocket', (websocket) => websocketEvents.push(websocket.url()));
       await checkRoute(`/fa/play/${encodeURIComponent(roomCode)}`, 'join-room', (body) => body.trim().length > 0 && !body.includes('Room not found'));
-      results.joinRoom = routeChecks[`/fa/play/${roomCode}`] ?? 'FAIL';
+      results['join-room'] = routeChecks[`/fa/play/${roomCode}`] ?? 'FAIL';
       await new Promise((resolve) => setTimeout(resolve, 1500));
       results.realtime = websocketEvents.some((url) => url.includes('/socket.io')) ? 'PASS' : 'FAIL';
     } else {
-      results.joinRoom = 'FAIL';
+      results['join-room'] = 'FAIL';
       results.realtime = 'NOT_RUN';
     }
   } else {
-    results.createRoom = 'FAIL';
-    results.joinRoom = 'NOT_RUN';
+    results['create-room'] = 'FAIL';
+    results['join-room'] = 'NOT_RUN';
     results.realtime = 'NOT_RUN';
     failures.push({ type: 'journey', journey: 'create-room', status: createdRoom.status(), errorCode: 'CREATE_ROOM_HTTP_FAILURE' });
   }
-  results.consoleNetwork = resourceFailures.length === 0 && failures.filter((failure) => failure.type === 'console').length === 0 ? 'PASS' : 'FAIL';
+  results['console-network'] = resourceFailures.length === 0 && failures.filter((failure) => failure.type === 'console').length === 0 ? 'PASS' : 'FAIL';
   report.abortClassification = navigationAborts.length > 0 ? 'nonfatal_navigation_aborts_observed' : 'none';
 } catch (error) {
   failures.push(`canary:${error instanceof Error ? error.message.slice(0, 160) : String(error).slice(0, 160)}`);
