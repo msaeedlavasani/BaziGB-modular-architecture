@@ -794,6 +794,11 @@ test('browser canary exercises synthetic create, join, and realtime journeys', (
   }
   assert.match(source, /isApiRequest/);
   assert.match(source, /isNextAsset/);
+  assert.match(source, /isNextNavigationFetch/);
+  assert.match(source, /headers\.rsc === '1'/);
+  assert.match(source, /headers\['next-router-state-tree'\]/);
+  assert.match(source, /searchParams\.has\('_rsc'\)/);
+  assert.doesNotMatch(source, /isApplicationNavigationFetch/);
   assert.match(source, /request\.isNavigationRequest\(\)/);
 });
 

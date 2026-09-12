@@ -32,6 +32,13 @@ page.on('requestfailed', (request) => {
   const isNextAsset = path.startsWith('/_next/');
   const isPrefetch = headers.purpose === 'prefetch' || headers['next-router-prefetch'] === '1';
   const isNavigationAbort = request.isNavigationRequest() || resourceType === 'document';
+  const isNextNavigationFetch = requestUrl.origin === baseUrl
+    && resourceType === 'fetch'
+    && !isApiRequest
+    && !isNextAsset
+    && (headers.rsc === '1'
+      || headers['next-router-state-tree'] !== undefined
+      || requestUrl.searchParams.has('_rsc'));
   const isStaleNavigationFetch = resourceType === 'fetch'
     && requestGeneration < navigationGeneration
     && !isApiRequest
@@ -39,8 +46,16 @@ page.on('requestfailed', (request) => {
   if (error === 'net::ERR_ABORTED'
     && !isApiRequest
     && !isNextAsset
-    && (isNavigationAbort || isPrefetch || isStaleNavigationFetch)) {
-    navigationAborts.push({ ...entry, classification: 'navigation_abort_nonfatal', generation: requestGeneration });
+    && (isNavigationAbort || isPrefetch || isNextNavigationFetch || isStaleNavigationFetch)) {
+    navigationAborts.push({
+      ...entry,
+      classification: 'navigation_abort_nonfatal',
+      generation: requestGeneration,
+      evidence: isNavigationAbort ? 'navigation-request'
+        : isPrefetch ? 'prefetch-marker'
+          : isNextNavigationFetch ? 'next-router-marker'
+            : 'prior-navigation-generation',
+    });
     requestGenerations.delete(request);
     return;
   }
